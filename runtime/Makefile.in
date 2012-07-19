@@ -1,0 +1,96 @@
+all: lib/libscrmfs-posix.a lib/libscrmfs-mpi-io.a 
+
+DESTDIR =
+srcdir = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+datarootdir = $(DESTDIR)@datarootdir@
+includedir = $(DESTDIR)@includedir@
+mandir = $(DESTDIR)@mandir@
+sbindir = $(DESTDIR)@sbindir@
+bindir = $(DESTDIR)@bindir@
+libdir = $(DESTDIR)@libdir@
+LDFLAGS = @LDFLAGS@
+CC = @CC@
+LD = @LD@
+
+DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
+SCRMFS_LOG_FORMAT = $(srcdir)/../scrmfs-log-format.h
+
+ifndef DISABLE_LDPRELOAD
+all: lib/libscrmfs.so 
+endif
+
+VPATH = $(srcdir)
+
+CFLAGS = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE 
+
+CFLAGS_SHARED = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DSCRMFS_PRELOAD
+
+LIBS = -lz @LIBBZ2@
+
+lib::
+	@mkdir -p $@
+
+lib/scrmfs-mpi-io.o: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS) -c $< -o $@
+
+lib/scrmfs-mpi-io.po: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
+lib/scrmfs-mpi-init-finalize.o: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS) -c $< -o $@
+
+lib/scrmfs-mpi-init-finalize.po: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
+lib/scrmfs-posix.o: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS) -c $< -o $@
+
+lib/scrmfs-posix.po: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
+lib/lookup3.o: lib/lookup3.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+lib/lookup3.po: lib/lookup3.c
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
+lib/lookup8.o: lib/lookup8.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+lib/lookup8.po: lib/lookup8.c
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
+%.i: %.c
+	$(CC) -E $(CFLAGS) -c $< -o $@
+
+lib/libscrmfs-mpi-io.a: lib/scrmfs-mpi-io.o lib/scrmfs-mpi-init-finalize.o
+	ar rcs $@ $^
+
+lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o 
+	ar rcs $@ $^
+
+lib/libscrmfs.so: lib/scrmfs-mpi-io.po lib/scrmfs-mpi-init-finalize.po lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po
+	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
+
+install:: all
+	install -d $(libdir)
+	install -m 755 lib/libscrmfs-posix.a $(libdir)
+	install -m 755 lib/libscrmfs-mpi-io.a $(libdir)
+ifndef DISABLE_LDPRELOAD
+	install -m 755 lib/libscrmfs.so $(libdir)
+endif
+	install -d $(bindir)
+	install -m 755 scrmfs-mk-log-dirs.pl $(bindir)
+	install -m 755 scrmfs-gen-cc.pl $(bindir)
+	install -m 755 scrmfs-gen-cxx.pl $(bindir)
+	install -m 755 scrmfs-gen-fortran.pl $(bindir)
+	install -m 755 scrmfs-config $(bindir)
+
+clean::
+	rm -f *.o *.a lib/*.o lib/*.po lib/*.a lib/*.so 
+
+distclean:: clean
+	rm -f scrmfs-runtime-config.h scrmfs-gen-cxx.pl scrmfs-gen-fortran.pl scrmfs-gen-cc.pl scrmfs-mk-log-dirs.pl aclocal.m4 autom4te.cache/* config.status config.log Makefile 
+	rm -rf autom4te.cache

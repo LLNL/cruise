@@ -1,0 +1,335 @@
+Darshan-runtime installation and usage
+======================================
+
+== Introduction
+
+This document describes darshan-runtime, which is the instrumentation
+portion of the Darshan characterization tool.  It should be installed on the
+system where you intend to collect I/O characterization information.
+
+Darshan instruments applications via either compile time wrappers for static
+executables or dynamic library preloading for dynamic executables.  An
+application that has been instrumented with Darshan will produce a single
+log file each time it is executed.  This log summarizes the I/O access patterns
+used by the application.
+
+The darshan-runtime instrumentation only instruments MPI applications (the
+application must at least call `MPI_Init()` and `MPI_Finalize()`).  However,
+it captures both MPI-IO and POSIX file access.  It also captures limited
+information about HDF5 and PnetCDF access.
+
+This document provides generic installation instructions, but "recipes" for
+several common HPC systems are provided at the end of the document as well.
+
+More information about Darshan can be found at the 
+http://www.mcs.anl.gov/darshan[Darshan web site].
+
+== Requirements
+
+* MPI C compiler
+* zlib development headers and library
+
+== Compilation and installation
+
+.Configure and build example
+----
+tar -xvzf darshan-<version-number>.tar.gz
+cd darshan-<version-number>/darshan-runtime
+./configure --with-mem-align=8 --with-log-path=/darshan-logs --with-jobid-env=PBS_JOBID CC=mpicc
+make
+make install
+----
+
+.Explanation of configure arguments:
+* `--with-mem-align` (mandatory): This value is system-dependent and will be
+used by Darshan to determine if the buffer for a read or write operation is
+aligned in memory.
+* `--with-log-path` (this, or `--with-log-path-by-env`, is mandatory): This
+specifies the parent directory for the directory tree where darshan logs
+will be placed
+* `--with-jobid-env` (mandatory): this specifies the environment variable that
+Darshan should check to determine the jobid of a job.  Common values are
+`PBS_JOBID` or `COBALT_JOBID`.  If you are not using a scheduler (or your
+scheduler does not advertise the job ID) then you can specify `NONE` here.
+Darshan will fall back to using the pid of the rank 0 process if the
+specified environment variable is not set.
+* `CC=`: specifies the MPI C compiler to use for compilation
+* `--with-log-path-by-env`: specifies an environment variable to use to
+determine the log path at run time.
+* `--with-log-hints=`: specifies hints to use when writing the Darshan log
+file.  See `./configure --help` for details.
+* `--with-zlib=`: specifies an alternate location for the zlib development
+header and library.
+
+=== Cross compilation
+
+On some systems (notably the IBM Blue Gene series), the login nodes do not
+have the same architecture or runtime environment as the compute nodes.  In
+this case, you must configure darshan-runtime to be built using a cross
+compiler.  The following configure arguments show an example for the BG/P system:
+
+----
+--host=powerpc-bgp-linux CC=/bgsys/drivers/ppcfloor/comm/default/bin/mpicc 
+----
+
+== Environment preparation
+
+Once darshan-runtime has been installed, you must prepare a location
+in which to store the Darshan log files and configure an instrumentation method.
+
+=== Log directory
+
+This step can be safely skipped if you configured darshan-runtime using the
+`--with-log-path-by-env` option.  A more typical configuration uses a static
+directory hierarchy for Darshan log
+files.
+
+The `darshan-mk-log-dirs.pl` utility will configure the path specified at
+configure time to include
+subdirectories organized by year, month, and day in which log files will be
+placed. The deepest subdirectories will have sticky permissions to enable
+multiple users to write to the same directory.  If the log directory is
+shared system-wide across many users then the following script should be run
+as root.
+ 
+----
+darshan-mk-log-dirs.pl
+----
+
+=== Instrumentation method
+
+The instrumentation method to use depends on whether the executables
+produced by your MPI compiler are statically or dynamically linked.  If you
+are unsure, you can check by running `ldd <executable_name>` on an example
+executable.  Dynamically-linked executables will produce a list of shared
+libraries when this command is executed.
+
+Most MPI compilers allow you to toggle dynamic or static linking via options
+such as `-dynamic` or `-static`.  Please check your MPI compiler man page
+for details if you intend to force one mode or the other.
+
+== Instrumenting statically-linked applications
+
+Statically linked executables must be instrumented at compile time.  The
+simplest way to do this is to generate an MPI compiler script (e.g. `mpicc`)
+that includes the link options and libraries needed by Darshan.  Once this
+is done, Darshan instrumentation is transparent; you simply compile
+applications using the darshan-enabled MPI compiler scripts.
+
+For MPICH-based MPI libraries, such as MPICH1, MPICH2, or MVAPICH, these
+wrapper scripts can be generated automatically.  The following example
+illustrates how to produce wrappers for C, C++, and Fortran compilers:
+
+----
+darshan-gen-cc.pl `which mpicc` --output mpicc.darshan
+darshan-gen-cxx.pl `which mpicxx` --output mpicxx.darshan
+darshan-gen-fortran.pl `which mpif77` --output mpif77.darshan
+darshan-gen-fortran.pl `which mpif90` --output mpif90.darshan
+-----
+
+For other MPI Libraries you must manually modify the MPI compiler scripts to
+add the necessary link options and libraries.  Please see the
+`darshan-gen-*` scripts for examples or contact the Darshan users mailing
+list for help.
+
+== Instrumenting dynamically-linked applications
+
+For dynamically-linked executables, darshan relies on the `LD_PRELOAD`
+environment variable to insert instrumentation at run time.  The executables
+should be compiled using the normal, unmodified MPI compiler.
+
+To use this mechanism, set the `LD_PRELOAD` environment variable to the full
+path to the Darshan shared library, as in this example:
+
+----
+export LD_PRELOAD=/home/carns/darshan-install/lib/libdarshan.so
+----
+
+You can then run your application as usual.  Some environments may require a
+special `mpirun` or `mpiexec` command line argument to propagate the
+environment variable to all processes.  Other environments may require a
+scheduler submission option to control this behavior.  Please check your
+local site documentation for details.
+
+=== Instrumenting dynamically-linked Fortran applications
+
+Please follow the general steps outlined in the previous section.  For
+Fortran applications compiled with MPICH you may have to take the additional
+step of adding
+`libfmpich.so` to your `LD_PRELOAD` environment variable. For example:
+
+----
+export LD_PRELOAD=libfmpich.so:/home/carns/darshan-install/lib/libdarshan.so
+----
+
+== Darshan installation recipes
+
+The following recipes provide examples for prominent HPC systems.
+These are intended to be used as a starting point.  You will most likely have to adjust paths and options to
+reflect the specifics of your system.
+
+=== IBM Blue Gene/P
+
+The IBM Blue Gene/P series produces static executables by default, uses a
+different architecture for login and compute nodes, and uses an MPI
+environment based on MPICH.
+
+The following example shows how to configure Darshan on a BG/P system:
+
+----
+./configure --with-mem-align=16 \
+ --with-log-path=/home/carns/working/darshan/releases/logs \
+ --prefix=/home/carns/working/darshan/install --with-jobid-env=COBALT_JOBID \
+ --with-zlib=/soft/apps/zlib-1.2.3/ \
+ --host=powerpc-bgp-linux CC=/bgsys/drivers/ppcfloor/comm/default/bin/mpicc 
+----
+
+.Rationale
+[NOTE]
+====
+The memory alignment is set to 16 not because that is the proper alignment
+for the BG/P CPU architecture, but because that is the optimal alignment for
+the network transport used between compute nodes and I/O nodes in the
+system.  The jobid environment variable is set to `COBALT_JOBID` in this
+case for use with the Cobalt scheduler, but other BG/P systems may use
+different schedulers.  The `--with-zlib` argument is used to point to a
+version of zlib that has been compiled for use on the compute nodes rather
+than the login node.  The `--host` argument is used to force cross-compilation
+of Darshan.  The `CC` variable is set to point to a stock MPI compiler.
+====
+
+Once Darshan has been installed, use the `darshan-gen-*.pl` scripts as
+described earlier in this document to produce darshan-enabled MPI compilers.
+This method has been widely used and tested with both the GNU and IBM XL
+compilers.
+
+=== Cray XE (or similar)
+
+The Cray environment produces static executables by default, uses a similar
+architecture for login and compute nodes, and uses its own unique compiler
+script system.  Darshan support for Cray is alpha-quality at this time.  It
+has only been tested in a limited fashion with PGI and GNU compilers.
+
+Please set your environment to use either the default PGI programming
+environment or the optional GNU programming environment.  You can confirm
+this by checking for either the PrgEnv-pgi or PrgEnv-gnu module in the
+output of the  "module list" command.  Please see your site documentation
+for information about how to switch programming environments.
+
+The following example shows how to configure Darshan on a Cray system using
+either the PGI or GNU programming environment:
+
+----
+./configure --with-mem-align=8 \
+ --with-log-path=/lustre/beagle/carns/darshan-logs \
+ --prefix=/home/carns/working/darshan/install \
+ --with-jobid-env=PBS_JOBID --disable-cuserid --enable-st-dev-workaround CC=cc
+----
+
+.Rationale
+[NOTE]
+====
+The job ID is set to `PBS_JOBID` for use with a Torque or PBS based scheduler.
+The `CC` variable is configured to point the standard MPI compiler.
+
+The --disable-cuserid argument is used to prevent Darshan from attempting to
+use the cuserid() function to retrieve the user name associated with a job.
+Darshan automatically falls back to other methods if this function fails,
+but on some Cray environments (notably the Beagle XE6 system as of March 2012)
+the cuserid() call triggers a segmentation fault.  With this option set,
+Darshan will typically use the LOGNAME environment variable to determine a
+userid.
+
+The --enable-st-dev-workaround argument is used to tell Darshan to
+determine the device type of each file by checking the parent directory
+rather than the file itself.  This is a workaround for a file stat
+inconsistency observed on some Cray systems.
+====
+
+The darshan-runtime package does not provide automated scripts or wrappers to
+use for instrumenting static executables in the Cray environment.  This step
+must be performed manually.  The following example demonstrates a rough
+procedure for modifying the compiler scripts to support Darshan.  We intend
+to improve this in future releases.
+
+. Go to the "bin" subdirectory in the darshan-runtime installation path
+. Determine the path to the standard compiler scripts by running "which cc"
+.. An example would be: "/opt/cray/xt-asyncpe/5.01/bin/"
+. Copy the "cc", "CC", "ftn", "linux-cc", "linux-CC", and "linux-f90"
+scripts from standard path to the local directory
+. Modify each of the cc, CC, and ftn scripts as follows:
+.. Find the line near the end that launches the compiler driver.  It will 
+look something like this: 
+
+    exec ${ASYNCPE_DIR}/bin/${compilerdriver} $compile_opts $link_opts "${arglist[@]}"
+
+.. Update the above line to replace the ASYNCPE_DIR variable with the path to the
+darshan-runtime installation
+. Modify each of the linux-cc, linux-CC, and linux-f90 scripts as follows:
+.. Find the if/else block near the end that executes $CC 
+.. Add a line just before the if/else block that looks like the following (replace
+the path with the installation directory for darshan-runtime):
+
+    DARSHAN_PATH=/home/carns/working/darshan/trunk/install/bin
+
+.. Modify the $CC command in the else block for each script as follows:
+... Add the following to the end of the line (all 3 scripts):
+
+    `$DARSHAN_PATH/darshan-config --post-ld-flags`
+
+... Insert the following just before POST_COMPILE_OPTS depending on the
+script:
+.... linux-cc
+    
+    `$DARSHAN_PATH/darshan-config --pre-ld-flags`
+
+.... linux-f90:
+    
+    -lfmpich `$DARSHAN_PATH/darshan-config --pre-ld-flags`
+
+.... linux-CC:
+
+    -lmpichcxx `$DARSHAN_PATH/darshan-config --pre-ld-flags`
+
+From this point you can compile your programs as usual, but use the cc, CC,
+or ftn scripts from this directory rather than the default path.
+
+=== Linux clusters using Intel MPI 
+
+Most Intel MPI installations produce dynamic executables by default.  To
+configure Darshan in this environment you can use the following example:
+
+----
+./configure --with-mem-align=8 --with-log-path=/darshan-logs --with-jobid-env=PBS_JOBID CC=mpicc
+----
+
+.Rationale
+[NOTE]
+====
+There is nothing unusual in this configuration except that you should use
+the underlying GNU compilers rather than the Intel ICC compilers to compile
+Darshan itself.
+====
+
+You can use the `LD_PRELOAD` method described earlier in this document to
+instrument executables compiled with the Intel MPI compiler scripts.  This
+method has been briefly tested using both GNU and Intel compilers.
+
+.Caveat
+[NOTE]
+====
+Darshan is only known to work with C and C++ executables generated by the
+Intel MPI suite.  Darshan will not produce instrumentation for Fortran
+executables.  For more details please check this Intel forum discussion:
+
+http://software.intel.com/en-us/forums/showthread.php?t=103447&o=a&s=lr
+====
+
+=== Linux clusters using MPICH or OpenMPI
+
+Follow the generic instructions provided at the top of this document.  The
+only modification is to make sure that the `CC` used for compilation is
+based on a GNU compiler.  Once Darshan has been installed, it should be
+capable of instrumenting executables built with GNU, Intel, and PGI
+compilers.
+

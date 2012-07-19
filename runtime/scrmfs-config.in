@@ -1,0 +1,44 @@
+#!/bin/sh
+
+CP_WRAPPERS="@CP_WRAPPERS@"
+SCRMFS_LIB_PATH="@scrmfs_lib_path@"
+SCRMFS_LD_FLAGS="@LDFLAGS@"
+
+# NOTE:
+# - we deliberately list libscrmfs-mpi-io twice in the link command.  The
+#   first is necessary to correctly use the MPI profiling interface.  The
+#   final one is necessary to give the linker a change to resolve indirect
+#   dependencies on PnetCDF and HDF5 symbols (if the app used a library which 
+#   in turn used one of those HLLs).
+PRE_LD_FLAGS="-L$SCRMFS_LIB_PATH $SCRMFS_LD_FLAGS -lscrmfs-mpi-io -lz $CP_WRAPPERS"
+POST_LD_FLAGS="-L$SCRMFS_LIB_PATH -lscrmfs-posix -lscrmfs-mpi-io"
+
+
+usage="\
+Usage: scrmfs-config [--pre-ld-flags] [--post-ld-flags]"
+
+if test $# -eq 0; then
+      echo "${usage}" 1>&2
+      exit 1
+fi
+
+while test $# -gt 0; do
+  case "$1" in
+  -*=*) optarg=`echo "$1" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+  *) optarg= ;;
+  esac
+
+  case $1 in
+    --pre-ld-flags)
+      echo $PRE_LD_FLAGS
+      ;;
+    --post-ld-flags)
+      echo $POST_LD_FLAGS
+      ;;
+    *)
+      echo "${usage}" 1>&2
+      exit 1
+      ;;
+  esac
+  shift
+done
