@@ -62,16 +62,23 @@ lib/lookup8.o: lib/lookup8.c
 lib/lookup8.po: lib/lookup8.c
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
+scrmfs-stack.o: scrmfs-stack.c scrmfs-stack.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+scrmfs-stack.po: scrmfs-stack.c scrmfs-stack.h
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
+
 %.i: %.c
 	$(CC) -E $(CFLAGS) -c $< -o $@
 
 lib/libscrmfs-mpi-io.a: lib/scrmfs-mpi-io.o lib/scrmfs-mpi-init-finalize.o
 	ar rcs $@ $^
 
-lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o 
+lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o scrmfs-stack.o
 	ar rcs $@ $^
 
-lib/libscrmfs.so: lib/scrmfs-mpi-io.po lib/scrmfs-mpi-init-finalize.po lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po
+lib/libscrmfs.so: lib/scrmfs-mpi-io.po lib/scrmfs-mpi-init-finalize.po lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack.po
 	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
 
 install:: all
@@ -89,7 +96,7 @@ endif
 	install -m 755 scrmfs-config $(bindir)
 
 clean::
-	rm -f *.o *.a lib/*.o lib/*.po lib/*.a lib/*.so 
+	rm -f *.o *.po *.a lib/*.o lib/*.po lib/*.a lib/*.so 
 
 distclean:: clean
 	rm -f scrmfs-runtime-config.h scrmfs-gen-cxx.pl scrmfs-gen-fortran.pl scrmfs-gen-cc.pl scrmfs-mk-log-dirs.pl aclocal.m4 autom4te.cache/* config.status config.log Makefile 

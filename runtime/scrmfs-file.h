@@ -4,10 +4,25 @@
 /* path to fid lookup struct */
 typedef struct
 {
-    int in_use_flag;
-    const char *filename;
-    int datablock_index;
-}filename_to_datablock_map;
+    int in_use;
+    int real_fd;
+    const char filename[SCRMFS_MAX_FILENAME];
+    off_t chunk_map_offset;
+} filename_to_chunk_map;
+
+typedef struct
+{
+    off_t current_chunk;
+    int current_index;
+    off_t chunk_offset[SCRMFS_MAX_CHUNKS]; /* chunk offset location in the mem pool */
+} chunk_map_t;
+
+typedef struct
+{
+    char buf[SCRMFS_CHUNK_SIZE];
+    int in_use;
+    off_t written_size;
+} chunk_t;
 
 /* legacy structures from the dynamic mem design */
 

@@ -34,17 +34,17 @@ typedef int64_t off64_t;
 
 extern char* __progname_full;
 
-#ifdef SCRMFS_PRELOAD
-#define __USE_GNU
-#include <dlfcn.h>
-#include <stdlib.h>
-
 #define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
     #define debug(fmt, args... )
 #endif
+
+#ifdef SCRMFS_PRELOAD
+#define __USE_GNU
+#include <dlfcn.h>
+#include <stdlib.h>
 
 #define SCRMFS_FORWARD_DECL(name,ret,args) \
   ret (*__real_ ## name)args = NULL;
@@ -111,6 +111,7 @@ SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nmemb,
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
+SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
 
 pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 struct scrmfs_job_runtime* scrmfs_global_job = NULL;
@@ -328,8 +329,13 @@ static inline dev_t get_device(const char* path, struct stat64* statbuf)
     CP_F_INC_NO_OVERLAP(file, __tm1, __tm2, file->last_posix_meta_end, CP_F_POSIX_META_TIME); \
 } while (0)
 
-/* global path->fid map array */
-filename_to_datablock_map fid_map[SCRMFS_MAX_FILES];
+/* global persistent memory block (metadata + data) */
+void* scr_superblock = NULL;
+void* free_fid_stack = NULL;
+void* free_chunk_stack = NULL;
+filename_to_chunk_map* fids = NULL;
+chunk_map_t* chunk_map = NULL;
+chunk_t *chunk = NULL;
 
 
 /* grab a superblock shm segment from SCR_Init */
@@ -344,7 +350,7 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
     if (scr_shmblock_shmid < 0)
     {
         perror("shmget() failed");
-        /*TODO: if ENOMEM -> overflow to SSD*/
+        /* if ENOMEM -> overflow to SSD ?*/
         return scr_shmblock;
     }
     
@@ -354,17 +360,23 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
         perror("shmat() failed");
     }
 
-    /*initialize fid_map array*/
-    while (i < SCRMFS_MAX_FILES)
-    {
-        fid_map[i].in_use_flag=0;
-        fid_map[i]->filename = (const char*) malloc(128);
-        fid_map[i].datablock_index = -1;
-        i++;
-    }
+    /* swipe-clean superblock */    
+    /* do this after moving this call to init() */
+    //memset(scr_shmblock,0,size);
 
     return scr_shmblock;
 
+}
+
+int SCRMFS_DECL(unlink)(const char *path)
+{
+    int ret;
+
+    MAP_OR_FAIL(unlink);
+    debug("unlinking %s\n",path);
+    ret = __real_unlink(path);
+    
+    return ret;
 }
 
 int SCRMFS_DECL(close)(int fd)
@@ -377,7 +389,7 @@ int SCRMFS_DECL(close)(int fd)
     MAP_OR_FAIL(close);
 
     tm1 = scrmfs_wtime();
-    ret = __real_close(fd);
+    ret = __real_close(fids[fd].real_fd);
     tm2 = scrmfs_wtime();
 
     CP_LOCK();
@@ -597,16 +609,56 @@ int SCRMFS_DECL(open64)(const char* path, int flags, ...)
 int SCRMFS_DECL(open)(const char *path, int flags, ...)
 {
     int mode = 0;
-    int ret;
-    int fd = -1;
-    int i=1;
+    int ret, idx;
+    int i = SCRMFS_MAX_FILES;
     double tm1, tm2;
-    void* scr_superblock = NULL;
+    size_t superblock_size = 0;
+    void* ptr = NULL;
 
     MAP_OR_FAIL(open);
 
+    static int exec_once = 0;
+
+   // if (!exec_once) {
+
     /* get a superblock of persistent memory - later move to SCR init */
-    scr_superblock = scrmfs_get_shmblock(((sizeof(scr_file_t) * SCRMFS_MAX_FILES) + SCRMFS_MAX_MEM ),1234);
+    superblock_size =   scrmfs_stack_bytes(SCRMFS_MAX_FILES)
+                        + (SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map))
+                        /* generous allocation for chunk map (one file can take entire space)*/
+                        + (SCRMFS_MAX_FILES * sizeof(chunk_map_t))
+                        + (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
+
+    /* using static key for now */
+    scr_superblock = scrmfs_get_shmblock(superblock_size,1234);
+
+    ptr = scr_superblock; 
+
+    /* SCR stack to manage metadata structures */
+    free_fid_stack = ptr;
+    ptr += scrmfs_stack_bytes(SCRMFS_MAX_FILES);
+
+    /* filename_to_chunk_map_map in persistent mem */
+    fids = (filename_to_chunk_map*) ptr;
+    ptr += SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map);
+
+    /* chunk offset map */
+    chunk_map = (chunk_map_t*) ptr;
+    ptr += SCRMFS_MAX_FILES * sizeof(chunk_map_t);
+
+    /* SCR stack to manage actual data chunks */
+    free_chunk_stack = ptr;
+    ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
+
+    /* chunk repository */
+    chunk = (chunk_t*) ptr;
+    ptr += SCRMFS_MAX_CHUNKS * sizeof(chunk_t);
+
+    scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
+    scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
+
+    debug("exec_once = %d\n",exec_once);
+    exec_once = 1;
+    //}
 
 
     if (flags & O_CREAT) 
@@ -616,20 +668,17 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         mode = va_arg(arg, int);
         va_end(arg);
 
-        debug("superblock created at %p\n",scr_superblock);
+        debug("scr_superblock = %p; free_fid_stack = %p; fids = %p; chunks = %p, ptr = %p\n",scr_superblock,free_fid_stack,fids,chunk,ptr);
+        idx = scrmfs_stack_pop(free_fid_stack);
+        if (idx < 0)
+            debug("scrmfs_stack_pop() failed (%d)\n",idx);
 
-        while (fid_map[i].in_use_flag && i < SCRMFS_MAX_FILES)        
-            i++;
+        fids[idx].in_use = 1;
+        fids[idx].chunk_map_offset = chunk_map + (idx * sizeof(chunk_map));
+        if(memcpy((void *)&fids[idx].filename, path, SCRMFS_MAX_FILENAME) == NULL)
+            perror("memcpy() failed");
 
-        fd = i;
-        if (i = SCRMFS_MAX_FILES)
-        {
-            debug("All fds in use\n");
-            return fd;
-        }
-        fid_map[i].in_use_flag = 1;
-        memcpy(fid_map[i]->filename,path,SCRMFS_MAX_FILENAME);
-        perror("memcpy()");
+        debug("Filename %s got scrmfs fd %d\n",fids[idx].filename,idx);
 
         tm1 = scrmfs_wtime();
         ret = __real_open(path, flags, mode);
@@ -637,14 +686,21 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     }
     else
     {
-        debug("superblock detected at %p\n",scr_superblock);
-    
-        while (!strcmp(fid.[i]->filename,path))
-            i++;
-        fd = i;        
+        /* lookup fid from scr stack struct */
+        while (i > 0)
+        {
+            debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
+            if(!strncmp((void *)&fids[i].filename,path,SCRMFS_MAX_FILENAME))
+                break;
+            i--;
+        }
 
+        idx = i;
         tm1 = scrmfs_wtime();
         ret = __real_open(path, flags);
+
+        /* testing hack: return system fd if nto found in stack*/
+        if (!i) { idx = ret; }
         tm2 = scrmfs_wtime();
     }
 
@@ -652,8 +708,9 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     CP_RECORD_OPEN(ret, path, mode, 0, tm1, tm2);
     CP_UNLOCK();
 
-    debug("open generated fd %d for file %s\n",fd,path);    
-    return(fd);
+    debug("open generated fd %d for file %s\n",idx,path);    
+    fids[idx].real_fd= ret;
+    return(idx);
 }
 
 FILE* SCRMFS_DECL(fopen64)(const char *path, const char *mode)
@@ -817,6 +874,8 @@ int SCRMFS_DECL(__fxstat)(int vers, int fd, struct stat *buf)
     int ret;
     struct scrmfs_file_runtime* file;
     double tm1, tm2;
+
+    fd = fids[fd].real_fd;
 
     MAP_OR_FAIL(__fxstat);
 
@@ -1005,7 +1064,7 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
         aligned_flag = 1;
 
     tm1 = scrmfs_wtime();
-    ret = __real_read(fd, buf, count);
+    ret = __real_read(fids[fd].real_fd, buf, count);
     tm2 = scrmfs_wtime();
     CP_LOCK();
     CP_RECORD_READ(ret, fd, count, 0, 0, aligned_flag, 0, tm1, tm2);
@@ -1018,14 +1077,50 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
     ssize_t ret;
     int aligned_flag = 0;
     double tm1, tm2;
-
+    int written = 0;
+    
     MAP_OR_FAIL(write);
 
     if((unsigned long)buf % scrmfs_mem_alignment == 0)
         aligned_flag = 1;
 
+    debug("current chunk offset of %d = %ld in %d\n",fd,chunk[chunk_map[fd].current_chunk].written_size,chunk_map[fd].current_chunk);
+
+    /* first chunk for this file */
+    if ( !chunk_map[fd].current_index )
+    {
+        /* TODO: make a function out of this */
+        chunk_map[fd].current_chunk = scrmfs_stack_pop(free_chunk_stack);
+        chunk_map[fd].current_index += 1;
+        debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
+        chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk; //segfaulting here
+        chunk[chunk_map[fd].current_chunk].in_use = 1;
+    }
+
+
+    /* if the last-written chunk for the file cannot fit buf  */
+    if ( (SCRMFS_CHUNK_SIZE - chunk[chunk_map[fd].current_chunk].written_size) < count )
+    {
+        /* write what's left of the current chunk*/
+        memcpy( (void *)&chunk[chunk_map[fd].current_chunk].buf + chunk[chunk_map[fd].current_chunk].written_size,
+                buf,
+                (SCRMFS_CHUNK_SIZE - chunk[chunk_map[fd].current_chunk].written_size));
+        buf += (SCRMFS_CHUNK_SIZE - chunk[chunk_map[fd].current_chunk].written_size);
+
+        /* get a new chunk to write the remaining data */
+        chunk_map[fd].current_chunk = scrmfs_stack_pop(free_chunk_stack);
+        chunk_map[fd].current_index += 1;
+        /* add newly obtained chunk to the chunk offset list */
+        debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
+        chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk;
+    }
+
+    memcpy((void *)&chunk[chunk_map[fd].current_chunk].buf + chunk[chunk_map[fd].current_chunk].written_size ,buf,count);
+    chunk[chunk_map[fd].current_chunk].written_size += count;
+    debug("written %ld of %ld in chunk #%d\n", chunk[chunk_map[fd].current_chunk].written_size, SCRMFS_CHUNK_SIZE, chunk_map[fd].current_chunk);
+
     tm1 = scrmfs_wtime();
-    ret = __real_write(fd, buf, count);
+    ret = __real_write(fids[fd].real_fd, buf, count);
     tm2 = scrmfs_wtime();
     CP_LOCK();
     CP_RECORD_WRITE(ret, fd, count, 0, 0, aligned_flag, 0, tm1, tm2);

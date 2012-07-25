@@ -8,6 +8,8 @@
  *
  * used to record which entries in a fixed-size array are free */
 
+#include <stddef.h>
+
 typedef struct {
   int size;
   int last;
