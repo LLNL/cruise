@@ -119,6 +119,9 @@ static int my_rank = -1;
 static struct stat64 cp_stat_buf;
 static int scrmfs_mem_alignment = 1;
 
+static int scr_stack_init_done = 0;
+static int scr_superblock_init_done = 0;
+
 /* these are paths that we will not trace */
 static char* exclusions[] = {
 "/etc/",
@@ -368,6 +371,45 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
 
 }
 
+int scrmfs_init_superblock(size_t superblock_size, key_t key)
+{
+    void* ptr = NULL;
+    
+    /* using static key for now */
+    scr_superblock = scrmfs_get_shmblock(superblock_size,key);
+
+    ptr = scr_superblock; 
+
+    /* SCR stack to manage metadata structures */
+    free_fid_stack = ptr;
+    ptr += scrmfs_stack_bytes(SCRMFS_MAX_FILES);
+
+    /* filename_to_chunk_map_map in persistent mem */
+    fids = (filename_to_chunk_map*) ptr;
+    ptr += SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map);
+
+    /* chunk offset map */
+    chunk_map = (chunk_map_t*) ptr;
+    ptr += SCRMFS_MAX_FILES * sizeof(chunk_map_t);
+
+    /* SCR stack to manage actual data chunks */
+    free_chunk_stack = ptr;
+    ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
+
+    /* chunk repository */
+    chunk = (chunk_t*) ptr;
+    ptr += SCRMFS_MAX_CHUNKS * sizeof(chunk_t);
+
+    if (!scr_stack_init_done)
+    {
+        scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
+        scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
+        scr_stack_init_done = 1;
+        debug("Meta-stacks initialized!\n");
+    }
+
+}
+
 int SCRMFS_DECL(unlink)(const char *path)
 {
     int ret;
@@ -612,54 +654,20 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     int ret, idx;
     int i = SCRMFS_MAX_FILES;
     double tm1, tm2;
-    size_t superblock_size = 0;
-    void* ptr = NULL;
 
     MAP_OR_FAIL(open);
 
-    static int exec_once = 0;
-
-   // if (!exec_once) {
-
     /* get a superblock of persistent memory - later move to SCR init */
-    superblock_size =   scrmfs_stack_bytes(SCRMFS_MAX_FILES)
-                        + (SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map))
-                        /* generous allocation for chunk map (one file can take entire space)*/
-                        + (SCRMFS_MAX_FILES * sizeof(chunk_map_t))
-                        + (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
-
-    /* using static key for now */
-    scr_superblock = scrmfs_get_shmblock(superblock_size,1234);
-
-    ptr = scr_superblock; 
-
-    /* SCR stack to manage metadata structures */
-    free_fid_stack = ptr;
-    ptr += scrmfs_stack_bytes(SCRMFS_MAX_FILES);
-
-    /* filename_to_chunk_map_map in persistent mem */
-    fids = (filename_to_chunk_map*) ptr;
-    ptr += SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map);
-
-    /* chunk offset map */
-    chunk_map = (chunk_map_t*) ptr;
-    ptr += SCRMFS_MAX_FILES * sizeof(chunk_map_t);
-
-    /* SCR stack to manage actual data chunks */
-    free_chunk_stack = ptr;
-    ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
-
-    /* chunk repository */
-    chunk = (chunk_t*) ptr;
-    ptr += SCRMFS_MAX_CHUNKS * sizeof(chunk_t);
-
-    scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
-    scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
-
-    debug("exec_once = %d\n",exec_once);
-    exec_once = 1;
-    //}
-
+    size_t superblock_size =   scrmfs_stack_bytes(SCRMFS_MAX_FILES)
+                                + (SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map))
+                                /* generous allocation for chunk map (one file can take entire space)*/
+                                + (SCRMFS_MAX_FILES * sizeof(chunk_map_t))
+                                + (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
+    if (!scr_superblock_init_done)
+    {
+        scrmfs_init_superblock( superblock_size, SCRMFS_SUPERBLOCK_KEY);
+        scr_superblock_init_done = 1;
+    }
 
     if (flags & O_CREAT) 
     {
@@ -668,7 +676,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         mode = va_arg(arg, int);
         va_end(arg);
 
-        debug("scr_superblock = %p; free_fid_stack = %p; fids = %p; chunks = %p, ptr = %p\n",scr_superblock,free_fid_stack,fids,chunk,ptr);
+        debug("scr_superblock = %p; free_fid_stack = %p; fids = %p; chunks = %p\n",scr_superblock,free_fid_stack,fids,chunk);
         idx = scrmfs_stack_pop(free_fid_stack);
         if (idx < 0)
             debug("scrmfs_stack_pop() failed (%d)\n",idx);
@@ -1094,7 +1102,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         chunk_map[fd].current_index += 1;
         debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
         chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk; //segfaulting here
-        chunk[chunk_map[fd].current_chunk].in_use = 1;
+        //chunk[chunk_map[fd].current_chunk].in_use = 1;
     }
 
 
