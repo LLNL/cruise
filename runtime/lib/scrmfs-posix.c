@@ -341,44 +341,11 @@ chunk_map_t* chunk_map = NULL;
 chunk_t *chunk = NULL;
 
 
-/* grab a superblock shm segment from SCR_Init */
-/* currently called from each open call */
-void* scrmfs_get_shmblock(size_t size, key_t key)
-{
-    int i = 0;
-    int scr_shmblock_shmid;
-    void *scr_shmblock = NULL;
-
-    scr_shmblock_shmid = shmget(key, size, IPC_CREAT | S_IRWXU);
-    if (scr_shmblock_shmid < 0)
-    {
-        perror("shmget() failed");
-        /* if ENOMEM -> overflow to SSD ?*/
-        return scr_shmblock;
-    }
-    
-    scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
-    if(scr_shmblock < 0)
-    {
-        perror("shmat() failed");
-    }
-
-    /* swipe-clean superblock */    
-    /* do this after moving this call to init() */
-    //memset(scr_shmblock,0,size);
-
-    return scr_shmblock;
-
-}
-
-int scrmfs_init_superblock(size_t superblock_size, key_t key)
+void* scrmfs_init_superblock(void* superblock)
 {
     void* ptr = NULL;
-    
-    /* using static key for now */
-    scr_superblock = scrmfs_get_shmblock(superblock_size,key);
 
-    ptr = scr_superblock; 
+    ptr = superblock;
 
     /* SCR stack to manage metadata structures */
     free_fid_stack = ptr;
@@ -402,11 +369,70 @@ int scrmfs_init_superblock(size_t superblock_size, key_t key)
 
     if (!scr_stack_init_done)
     {
-        scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
-        scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
+        scrmfs_stack_init( free_fid_stack, SCRMFS_MAX_FILES);
+        scrmfs_stack_init( free_chunk_stack, SCRMFS_MAX_CHUNKS);
         scr_stack_init_done = 1;
         debug("Meta-stacks initialized!\n");
     }
+
+    return ptr;
+}
+
+
+/* grab a superblock shm segment from SCR_Init */
+/* currently called from each open call */
+void* scrmfs_get_shmblock(size_t size, key_t key)
+{
+    int i = 0;
+    int scr_shmblock_shmid;
+    void *scr_shmblock = NULL;
+    void *ptr = NULL;
+
+    scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
+    if ( scr_shmblock_shmid < 0 )
+    {
+        if ( errno == EEXIST )
+        {
+            /* Superblock exists. Donot init, just get and attach */
+            scr_shmblock_shmid = shmget(key, size, 0);
+            scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
+            if(scr_shmblock < 0)
+            {
+                perror("shmat() failed");
+            }
+            debug("Superblock exists at %p\n!",scr_shmblock);
+        }
+        else
+        {
+            perror("shmget() failed");
+            return scr_shmblock_shmid;
+        }
+    }
+    else
+    {
+        /* valid segment created, attach to proc and init structures */
+        scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
+        if(scr_shmblock < 0)
+        {
+            perror("shmat() failed");
+        }
+        debug("Superblock created at %p\n!",scr_shmblock);
+
+        /* Init superblock, once */        
+        ptr = scrmfs_init_superblock( scr_shmblock);
+        if (!ptr)
+        {
+            debug("scrmfs_init_superblock() failed\n");
+            return NULL;
+        }
+
+    }
+    
+    /* swipe-clean superblock */    
+    /* do this after moving this call to some form of init() */
+    // memset(scr_shmblock,0,size);
+
+    return scr_shmblock;
 
 }
 
@@ -663,10 +689,14 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                                 /* generous allocation for chunk map (one file can take entire space)*/
                                 + (SCRMFS_MAX_FILES * sizeof(chunk_map_t))
                                 + (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
-    if (!scr_superblock_init_done)
+
+    
+    scr_superblock = scrmfs_get_shmblock (superblock_size, SCRMFS_SUPERBLOCK_KEY);
+
+    if(scr_superblock == NULL)
     {
-        scrmfs_init_superblock( superblock_size, SCRMFS_SUPERBLOCK_KEY);
-        scr_superblock_init_done = 1;
+        debug("scrmfs_get_shmblock() failed\n");
+        return -1;
     }
 
     if (flags & O_CREAT) 
@@ -676,10 +706,14 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         mode = va_arg(arg, int);
         va_end(arg);
 
-        debug("scr_superblock = %p; free_fid_stack = %p; fids = %p; chunks = %p\n",scr_superblock,free_fid_stack,fids,chunk);
+        debug("scr_superblock = %p; free_fid_stack = %p; free_chunk_stack = %p; fids = %p; chunks = %p\n",
+                                        scr_superblock,free_fid_stack,free_chunk_stack,fids,chunk);
         idx = scrmfs_stack_pop(free_fid_stack);
         if (idx < 0)
+        {
             debug("scrmfs_stack_pop() failed (%d)\n",idx);
+            return -1;
+        }
 
         fids[idx].in_use = 1;
         fids[idx].chunk_map_offset = chunk_map + (idx * sizeof(chunk_map));
@@ -697,8 +731,8 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         /* lookup fid from scr stack struct */
         while (i > 0)
         {
-            debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
             if(!strncmp((void *)&fids[i].filename,path,SCRMFS_MAX_FILENAME))
+                debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
                 break;
             i--;
         }
@@ -1099,6 +1133,8 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
     {
         /* TODO: make a function out of this */
         chunk_map[fd].current_chunk = scrmfs_stack_pop(free_chunk_stack);
+        if (chunk_map[fd].current_chunk < 0)
+            debug("scrmfs_stack_pop() failed (%d)\n",chunk_map[fd].current_chunk);
         chunk_map[fd].current_index += 1;
         debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
         chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk; //segfaulting here
@@ -1117,6 +1153,8 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
         /* get a new chunk to write the remaining data */
         chunk_map[fd].current_chunk = scrmfs_stack_pop(free_chunk_stack);
+        if (chunk_map[fd].current_chunk < 0)
+            debug("scrmfs_stack_pop() failed (%d)\n",chunk_map[fd].current_chunk);
         chunk_map[fd].current_index += 1;
         /* add newly obtained chunk to the chunk offset list */
         debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
