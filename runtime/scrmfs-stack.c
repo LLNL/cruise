@@ -25,7 +25,10 @@ void scrmfs_stack_init(void* start, int size)
   int i;
   int* entries = (int*) ((char*) start + sizeof(scrmfs_stack));
   for (i = 0; i < size; i++) {
-    entries[i] = i;
+    /* flip the order so low numbers are at the top
+     * to make debugging easier */
+    entries[i] = size-1 - i;
+    //entries[i] = i;
   }
 }
 
