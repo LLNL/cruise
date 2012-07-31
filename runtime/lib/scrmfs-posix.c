@@ -367,14 +367,6 @@ void* scrmfs_init_superblock(void* superblock)
     chunk = (chunk_t*) ptr;
     ptr += SCRMFS_MAX_CHUNKS * sizeof(chunk_t);
 
-    if (!scr_stack_init_done)
-    {
-        scrmfs_stack_init( free_fid_stack, SCRMFS_MAX_FILES);
-        scrmfs_stack_init( free_chunk_stack, SCRMFS_MAX_CHUNKS);
-        scr_stack_init_done = 1;
-        debug("Meta-stacks initialized!\n");
-    }
-
     return ptr;
 }
 
@@ -401,6 +393,13 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
                 perror("shmat() failed");
             }
             debug("Superblock exists at %p\n!",scr_shmblock);
+        
+            ptr = scrmfs_init_superblock( scr_shmblock);
+            if (!ptr)
+            {
+                debug("scrmfs_init_superblock() failed\n");
+                return NULL;
+            }
         }
         else
         {
@@ -418,13 +417,21 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
         }
         debug("Superblock created at %p\n!",scr_shmblock);
 
-        /* Init superblock, once */        
         ptr = scrmfs_init_superblock( scr_shmblock);
         if (!ptr)
         {
             debug("scrmfs_init_superblock() failed\n");
             return NULL;
         }
+    
+        if (!scr_stack_init_done)
+        {
+            scrmfs_stack_init( free_fid_stack, SCRMFS_MAX_FILES);
+            scrmfs_stack_init( free_chunk_stack, SCRMFS_MAX_CHUNKS);
+            scr_stack_init_done = 1;
+            debug("Meta-stacks initialized!\n");
+        }
+
 
     }
     
@@ -678,7 +685,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
 {
     int mode = 0;
     int ret, idx;
-    int i = SCRMFS_MAX_FILES;
+    int i = 0;
     double tm1, tm2;
 
     MAP_OR_FAIL(open);
@@ -729,12 +736,12 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     else
     {
         /* lookup fid from scr stack struct */
-        while (i > 0)
+        while (i < SCRMFS_MAX_FILES)
         {
+            debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
             if(!strncmp((void *)&fids[i].filename,path,SCRMFS_MAX_FILENAME))
-                debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
                 break;
-            i--;
+            i++;
         }
 
         idx = i;
@@ -1120,13 +1127,13 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
     int aligned_flag = 0;
     double tm1, tm2;
     int written = 0;
-    
+
     MAP_OR_FAIL(write);
 
     if((unsigned long)buf % scrmfs_mem_alignment == 0)
         aligned_flag = 1;
 
-    debug("current chunk offset of %d = %ld in %d\n",fd,chunk[chunk_map[fd].current_chunk].written_size,chunk_map[fd].current_chunk);
+    //debug("current chunk offset of %d = %ld in %d\n",fd,chunk[chunk_map[fd].current_chunk].written_size,chunk_map[fd].current_chunk);
 
     /* first chunk for this file */
     if ( !chunk_map[fd].current_index )
@@ -1136,8 +1143,8 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         if (chunk_map[fd].current_chunk < 0)
             debug("scrmfs_stack_pop() failed (%d)\n",chunk_map[fd].current_chunk);
         chunk_map[fd].current_index += 1;
-        debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
-        chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk; //segfaulting here
+        //debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
+        chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk;
         //chunk[chunk_map[fd].current_chunk].in_use = 1;
     }
 
@@ -1157,13 +1164,13 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
             debug("scrmfs_stack_pop() failed (%d)\n",chunk_map[fd].current_chunk);
         chunk_map[fd].current_index += 1;
         /* add newly obtained chunk to the chunk offset list */
-        debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
+        //debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
         chunk_map[fd].chunk_offset[chunk_map[fd].current_index] =  chunk_map[fd].current_chunk;
     }
 
     memcpy((void *)&chunk[chunk_map[fd].current_chunk].buf + chunk[chunk_map[fd].current_chunk].written_size ,buf,count);
     chunk[chunk_map[fd].current_chunk].written_size += count;
-    debug("written %ld of %ld in chunk #%d\n", chunk[chunk_map[fd].current_chunk].written_size, SCRMFS_CHUNK_SIZE, chunk_map[fd].current_chunk);
+    //debug("written %ld of %ld in chunk #%d\n", chunk[chunk_map[fd].current_chunk].written_size, SCRMFS_CHUNK_SIZE, chunk_map[fd].current_chunk);
 
     tm1 = scrmfs_wtime();
     ret = __real_write(fids[fd].real_fd, buf, count);
@@ -1171,7 +1178,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
     CP_LOCK();
     CP_RECORD_WRITE(ret, fd, count, 0, 0, aligned_flag, 0, tm1, tm2);
     CP_UNLOCK();
-    return(ret);
+    return(count);
 }
 
 size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nmemb, FILE *stream)
