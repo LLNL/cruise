@@ -12,6 +12,9 @@ typedef struct
 
 typedef struct
 {
+    off_t pos;    /* current file position: TODO: move this to a file descriptor */
+    off_t size;   /* current file size */
+    off_t chunks; /* number of chunks currently allocated to file */
     off_t current_chunk;
     int current_index;
     off_t chunk_offset[SCRMFS_MAX_CHUNKS]; /* chunk offset location in the mem pool */
