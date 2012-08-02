@@ -1127,9 +1127,6 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
     MAP_OR_FAIL(write);
 
-//    if((unsigned long)buf % scrmfs_mem_alignment == 0)
-//        aligned_flag = 1;
-
     //debug("current chunk offset of %d = %ld in %d\n",fd,chunk[chunk_map[fd].current_chunk].written_size,chunk_map[fd].current_chunk);
 
     /* check file descriptor to determine whether we should pick off
@@ -1151,28 +1148,28 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
             /* if we write past the end of the file, we need to update the
              * file size, and we may need to allocate more chunks */
             if (newpos > meta->size) {
-              /* determine whether we need to allocate more chunks */
-              off_t maxsize = meta->chunks << SCRMFS_CHUNK_BITS;
-              if (newpos > maxsize) {
-                  /* compute number of additional bytes we need */
-                  off_t additional = newpos - maxsize;
-                  while (additional > 0) {
-                    /* allocate a new chunk */
-                    int chunk_id = scrmfs_stack_pop(free_chunk_stack);
-                    if (chunk_id < 0)
-                        debug("scrmfs_stack_pop() failed (%d)\n", chunk_id);
+                /* update file size */
+                meta->size = newpos;
 
-                    /* add it to the chunk list of this file */
-                    meta->chunk_offset[meta->chunks] = chunk_id;
-                    meta->chunks++;
+                /* determine whether we need to allocate more chunks */
+                off_t maxsize = meta->chunks << SCRMFS_CHUNK_BITS;
+                if (newpos > maxsize) {
+                    /* compute number of additional bytes we need */
+                    off_t additional = newpos - maxsize;
+                    while (additional > 0) {
+                      /* allocate a new chunk */
+                      int chunk_id = scrmfs_stack_pop(free_chunk_stack);
+                      if (chunk_id < 0)
+                          debug("scrmfs_stack_pop() failed (%d)\n", chunk_id);
 
-                    /* subtract bytes from the number we need */
-                    additional -= SCRMFS_CHUNK_SIZE;
-                  }
-              }
+                      /* add it to the chunk list of this file */
+                      meta->chunk_offset[meta->chunks] = chunk_id;
+                      meta->chunks++;
 
-              /* update file size */
-              meta->size = newpos;
+                      /* subtract bytes from the number we need */
+                      additional -= SCRMFS_CHUNK_SIZE;
+                    }
+                }
             }
 
             /* get pointer to position within current chunk */
@@ -1222,6 +1219,10 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         /* don't intercept, just pass the call on to the real write call */
         double tm1, tm2;
         int aligned_flag = 0;
+
+        if((unsigned long)buf % scrmfs_mem_alignment == 0)
+            aligned_flag = 1;
+
         tm1 = scrmfs_wtime();
         ret = __real_write(fids[fd].real_fd, buf, count);
         tm2 = scrmfs_wtime();
