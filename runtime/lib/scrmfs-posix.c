@@ -1135,25 +1135,22 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
     /* check file descriptor to determine whether we should pick off
      * this call, for now we pick off everything */
     int intercept = 1;
-    if (intercept)
-    {
+    if (intercept) {
         /* check that the file descriptor is within range of our array */
-        if (fd >= 0 && fd < SCRMFS_MAX_FILEDESCS)
-        {
+        if (fd >= 0 && fd < SCRMFS_MAX_FILEDESCS) {
             /* get a pointer to the file meta data structure */
             chunk_map_t* meta = &chunk_map[fd];
 
+            /* update file pointer */
             /* TODO: the current position is really a property of the file descriptor,
              * not the file itself, but for now we have this in the file meta data */
-            /* update file pointer */
             off_t oldpos = meta->pos;
             off_t newpos = oldpos + count;
             meta->pos = newpos;
 
-            /* if we write past the end of the file, we may need to allocate
-             * more chunks */
-            if (newpos > meta->size)
-            {
+            /* if we write past the end of the file, we need to update the
+             * file size, and we may need to allocate more chunks */
+            if (newpos > meta->size) {
               /* determine whether we need to allocate more chunks */
               off_t maxsize = meta->chunks << SCRMFS_CHUNK_BITS;
               if (newpos > maxsize) {
@@ -1166,7 +1163,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                         debug("scrmfs_stack_pop() failed (%d)\n", chunk_id);
 
                     /* add it to the chunk list of this file */
-                    meta->chunk_offset[chunks-1] = chunk_id;
+                    meta->chunk_offset[meta->chunks] = chunk_id;
                     meta->chunks++;
 
                     /* subtract bytes from the number we need */
@@ -1190,16 +1187,15 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                 /* all bytes for this write fit within the current chunk */
                 memcpy(chunkbuf, buf, count);
             } else {
-                /* fill up the remainder of the current chunk */
+                /* otherwise, fill up the remainder of the current chunk */
                 char* ptr = (char*) buf;
                 memcpy(chunkbuf, ptr, remaining);
                 ptr += remaining;
 
                 /* then write the rest of the bytes starting from beginning
-                 * of newly allocate chunks */
+                 * of newly allocated chunks */
                 size_t written = remaining;
-                while (written < count)
-                {
+                while (written < count) {
                     /* get pointer to start of next chunk */
                     logical_chunk_id++;
                     chunk_id = meta->chunk_offset[logical_chunk_id];
@@ -1219,51 +1215,6 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                     written += nwrite;
                 }
             }
-#if 0
-            /* first chunk for this file */
-            if ( !map->current_index )
-            {
-                /* TODO: make a function out of this */
-                int chunk_id = scrmfs_stack_pop(free_chunk_stack);
-                if (chunk_id < 0)
-                    debug("scrmfs_stack_pop() failed (%d)\n", chunk_id);
-
-                map->current_chunk = chunk_id;
-                map->current_index += 1;
-                //debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
-                map->chunk_offset[map->current_index] = chunk_id;
-                //chunk[chunk_map[fd].current_chunk].in_use = 1;
-            }
-
-            /* if the last-written chunk for the file cannot fit buf  */
-            chunk_t* chunk_ptr = &chunk[map->current_chunk];
-            size_t remaining = SCRMFS_CHUNK_SIZE - chunk_ptr->written_size;
-            if ( remaining < count )
-            {
-                /* write what's left of the current chunk*/
-                char* chunkbuf = (char*)chunk->buf + chunk->written_size;
-                memcpy(chunkbuf, buf, remaining);
-                buf += remaining;
-
-                /* get a new chunk to write the remaining data */
-                int chunk_id = scrmfs_stack_pop(free_chunk_stack);
-                if (chunk_id < 0)
-                    debug("scrmfs_stack_pop() failed (%d)\n", chunk_id);
-
-                map->current_chunk = chunk_id;
-                map->current_index += 1;
-                /* add newly obtained chunk to the chunk offset list */
-                //debug("added new chunk to list: %d\n", chunk_map[fd].current_chunk);
-                map->chunk_offset[map->current_index] = chunk_id;
-            }
-
-            chunk = &chunk[map->current_chunk];
-            char* chunkbuf = (char*)chunk->buf + chunk->written_size;
-            memcpy(chunkbuf, buf, count);
-            chunk->written_size += count;
-            //debug("written %ld of %ld in chunk #%d\n", chunk[chunk_map[fd].current_chunk].written_size, SCRMFS_CHUNK_SIZE, chunk_map[fd].current_chunk);
-#endif
-
         } else {
           /* ERROR: invalid file descriptor */
         }
