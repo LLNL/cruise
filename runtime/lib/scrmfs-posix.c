@@ -699,6 +699,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     int i = 0;
     double tm1, tm2;
 
+
     MAP_OR_FAIL(open);
 
     /* TODO: handle relative paths using current working directory */
@@ -742,13 +743,19 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         }
 
         fids[idx].in_use = 1;
-        fids[idx].chunk_map_offset = chunk_map + (idx * sizeof(chunk_map));
+        fids[idx].chunk_map = chunk_map + (idx * sizeof(chunk_map_t));
         if(memcpy((void *)&fids[idx].filename, path, SCRMFS_MAX_FILENAME) == NULL)
             perror("memcpy() failed");
 
         debug("Filename %s got scrmfs fd %d\n",fids[idx].filename,idx);
 
-        /* TODO: need to set meta->size = 0 and meta->pos=0 */
+        chunk_map_t *meta = fids[idx].chunk_map;
+
+        /* set meta->size = 0 and meta->pos=0 */
+        meta->size = 0;
+        meta->pos = 0;
+        meta->chunks = 0;
+
 
         tm1 = scrmfs_wtime();
         ret = __real_open(path, flags, mode);
@@ -767,9 +774,14 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
 
         /* TODO: return error if file does not exist */
 
-        /* TODO: if file does exist, allocate and initialize file descriptor */
+        /* if file does exist, allocate and initialize file descriptor */
 
         idx = i;
+        chunk_map_t *meta = fids[idx].chunk_map;
+
+        /* set meta->size = 0 and meta->pos=0 */
+        meta->pos = 0;
+
         tm1 = scrmfs_wtime();
         ret = __real_open(path, flags);
 

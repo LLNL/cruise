@@ -1,15 +1,6 @@
 #include "uthash.h"
 #include "scrmfs-defs.h"
 
-/* path to fid lookup struct */
-typedef struct
-{
-    int in_use;
-    int real_fd;
-    const char filename[SCRMFS_MAX_FILENAME];
-    off_t chunk_map_offset;
-} filename_to_chunk_map;
-
 typedef struct
 {
     off_t pos;    /* current file position: TODO: move this to a file descriptor */
@@ -19,6 +10,16 @@ typedef struct
     int current_index;
     off_t chunk_offset[SCRMFS_MAX_CHUNKS]; /* chunk offset location in the mem pool */
 } chunk_map_t;
+
+
+/* path to fid lookup struct */
+typedef struct
+{
+    int in_use;
+    int real_fd;
+    const char filename[SCRMFS_MAX_FILENAME];
+    chunk_map_t *chunk_map;
+} filename_to_chunk_map;
 
 typedef struct
 {
