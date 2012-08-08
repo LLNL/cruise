@@ -112,6 +112,8 @@ SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
+SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
+SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
 
 pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 struct scrmfs_job_runtime* scrmfs_global_job = NULL;
@@ -339,6 +341,7 @@ void* free_chunk_stack = NULL;
 filename_to_chunk_map* fids = NULL;
 chunk_map_t* chunk_map = NULL;
 chunk_t *chunk = NULL;
+active_fids_t active_fids[SCRMFS_MAX_FILEDESCS];
 
 
 void* scrmfs_init_superblock(void* superblock)
@@ -381,6 +384,8 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
     void *ptr = NULL;
 
     scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
+
+    /* TODO:improve error-propogation */
     if ( scr_shmblock_shmid < 0 )
     {
         if ( errno == EEXIST )
@@ -404,7 +409,7 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
         else
         {
             perror("shmget() failed");
-            return scr_shmblock_shmid;
+            return NULL;
         }
     }
     else
@@ -458,6 +463,29 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
     return;
 }
 
+/* given a path, return an fd */
+/* TODO: optimize lookup. Used in open, rename, unlink, etc...*/
+static inline int scrmfs_get_fd_from_path( const char* path)
+{
+    int i;
+
+    while (i < SCRMFS_MAX_FILES)
+    {
+        debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
+        if(!strncmp((void *)&fids[i].filename,path,SCRMFS_MAX_FILENAME))
+            break;
+        i++;
+    }
+
+    if (i == SCRMFS_MAX_FILES)
+    {
+        errno = ENOENT;
+        return -1;
+    }
+    return i;
+
+}
+
 /* given a file descriptor, return a pointer to the meta data,
  * otherwise return NULL */
 static inline chunk_map_t* scrmfs_get_meta_fd(int fd)
@@ -482,14 +510,86 @@ static inline void* scrmfs_compute_chunk_buf(const chunk_map_t* meta, int id, of
     return (void*)buf;
 }
 
+int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
+{
+    int ret;
+    int fd;
+
+    fd = scrmfs_get_fd_from_path(oldpath);
+    if (fd < 0)
+    {
+        debug("Couldn't find entry for %s in SCRMFS\n",oldpath);
+        errno = ENOENT;
+        return -1;
+    }
+
+    if (scrmfs_get_fd_from_path(newpath) < 0)
+    {
+        if(memcpy((void *)&fids[fd].filename, newpath, SCRMFS_MAX_FILENAME) == NULL)
+        {
+            perror("memcpy in rename failed\n");
+            return -1;
+        }
+        
+    }
+    else
+    {
+        debug("File %s exists\n",newpath);
+        errno = EEXIST;
+        return -1;
+    }
+
+
+}
+
+int SCRMFS_DECL(truncate)(const char* path, off_t length)
+{
+    int ret;
+    int fd;
+
+    fd = scrmfs_get_fd_from_path(path);
+    if (fd < 0)
+        debug("Couldn't find entry for %s in SCRMFS\n",path);
+
+    chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+    
+    /* update size in meta structure */
+    meta->size = length;
+
+    /* TODO: push truncated chunks back to stack, remove from chunk map */
+
+    return 0;
+}
+
 int SCRMFS_DECL(unlink)(const char *path)
 {
     int ret;
+    int fd;
+    int i = 0;
 
     MAP_OR_FAIL(unlink);
     debug("unlinking %s\n",path);
+
+    fd = scrmfs_get_fd_from_path(path);
+    if (fd < 0)
+        debug("Couldn't find entry for %s in SCRMFS\n",path);
+
+    /* free up idx in free_fid_stack */
+    scrmfs_stack_push(free_fid_stack, fd);
+
+    chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+
+    debug("freeing chunks:");
+    while (i < meta->chunks)
+    {
+        debug("%d,",meta->chunk_offset[i]);
+        scrmfs_stack_push(free_chunk_stack, meta->chunk_offset[i]);
+        i++;
+    }
+    debug("\n");
+
     ret = __real_unlink(path);
-    
+ 
     return ret;
 }
 
@@ -781,8 +881,8 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
 
         /* set meta->size = 0 and meta->pos=0 */
         meta->size = 0;
-        meta->pos = 0;
         meta->chunks = 0;
+        active_fids[idx].pos = 0;
 
 
         tm1 = scrmfs_wtime();
@@ -791,24 +891,16 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     }
     else
     {
-        /* lookup fid from scr stack struct */
-        while (i < SCRMFS_MAX_FILES)
-        {
-            debug("fids[%d].filename = %s; path = %s\n",i,(void *)&fids[i].filename,path);
-            if(!strncmp((void *)&fids[i].filename,path,SCRMFS_MAX_FILENAME))
-                break;
-            i++;
-        }
-
-        /* TODO: return error if file does not exist */
+        /* lookup the fd for this path */
+        idx = scrmfs_get_fd_from_path(path);
+        if (idx < 0)
+            debug("Couldn't find entry for %s in SCRMFS\n",path);
 
         /* if file does exist, allocate and initialize file descriptor */
-
-        idx = i;
         chunk_map_t *meta = fids[idx].chunk_map;
 
-        /* set meta->size = 0 and meta->pos=0 */
-        meta->pos = 0;
+        /* set  meta->pos=0 */
+        active_fids[idx].pos = 0;
 
         tm1 = scrmfs_wtime();
         ret = __real_open(path, flags);
@@ -817,6 +909,9 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         if (!i) { idx = ret; }
         tm2 = scrmfs_wtime();
     }
+
+
+    active_fids[idx].pos = 0;
 
     CP_LOCK();
     CP_RECORD_OPEN(ret, path, mode, 0, tm1, tm2);
@@ -1146,43 +1241,94 @@ ssize_t SCRMFS_DECL(writev)(int fd, const struct iovec *iov, int iovcnt)
 size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
     size_t ret;
-    int aligned_flag = 0;
-    double tm1, tm2;
 
     MAP_OR_FAIL(fread);
 
-    if((unsigned long)ptr % scrmfs_mem_alignment == 0)
-        aligned_flag = 1;
-
-    tm1 = scrmfs_wtime();
     ret = __real_fread(ptr, size, nmemb, stream);
-    tm2 = scrmfs_wtime();
-    CP_LOCK();
-    if(ret > 0)
-        CP_RECORD_READ(size*ret, fileno(stream), (size*nmemb), 0, 0, aligned_flag, 1, tm1, tm2);
-    else
-        CP_RECORD_READ(ret, fileno(stream), (size*nmemb), 0, 0, aligned_flag, 1, tm1, tm2);
-    CP_UNLOCK();
     return(ret);
 }
 
 ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
 {
     ssize_t ret;
-    int aligned_flag = 0;
-    double tm1, tm2;
+    ssize_t read = 0;
 
-    MAP_OR_FAIL(read);
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept)
+    {
+        ret = count;
 
-    if((unsigned long)buf % scrmfs_mem_alignment == 0)
-        aligned_flag = 1;
+        /* get a pointer to the file meta data structure */
+        chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+        if (meta == NULL)
+        {
+            /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return -1;
+        }
 
-    tm1 = scrmfs_wtime();
-    ret = __real_read(fids[fd].real_fd, buf, count);
-    tm2 = scrmfs_wtime();
-    CP_LOCK();
-    CP_RECORD_READ(ret, fd, count, 0, 0, aligned_flag, 0, tm1, tm2);
-    CP_UNLOCK();
+        /* update position */
+        off_t oldpos = active_fids[fd].pos;
+        off_t newpos = oldpos + count;
+        active_fids[fd].pos = newpos;
+
+
+//        while( read < count )
+//        {
+
+            /* get pointer to position within current chunk */
+            int chunk_id = oldpos >> SCRMFS_CHUNK_BITS;
+            off_t chunk_offset = oldpos & SCRMFS_CHUNK_MASK;
+            void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+
+            /* determine how many bytes remain in the current chunk */
+            size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
+            if (count <= remaining)
+            {
+                /* all bytes for this write fit within the current chunk */
+                memcpy( buf, chunk_buf, count);
+            }
+            else
+            {
+                /* read what's left of current chunk */
+                char* ptr = (char*) chunk_buf;
+                memcpy( buf, ptr, remaining);
+                ptr += remaining;
+
+                /* read from the next chunk */
+                size_t read = remaining;
+                while (read < count)
+                {
+                    /* get pointer to start of next chunk */
+                    chunk_id++;
+                    chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
+
+                    /* compute size to read from this chunk */
+                    size_t to_read = count - read;
+                    if (to_read > SCRMFS_CHUNK_SIZE)
+                    {
+                        to_read = SCRMFS_CHUNK_SIZE;
+                    }
+
+                    /* write data */
+                    memcpy( ptr, chunk_buf, to_read);
+                    ptr += to_read;
+
+                    /* update number of bytes written */
+                    read += to_read;
+                }
+            }
+
+//        }
+    }
+    else
+    {
+        MAP_OR_FAIL(read);
+
+        ret = __real_read(fids[fd].real_fd, buf, count);
+    }
+
     return(ret);
 }
 
@@ -1209,9 +1355,16 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         /* update file pointer */
         /* TODO: the current position is really a property of the file descriptor,
          * not the file itself, but for now we have this in the file meta data */
-        off_t oldpos = meta->pos;
+        /* off_t oldpos = meta->pos;
+           off_t newpos = oldpos + count;
+           meta->pos = newpos; */
+
+        /* Raghu: Added a new struct to store positions of active fids.
+         * This struct is not part of superblock - doesn't have to be persistent
+         * TODO: remove pos field from meta data structure, and remove relevant code */
+        off_t oldpos = active_fids[fd].pos;
         off_t newpos = oldpos + count;
-        meta->pos = newpos;
+        active_fids[fd].pos = newpos;
 
         /* if we write past the end of the file, we need to update the
          * file size, and we may need to allocate more chunks */
@@ -1224,10 +1377,12 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
             if (newpos > maxsize) {
                 /* compute number of additional bytes we need */
                 off_t additional = newpos - maxsize;
-                while (additional > 0) {
+                while (additional > 0)
+                {
                   /* allocate a new chunk */
                   int id = scrmfs_stack_pop(free_chunk_stack);
-                  if (id < 0) {
+                  if (id < 0)
+                  {
                       debug("scrmfs_stack_pop() failed (%d)\n", id);
 
                       /* ERROR: device out of space */
@@ -1346,27 +1501,37 @@ off64_t SCRMFS_DECL(lseek64)(int fd, off64_t offset, int whence)
 off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
 {
     off_t ret;
-    struct scrmfs_file_runtime* file;
-    double tm1, tm2;
-
-    MAP_OR_FAIL(lseek);
-
-    tm1 = scrmfs_wtime();
-    ret = __real_lseek(fd, offset, whence);
-    tm2 = scrmfs_wtime();
-    if(ret >= 0)
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept)
     {
-        CP_LOCK();
-        file = scrmfs_file_by_fd(fd);
-        if(file)
+        chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+        if (meta == NULL)
         {
-            file->offset = ret;
-            CP_F_INC_NO_OVERLAP(file, tm1, tm2, file->last_posix_meta_end, CP_F_POSIX_META_TIME);
-            CP_INC(file, CP_POSIX_SEEKS, 1);
+            /* bad file descriptor */
+            errno = EBADF;
+            return -1;
         }
-        CP_UNLOCK();
+
+        if ( whence == SEEK_SET )
+            /* seek to offset */
+            active_fids[fd].pos = offset;
+        else if ( whence == SEEK_CUR )
+            /* seek to current position + offset */
+            active_fids[fd].pos += offset;
+        else if ( whence == SEEK_END)
+            /* seek to EOF + offset */
+            active_fids[fd].pos = meta->size + offset;
+        
+        return (active_fids[fd].pos);
     }
-    return(ret);
+    else
+    {
+        MAP_OR_FAIL(lseek);
+
+        ret = __real_lseek(fd, offset, whence);
+        return(ret);
+    }
 }
 
 int SCRMFS_DECL(fseek)(FILE *stream, long offset, int whence)

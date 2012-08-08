@@ -1,6 +1,13 @@
 #include "uthash.h"
 #include "scrmfs-defs.h"
 
+
+typedef struct
+{
+    int fd;
+    off_t pos;
+} active_fids_t;
+
 typedef struct
 {
     off_t pos;    /* current file position: TODO: move this to a file descriptor */
