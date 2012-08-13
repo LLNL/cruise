@@ -7,9 +7,6 @@
 /* Name of the environment variable that stores the jobid */
 #define CP_JOBID "SLURM_JOBID"
 
-/* Define if cuserid() should be disabled */
-/* #undef SCRMFS_DISABLE_CUSERID */
-
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
@@ -61,14 +58,14 @@
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "scrmfs-runtime"
 
-/* Define to the home page for this package. */
-#define PACKAGE_URL ""
-
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "2.x"
 
 /* Define if <inttypes.h> exists and defines unusable PRI* macros. */
 /* #undef PRI_MACROS_BROKEN */
+
+/* Define if cuserid() should be disabled */
+/* #undef SCRMFS_DISABLE_CUSERID */
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1

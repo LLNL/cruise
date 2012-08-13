@@ -6,9 +6,6 @@
 /* Name of the environment variable that stores the jobid */
 #undef CP_JOBID
 
-/* Define if cuserid() should be disabled */
-#undef SCRMFS_DISABLE_CUSERID
-
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -60,14 +57,14 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
-/* Define to the home page for this package. */
-#undef PACKAGE_URL
-
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
 /* Define if <inttypes.h> exists and defines unusable PRI* macros. */
 #undef PRI_MACROS_BROKEN
+
+/* Define if cuserid() should be disabled */
+#undef SCRMFS_DISABLE_CUSERID
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

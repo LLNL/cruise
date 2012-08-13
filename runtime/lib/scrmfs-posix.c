@@ -115,6 +115,7 @@ SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
+//SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
 
 pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 struct scrmfs_job_runtime* scrmfs_global_job = NULL;
@@ -490,12 +491,17 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 
     rlim_t fd_limit = scrmfs_get_fd_limit();
     debug("FD limit for system = %ld\n",fd_limit);
-    
-    /* TODO: if fd < fd_limit, treat it as system fd and bypass the wrappers */
 
-    int newfd = oldfd;
-    *intercept = 1;
-    *fd = newfd;
+    if ( oldfd <= fd_limit)
+    {
+        *intercept = 0;
+    }
+    else
+    {
+        int newfd = oldfd - fd_limit;
+        *intercept = 1;
+        *fd = newfd;
+    }
 
     return;
 }
@@ -554,7 +560,10 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
     int ret;
     int fd;
 
+    MAP_OR_FAIL(rename);
+
     fd = scrmfs_get_fd_from_path(oldpath);
+    debug("orig file in position %d\n",fd);
     if (fd < 0)
     {
         debug("Couldn't find entry for %s in SCRMFS\n",oldpath);
@@ -564,6 +573,7 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
 
     if (scrmfs_get_fd_from_path(newpath) < 0)
     {
+        debug("Changing %s to %s\n",(void *)&fids[fd].filename, newpath);
         if(memcpy((void *)&fids[fd].filename, newpath, SCRMFS_MAX_FILENAME) == NULL)
         {
             perror("memcpy in rename failed\n");
@@ -578,13 +588,14 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
         return -1;
     }
 
-
 }
 
 int SCRMFS_DECL(truncate)(const char* path, off_t length)
 {
     int ret;
     int fd;
+    
+    MAP_OR_FAIL(truncate);
 
     fd = scrmfs_get_fd_from_path(path);
     if (fd < 0)
@@ -957,7 +968,8 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         debug("SCRMFS_open generated fd %d for file %s\n",idx,path);    
         fids[idx].real_fd= -1; /* TODO: remove this remnant from a prev hack
                                 * and any corresponding code that uses this*/
-        return idx;
+        /* don't conflict with active system fds that range from 0 - (fd_limit) */
+        return (idx + fd_limit);
     }
     else /* if not intercepting this call */
     {
@@ -1090,11 +1102,26 @@ int SCRMFS_DECL(__fxstat64)(int vers, int fd, struct stat64 *buf)
     return(ret);
 }
 
+/*
+int SCRMFS_DECL(__stat)( const char *path, struct stat *buf)
+{
+
+    int ret;
+    debug("stat called..\n");
+
+    MAP_OR_FAIL(__stat);
+    ret = __real_stat(path,buf);
+    
+    return ret;
+
+} */
 
 int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
 {
-    int ret;
+    int ret, idx;
     double tm1, tm2;
+
+    debug("xstat was called for %s....\n",path);
 
     MAP_OR_FAIL(__xstat);
 
@@ -1116,6 +1143,7 @@ int SCRMFS_DECL(__lxstat)(int vers, const char *path, struct stat *buf)
     int ret;
     double tm1, tm2;
 
+    debug("lxstat was called....\n");
     MAP_OR_FAIL(__lxstat);
 
     tm1 = scrmfs_wtime();
@@ -1137,8 +1165,7 @@ int SCRMFS_DECL(__fxstat)(int vers, int fd, struct stat *buf)
     struct scrmfs_file_runtime* file;
     double tm1, tm2;
 
-    fd = fids[fd].real_fd;
-
+    debug("fxstat was called....\n");
     MAP_OR_FAIL(__fxstat);
 
     tm1 = scrmfs_wtime();
@@ -1392,14 +1419,16 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
     /* check file descriptor to determine whether we should pick off this call */
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    if (intercept)
+    {
         /* assume we'll succeed with the write,
          * so set return value to count */
         ret = count;
 
         /* get a pointer to the file meta data structure */
         chunk_map_t* meta = scrmfs_get_meta_fd(fd);
-        if (meta == NULL) {
+        if (meta == NULL)
+        {
             /* ERROR: invalid file descriptor */
             errno = EBADF;
             return -1;
