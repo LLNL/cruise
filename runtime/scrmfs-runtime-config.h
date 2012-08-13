@@ -92,7 +92,7 @@
 #define __CP_LOG_HINTS ""
 
 /* Location to store log files at run time */
-#define __CP_LOG_PATH "./log-dir"
+#define __CP_LOG_PATH "/g/g92/rajachan/memfs/runtime/log-dir"
 
 /* Memory alignment in bytes */
 #define __CP_MEM_ALIGNMENT 8
