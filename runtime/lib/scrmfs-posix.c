@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <string.h>
@@ -396,6 +397,7 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
             if(scr_shmblock < 0)
             {
                 perror("shmat() failed");
+                return NULL;
             }
             debug("Superblock exists at %p\n!",scr_shmblock);
         
@@ -448,6 +450,22 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
 
 }
 
+/* returns a flag if the path is a special path */
+int scrmfs_exclude_path(const char* path)
+{
+    int i = 0;
+    char *exclude;
+
+    while( exclude = exclusions[i] )
+    {
+        if(!(strncmp(exclude, path, strlen(exclude))))
+            return 1;
+        i++;
+    }
+    return 0;
+
+}
+
 /* given an fd, return 1 if we should intercept this file, 0 otherwise,
  * convert fd to new fd value if needed */
 static inline void scrmfs_intercept_fd(int* fd, int* intercept)
@@ -464,8 +482,7 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 }
 
 /* given a path, return an fd */
-/* TODO: optimize lookup. Used in open, rename, unlink, etc...*/
-static inline int scrmfs_get_fd_from_path( const char* path)
+int scrmfs_get_fd_from_path( const char* path)
 {
     int i;
 
@@ -578,6 +595,13 @@ int SCRMFS_DECL(unlink)(const char *path)
     scrmfs_stack_push(free_fid_stack, fd);
 
     chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+    if ( meta == NULL )
+    {
+        /* ERROR: invalid file descriptor */
+        errno = EBADF;
+        return -1;
+    }
+
 
     debug("freeing chunks:");
     while (i < meta->chunks)
@@ -820,13 +844,29 @@ int SCRMFS_DECL(open64)(const char* path, int flags, ...)
     return(ret);
 }
 
+rlim_t scrmfs_get_fd_limit(void)
+{
+    struct rlimit *r_limit;
+    rlim_t fd_limit;
+
+    r_limit =  malloc(sizeof(r_limit));
+    if (getrlimit(RLIMIT_NOFILE, r_limit) < 0 )
+        perror("rlimit failed:");
+    fd_limit = r_limit->rlim_cur;
+
+    free(r_limit);
+    return fd_limit;
+
+}
+
 int SCRMFS_DECL(open)(const char *path, int flags, ...)
 {
     int mode = 0;
     int ret, idx;
     int i = 0;
-    double tm1, tm2;
 
+    rlim_t fd_limit = scrmfs_get_fd_limit();
+    debug("FD limit for system = %ld\n",fd_limit);
 
     MAP_OR_FAIL(open);
 
@@ -858,66 +898,58 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         mode = va_arg(arg, int);
         va_end(arg);
 
-        /* TODO: if the file already exists, then we need to delete it,
-         * unless O_EXCL is also set, in which case we return an error (i think) */
-
-        debug("scr_superblock = %p; free_fid_stack = %p; free_chunk_stack = %p; fids = %p; chunks = %p\n",
-                                        scr_superblock,free_fid_stack,free_chunk_stack,fids,chunk);
-        idx = scrmfs_stack_pop(free_fid_stack);
+        idx = scrmfs_get_fd_from_path(path);
         if (idx < 0)
         {
-            debug("scrmfs_stack_pop() failed (%d)\n",idx);
-            return -1;
+            debug("Couldn't find entry for %s in SCRMFS\n",path);
+            debug("scr_superblock = %p; free_fid_stack = %p; free_chunk_stack = %p; fids = %p; chunks = %p\n",
+                                            scr_superblock,free_fid_stack,free_chunk_stack,fids,chunk);
+            idx = scrmfs_stack_pop(free_fid_stack);
+            debug("scrmfs_stack_pop() gave %d\n",idx);
+            if (idx < 0)
+            {
+                debug("scrmfs_stack_pop() failed (%d)\n",idx);
+                return -1;
+            }
+
+            fids[idx].in_use = 1;
+            fids[idx].chunk_map = chunk_map + (idx * sizeof(chunk_map_t));
+            if(memcpy((void *)&fids[idx].filename, path, SCRMFS_MAX_FILENAME) == NULL)
+                perror("memcpy() failed");
+
+            debug("Filename %s got scrmfs fd %d\n",fids[idx].filename,idx);
+
+            chunk_map_t *meta = fids[idx].chunk_map;
+
+            /* set meta->size = 0 and meta->pos=0 */
+            meta->size = 0;
+            meta->chunks = 0;
         }
+        debug("SCRMFS_open generated fd %d for file %s\n",idx,path);    
 
-        fids[idx].in_use = 1;
-        fids[idx].chunk_map = chunk_map + (idx * sizeof(chunk_map_t));
-        if(memcpy((void *)&fids[idx].filename, path, SCRMFS_MAX_FILENAME) == NULL)
-            perror("memcpy() failed");
-
-        debug("Filename %s got scrmfs fd %d\n",fids[idx].filename,idx);
-
-        chunk_map_t *meta = fids[idx].chunk_map;
-
-        /* set meta->size = 0 and meta->pos=0 */
-        meta->size = 0;
-        meta->chunks = 0;
-        active_fids[idx].pos = 0;
-
-
-        tm1 = scrmfs_wtime();
         ret = __real_open(path, flags, mode);
-        tm2 = scrmfs_wtime();
     }
     else
     {
         /* lookup the fd for this path */
         idx = scrmfs_get_fd_from_path(path);
+        debug("scrmfs_stack_pop() gave %d\n",idx);
         if (idx < 0)
+        {
             debug("Couldn't find entry for %s in SCRMFS\n",path);
+            errno = ENOENT;
+            return -1;
+        }
 
-        /* if file does exist, allocate and initialize file descriptor */
-        chunk_map_t *meta = fids[idx].chunk_map;
-
-        /* set  meta->pos=0 */
-        active_fids[idx].pos = 0;
-
-        tm1 = scrmfs_wtime();
         ret = __real_open(path, flags);
 
         /* testing hack: return system fd if nto found in stack*/
         if (!i) { idx = ret; }
-        tm2 = scrmfs_wtime();
     }
 
 
     active_fids[idx].pos = 0;
-
-    CP_LOCK();
-    CP_RECORD_OPEN(ret, path, mode, 0, tm1, tm2);
-    CP_UNLOCK();
-
-    debug("open generated fd %d for file %s\n",idx,path);    
+    debug("SCRMFS_open generated fd %d for file %s\n",idx,path);    
     fids[idx].real_fd= ret;
     return(idx);
 }
