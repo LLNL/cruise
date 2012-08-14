@@ -443,15 +443,11 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
 
     }
     
-    /* swipe-clean superblock */    
-    /* do this after moving this call to some form of init() */
-    // memset(scr_shmblock,0,size);
-
     return scr_shmblock;
 
 }
 
-/* returns a flag if the path is a special path */
+/* sets flag if the path is a special path */
 int scrmfs_exclude_path(const char* path)
 {
     int i = 0;
@@ -473,6 +469,9 @@ rlim_t scrmfs_get_fd_limit(void)
     rlim_t fd_limit;
 
     r_limit =  malloc(sizeof(r_limit));
+
+    /* RLIMIT_NOFILE specifies a value one greater than the maximum
+     * file descriptor number that can be opened by this process */
     if (getrlimit(RLIMIT_NOFILE, r_limit) < 0 )
         perror("rlimit failed:");
     fd_limit = r_limit->rlim_cur;
@@ -557,43 +556,52 @@ static inline void* scrmfs_compute_chunk_buf(const chunk_map_t* meta, int id, of
 
 int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
 {
-    int ret;
     int fd;
 
-    MAP_OR_FAIL(rename);
-
-    fd = scrmfs_get_fd_from_path(oldpath);
-    debug("orig file in position %d\n",fd);
-    if (fd < 0)
+    if (!scrmfs_exclude_path(oldpath))
     {
-        debug("Couldn't find entry for %s in SCRMFS\n",oldpath);
-        errno = ENOENT;
-        return -1;
-    }
 
-    if (scrmfs_get_fd_from_path(newpath) < 0)
-    {
-        debug("Changing %s to %s\n",(void *)&fids[fd].filename, newpath);
-        if(memcpy((void *)&fids[fd].filename, newpath, SCRMFS_MAX_FILENAME) == NULL)
+        fd = scrmfs_get_fd_from_path(oldpath);
+        debug("orig file in position %d\n",fd);
+        if (fd < 0)
         {
-            perror("memcpy in rename failed\n");
+            debug("Couldn't find entry for %s in SCRMFS\n",oldpath);
+            errno = ENOENT;
             return -1;
         }
-        
+
+        if (scrmfs_get_fd_from_path(newpath) < 0)
+        {
+            debug("Changing %s to %s\n",(void *)&fids[fd].filename, newpath);
+            if(memcpy((void *)&fids[fd].filename, newpath, SCRMFS_MAX_FILENAME) == NULL)
+            {
+                perror("memcpy in rename failed\n");
+                return -1;
+            }
+            
+        }
+        else
+        {
+            debug("File %s exists\n",newpath);
+            errno = EEXIST;
+            return -1;
+        }
+        return 0;
     }
     else
     {
-        debug("File %s exists\n",newpath);
-        errno = EEXIST;
-        return -1;
+        MAP_OR_FAIL(rename);
+        int ret = __real_rename(oldpath,newpath);
+        return ret;
     }
+
 
 }
 
 int SCRMFS_DECL(truncate)(const char* path, off_t length)
 {
     int ret;
-    int fd;
+    int fd, i;
     
     MAP_OR_FAIL(truncate);
 
@@ -602,80 +610,86 @@ int SCRMFS_DECL(truncate)(const char* path, off_t length)
         debug("Couldn't find entry for %s in SCRMFS\n",path);
 
     chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+
+    int last_chunk_id = length >> SCRMFS_CHUNK_BITS;
+    debug("The last chunk id is %d (truncated to %ld)\n", last_chunk_id, length);
     
     /* update size in meta structure */
     meta->size = length;
+    i = last_chunk_id;
 
-    /* TODO: push truncated chunks back to stack, remove from chunk map */
+    while (i < meta->chunks)
+    {
+        debug("truncate chunk %d\n",meta->chunk_offset[i]);
+        scrmfs_stack_push(free_chunk_stack, meta->chunk_offset[i]);
+        i++;
+    }
+    
+    meta->chunks = last_chunk_id; 
 
     return 0;
 }
 
 int SCRMFS_DECL(unlink)(const char *path)
 {
-    int ret;
     int fd;
     int i = 0;
 
-    MAP_OR_FAIL(unlink);
-    debug("unlinking %s\n",path);
-
-    fd = scrmfs_get_fd_from_path(path);
-    if (fd < 0)
-        debug("Couldn't find entry for %s in SCRMFS\n",path);
-
-    /* free up idx in free_fid_stack */
-    scrmfs_stack_push(free_fid_stack, fd);
-
-    chunk_map_t* meta = scrmfs_get_meta_fd(fd);
-    if ( meta == NULL )
+    if (!scrmfs_exclude_path(path))
     {
-        /* ERROR: invalid file descriptor */
-        errno = EBADF;
-        return -1;
+        debug("unlinking %s\n",path);
+
+        fd = scrmfs_get_fd_from_path(path);
+        if (fd < 0)
+        {
+            debug("Couldn't find entry for %s in SCRMFS\n",path);
+            return -1;
+        }
+
+        /* free up idx in free_fid_stack */
+        scrmfs_stack_push(free_fid_stack, fd);
+
+        chunk_map_t* meta = scrmfs_get_meta_fd(fd);
+        if ( meta == NULL )
+        {
+            /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return -1;
+        }
+
+
+        while (i < meta->chunks)
+        {
+            debug("freeing %d\n",meta->chunk_offset[i]);
+            scrmfs_stack_push(free_chunk_stack, meta->chunk_offset[i]);
+            i++;
+        }
+        return 0;
     }
-
-
-    debug("freeing chunks:");
-    while (i < meta->chunks)
+    else
     {
-        debug("%d,",meta->chunk_offset[i]);
-        scrmfs_stack_push(free_chunk_stack, meta->chunk_offset[i]);
-        i++;
+        MAP_OR_FAIL(unlink);
+        int ret = __real_unlink(path);
+        return ret;
     }
-    debug("\n");
-
-    ret = __real_unlink(path);
  
-    return ret;
 }
 
 int SCRMFS_DECL(close)(int fd)
 {
-    struct scrmfs_file_runtime* file;
-    int tmp_fd = fd;
-    double tm1, tm2;
-    int ret;
-
-    MAP_OR_FAIL(close);
-
-    tm1 = scrmfs_wtime();
-    ret = __real_close(fids[fd].real_fd);
-    tm2 = scrmfs_wtime();
-
-    CP_LOCK();
-    file = scrmfs_file_by_fd(tmp_fd);
-    if(file)
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept)
     {
-        file->last_byte_written = 0;
-        file->last_byte_read = 0;
-        CP_F_SET(file, CP_F_CLOSE_TIMESTAMP, posix_wtime());
-        CP_F_INC_NO_OVERLAP(file, tm1, tm2, file->last_posix_meta_end, CP_F_POSIX_META_TIME);
-        scrmfs_file_close_fd(tmp_fd);
+        debug("closing fd %d\n",fd);
+        return 0;
     }
-    CP_UNLOCK();
-
-    return(ret);
+    else
+    {
+        MAP_OR_FAIL(close);
+        int ret = __real_close(fids[fd].real_fd);
+        return ret;
+    }
 }
 
 int SCRMFS_DECL(fclose)(FILE *fp)
@@ -896,14 +910,14 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         /* TODO: determine whether we want to pick off this file or just
          * pass it to the normal open call */
 
-        /* get a superblock of persistent memory - later move to SCR init */
+        /* get a superblock of persistent memory */
         size_t superblock_size =   scrmfs_stack_bytes(SCRMFS_MAX_FILES)
                                     + (SCRMFS_MAX_FILES * sizeof(filename_to_chunk_map))
                                     /* generous allocation for chunk map (one file can take entire space)*/
                                     + (SCRMFS_MAX_FILES * sizeof(chunk_map_t))
                                     + (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
 
-    
+        /* TODO:expose API as a init call that can be called from SCR_Init */ 
         scr_superblock = scrmfs_get_shmblock (superblock_size, SCRMFS_SUPERBLOCK_KEY);
 
         if(scr_superblock == NULL)
@@ -1118,24 +1132,19 @@ int SCRMFS_DECL(__stat)( const char *path, struct stat *buf)
 
 int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
 {
-    int ret, idx;
-    double tm1, tm2;
-
     debug("xstat was called for %s....\n",path);
+    if (!scrmfs_exclude_path(path))
+    {
+        return 0;
+    }
+    else
+    { 
+        MAP_OR_FAIL(__xstat);
 
-    MAP_OR_FAIL(__xstat);
-
-    tm1 = scrmfs_wtime();
-    ret = __real___xstat(vers, path, buf);
-    tm2 = scrmfs_wtime();
-    if(ret < 0 || !S_ISREG(buf->st_mode))
-        return(ret);
-
-    CP_LOCK();
-    CP_LOOKUP_RECORD_STAT(path, buf, tm1, tm2);
-    CP_UNLOCK();
-
-    return(ret);
+        int ret = __real___xstat(vers, path, buf);
+        return ret;
+    }
+        
 }
 
 int SCRMFS_DECL(__lxstat)(int vers, const char *path, struct stat *buf)
