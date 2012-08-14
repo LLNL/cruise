@@ -35,7 +35,7 @@ typedef int64_t off64_t;
 
 extern char* __progname_full;
 
-#define SCRMFS_DEBUG
+//#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
@@ -489,9 +489,8 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
     int oldfd = *fd;
 
     rlim_t fd_limit = scrmfs_get_fd_limit();
-    debug("FD limit for system = %ld\n",fd_limit);
 
-    if ( oldfd <= fd_limit)
+    if ( oldfd < fd_limit)
     {
         *intercept = 0;
     }
@@ -500,6 +499,7 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
         int newfd = oldfd - fd_limit;
         *intercept = 1;
         *fd = newfd;
+        debug("Changing fd from exposed %d to internal %d\n",oldfd,newfd);
     }
 
     return;
@@ -687,7 +687,7 @@ int SCRMFS_DECL(close)(int fd)
     else
     {
         MAP_OR_FAIL(close);
-        int ret = __real_close(fids[fd].real_fd);
+        int ret = __real_close(fd);
         return ret;
     }
 }
