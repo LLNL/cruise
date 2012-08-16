@@ -35,7 +35,7 @@
 	Copy the output of each of these commands to a separate variable,'
 	say $(PRE_SCRMFS_FLAGS) and $(POST_SCRMFS_FLAGS)
 
-5. Compile the program
+5. Compile the test program
 
 	If you're compiling test_ramdisk.c for instance, you would do
 	something like this in your makefile:
@@ -44,4 +44,14 @@
 	POST_SCRMFS_FLAGS = output of ./install/bin/scrmfs-config --post-ld-flags
 
 	mpicc $(PRE_SCRMFS_FLAGS) -o test_ramdisk test_ramdisk.c $(POST_SCRMFS_FLAGS)
+
+	If you are running test_interpose, you can do something similar in
+	makefile.examples.
+
+6. If you don't want to statically build, but just preload instead, preload this shared object:
+
+	LD_PRELOAD=$INSTALL_PATH/lib/libscrmfs.so ./test_interpose
+
+7. Use the "ipcs" command to list the currently opened shm segments.
+   Use "ipcrm -M key" to delete it after a run.
 
