@@ -1,0 +1,47 @@
+1. Configure with the following flags:
+
+./configure 	--prefix=/g/g92/rajachan/memfs/runtime/install
+		--with-mem-align=8 CC=mpicc
+		--with-log-path=/g/g92/rajachan/memfs/runtime/log-dir
+		--with-jobid-env=SLURM_JOBID
+		--enable-ld-preload
+
+--with-mem-align=8
+
+	Really not needed, but the darshan build system that I use will
+	complain otherwise. 
+
+--with-log-path
+
+	Again, really not needed. But there are some darshan logging macros
+	lying around in the code that are yet to be stripped out. Just
+	create an empty directory and pass it to this flag.
+
+ --enable-ld-preload
+
+	This is needed to generate the .so lib that we will preload
+	(if not statically building)
+
+2. make && make install
+
+3. Run ./install/bin/scrmfs-mk-log-dirs.pl
+	
+	So that the darshan-specific folder structure is created.
+	I will strip all this stuff out once I get back to school.
+
+4. Run "./install/bin/scrmfs-config --pre-ld-flags"
+   and "./install/bin/scrmfs-config --post-ld-flags"
+
+	Copy the output of each of these commands to a separate variable,'
+	say $(PRE_SCRMFS_FLAGS) and $(POST_SCRMFS_FLAGS)
+
+5. Compile the program
+
+	If you're compiling test_ramdisk.c for instance, you would do
+	something like this in your makefile:
+	
+	PRE_SCRMFS_FLAGS  = output of ./install/bin/scrmfs-config --pre-ld-flags
+	POST_SCRMFS_FLAGS = output of ./install/bin/scrmfs-config --post-ld-flags
+
+	mpicc $(PRE_SCRMFS_FLAGS) -o test_ramdisk test_ramdisk.c $(POST_SCRMFS_FLAGS)
+
