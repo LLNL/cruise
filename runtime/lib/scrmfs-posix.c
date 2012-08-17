@@ -349,6 +349,19 @@ static char*  scrmfs_mount_prefix = NULL;
 static size_t scrmfs_mount_prefixlen = 0;
 static key_t  scrmfs_mount_key = 0;
 
+#if 0
+/* simple memcpy which compilers should be able to vectorize
+ * from: http://software.intel.com/en-us/articles/memcpy-performance/
+ * icc -restrict -O3 ... */
+static inline void* scrmfs_memcpy(void *restrict b, const void *restrict a, size_t n)
+{
+    char *s1 = b;
+    const char *s2 = a;
+    for(; 0<n; --n)*s1++ = *s2++;
+    return b;
+}
+#endif
+
 /* mount memfs at some prefix location */
 int scrmfs_mount(const char prefix[], int rank)
 {
@@ -362,9 +375,9 @@ int scrmfs_mount(const char prefix[], int rank)
 /* initialize our global pointers into the given superblock */
 static void* scrmfs_init_globals(void* superblock)
 {
-    void* ptr = NULL;
+    char* ptr = NULL;
 
-    ptr = superblock;
+    ptr = (char*) superblock;
 
     /* SCR stack to manage metadata structures */
     free_fid_stack = ptr;
@@ -1521,11 +1534,13 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
             /* all bytes for this write fit within the current chunk */
             memcpy(chunk_buf, buf, count);
 //            _intel_fast_memcpy(chunk_buf, buf, count);
+//            scrmfs_memcpy(chunk_buf, buf, count);
         } else {
             /* otherwise, fill up the remainder of the current chunk */
             char* ptr = (char*) buf;
             memcpy(chunk_buf, ptr, remaining);
 //            _intel_fast_memcpy(chunk_buf, ptr, remaining);
+//            scrmfs_memcpy(chunk_buf, ptr, remaining);
             ptr += remaining;
 
             /* then write the rest of the bytes starting from beginning
@@ -1545,6 +1560,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                 /* write data */
                 memcpy(chunk_buf, ptr, nwrite);
 //                _intel_fast_memcpy(chunk_buf, ptr, nwrite);
+//                scrmfs_memcpy(chunk_buf, ptr, nwrite);
                 ptr += nwrite;
 
                 /* update number of bytes written */
