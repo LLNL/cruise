@@ -1,0 +1,96 @@
+sierra400@rajachan:srun -n 1 -N 1  --auto-affinity=cpus=0  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 4164.86 MB/s        Max 4164.86 MB/s        Avg 4164.86 MB/s        Agg 4164.86 MB/s
+sierra400@rajachan:srun -n 2 -N 1  --auto-affinity=cpus=0-1  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 2912.06 MB/s        Max 3189.59 MB/s        Avg 3050.82 MB/s        Agg 6101.65 MB/s
+sierra400@rajachan:srun -n 3 -N 1  --auto-affinity=cpus=0-2  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 2557.60 MB/s        Max 2581.98 MB/s        Avg 2567.08 MB/s        Agg 7701.23 MB/s
+sierra400@rajachan:srun -n 4 -N 1  --auto-affinity=cpus=0-3  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 2030.57 MB/s        Max 2150.35 MB/s        Avg 2090.49 MB/s        Agg 8361.98 MB/s
+sierra400@rajachan:srun -n 5 -N 1  --auto-affinity=cpus=0-4  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1759.29 MB/s        Max 1835.66 MB/s        Avg 1798.27 MB/s        Agg 8991.34 MB/s
+sierra400@rajachan:srun -n 6 -N 1  --auto-affinity=cpus=0-5  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1538.46 MB/s        Max 1654.05 MB/s        Avg 1578.70 MB/s        Agg 9472.20 MB/s
+sierra400@rajachan:srun -n 7 -N 1  --auto-affinity=cpus=0-6  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1406.23 MB/s        Max 2086.43 MB/s        Avg 1534.43 MB/s        Agg 10741.03 MB/s
+sierra400@rajachan:srun -n 8 -N 1  --auto-affinity=cpus=0-7  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1278.79 MB/s        Max 1994.59 MB/s        Avg 1485.43 MB/s        Agg 11883.43 MB/s
+sierra400@rajachan:srun -n 9 -N 1  --auto-affinity=cpus=0-8  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1189.07 MB/s        Max 1559.96 MB/s        Avg 1324.63 MB/s        Agg 11921.69 MB/s
+sierra400@rajachan:srun -n 10 -N 1  --auto-affinity=cpus=0-9  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1264.91 MB/s        Max 1625.63 MB/s        Avg 1427.22 MB/s        Agg 14272.24 MB/s
+sierra400@rajachan:srun -n 11 -N 1  --auto-affinity=cpus=0-10  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1344.72 MB/s        Max 1563.26 MB/s        Avg 1446.41 MB/s        Agg 15910.52 MB/s
+sierra400@rajachan:srun -n 12 -N 1  --auto-affinity=cpus=0-11  ./test_scrmfs ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1083.08 MB/s        Max 1243.08 MB/s        Avg 1150.77 MB/s        Agg 13809.24 MB/s

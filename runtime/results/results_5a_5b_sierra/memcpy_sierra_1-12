@@ -1,0 +1,88 @@
+sierra400@rajachan:srun -n 2 -N 1  --auto-affinity=cpus=0-1  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 3469.57 MB/s        Max 3495.53 MB/s        Avg 3482.55 MB/s        Agg 6965.10 MB/s
+sierra400@rajachan:srun -n 3 -N 1  --auto-affinity=cpus=0-2  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 2733.58 MB/s        Max 2747.58 MB/s        Avg 2740.50 MB/s        Agg 8221.50 MB/s
+sierra400@rajachan:srun -n 4 -N 1  --auto-affinity=cpus=0-3  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 2219.97 MB/s        Max 2228.28 MB/s        Avg 2225.01 MB/s        Agg 8900.04 MB/s
+sierra400@rajachan:srun -n 5 -N 1  --auto-affinity=cpus=0-4  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1879.64 MB/s        Max 1901.24 MB/s        Avg 1890.68 MB/s        Agg 9453.38 MB/s
+sierra400@rajachan:srun -n 6 -N 1  --auto-affinity=cpus=0-5  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1619.48 MB/s        Max 1638.07 MB/s        Avg 1631.06 MB/s        Agg 9786.38 MB/s
+sierra400@rajachan:srun -n 7 -N 1  --auto-affinity=cpus=0-6  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1612.67 MB/s        Max 4068.15 MB/s        Avg 1973.84 MB/s        Agg 13816.91 MB/s
+sierra400@rajachan:srun -n 8 -N 1  --auto-affinity=cpus=0-7  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1577.93 MB/s        Max 3136.29 MB/s        Avg 1976.34 MB/s        Agg 15810.73 MB/s
+sierra400@rajachan:srun -n 9 -N 1  --auto-affinity=cpus=0-8  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1585.19 MB/s        Max 2570.30 MB/s        Avg 1921.22 MB/s        Agg 17291.02 MB/s
+sierra400@rajachan:srun -n 10 -N 1  --auto-affinity=cpus=0-9  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1572.43 MB/s        Max 2020.15 MB/s        Avg 1757.50 MB/s        Agg 17575.05 MB/s
+sierra400@rajachan:srun -n 11 -N 1  --auto-affinity=cpus=0-10  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1547.33 MB/s        Max 1772.02 MB/s        Avg 1652.60 MB/s        Agg 18178.63 MB/s
+sierra400@rajachan:srun -n 12 -N 1  --auto-affinity=cpus=0-11  ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1521.38 MB/s        Max 1541.23 MB/s        Avg 1532.46 MB/s        Agg 18389.53 MB/s

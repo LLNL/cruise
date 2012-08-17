@@ -1,0 +1,97 @@
+sierra400@rajachan:srun -n 1 -N 1  --auto-affinity=cpus=0  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1710.90 MB/s        Max 1710.90 MB/s        Avg 1710.90 MB/s        Agg 1710.90 MB/s
+sierra400@rajachan:srun -n 2 -N 1  --auto-affinity=cpus=0-1  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1550.58 MB/s        Max 1557.64 MB/s        Avg 1554.11 MB/s        Agg 3108.22 MB/s
+sierra400@rajachan:srun -n 3 -N 1  --auto-affinity=cpus=0-2  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1421.62 MB/s        Max 1443.49 MB/s        Avg 1432.63 MB/s        Agg 4297.89 MB/s
+sierra400@rajachan:srun -n 4 -N 1  --auto-affinity=cpus=0-3  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1284.54 MB/s        Max 1294.14 MB/s        Avg 1288.82 MB/s        Agg 5155.28 MB/s
+sierra400@rajachan:srun -n 5 -N 1  --auto-affinity=cpus=0-4  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1152.31 MB/s        Max 1161.39 MB/s        Avg 1157.51 MB/s        Agg 5787.56 MB/s
+sierra400@rajachan:srun -n 6 -N 1  --auto-affinity=cpus=0-5  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1008.26 MB/s        Max 1020.92 MB/s        Avg 1016.65 MB/s        Agg 6099.92 MB/s
+sierra400@rajachan:srun -n 7 -N 1  --auto-affinity=cpus=0-6  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min  991.30 MB/s        Max 1664.94 MB/s        Avg 1093.61 MB/s        Agg 7655.26 MB/s
+sierra400@rajachan:srun -n 8 -N 1  --auto-affinity=cpus=0-7  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min  976.60 MB/s        Max 1491.97 MB/s        Avg 1109.57 MB/s        Agg 8876.53 MB/s
+sierra400@rajachan:srun -n 9 -N 1  --auto-affinity=cpus=0-8  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min  963.84 MB/s        Max 1366.15 MB/s        Avg 1100.75 MB/s        Agg 9906.79 MB/s
+ierra400@rajachan:srun -n 10 -N 1  --auto-affinity=cpus=0-9  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min  949.63 MB/s        Max 1210.77 MB/s        Avg 1056.83 MB/s        Agg 10568.29 MB/s
+sierra400@rajachan:srun -n 11 -N 1  --auto-affinity=cpus=0-10  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min  937.71 MB/s        Max 1068.93 MB/s        Avg  998.10 MB/s        Agg 10979.15 MB/s
+sierra400@rajachan:srun -n 12 -N 1  --auto-affinity=cpus=0-11  ./test_ramdisk ; ./ipc_cleanup
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min  892.55 MB/s        Max  909.08 MB/s        Avg  899.42 MB/s        Agg 10793.06 MB/s
+
