@@ -46,7 +46,7 @@ mkdir `pwd`/log-dir
 setenv PRE_SCRMFS_FLAGS `./install/bin/scrmfs-config --pre-ld-flags`
 setenv POST_SCRMFS_FLAGS `./install/bin/scrmfs-config --post-ld-flags`
 
-mpicc $PRE_SCRMFS_FLAGS -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
+mpicc $PRE_SCRMFS_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
 
 	If you are running test_interpose, you can do something similar in
 	makefile.examples.

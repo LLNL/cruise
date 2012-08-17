@@ -400,6 +400,9 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
                 return NULL;
             }
             debug("Superblock exists at %p\n!",scr_shmblock);
+
+            /* init our global variables to point to spots in superblock */
+            scrmfs_init_globals(scr_shmblock);
         }
         else
         {
@@ -417,6 +420,9 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
         }
         debug("Superblock created at %p\n!",scr_shmblock);
 
+        /* init our global variables to point to spots in superblock */
+        scrmfs_init_globals(scr_shmblock);
+
         /* initialize block allocators within block */
         if (!scrmfs_stack_init_done)
         {
@@ -429,9 +435,6 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
 
     }
     
-    /* init our global variables to point to spots in superblock */
-    scrmfs_init_globals(scr_shmblock);
-
     return scr_shmblock;
 }
 
