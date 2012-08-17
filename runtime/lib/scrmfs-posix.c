@@ -345,11 +345,22 @@ static scrmfs_filemeta_t* scrmfs_filemetas = NULL;
 static chunk_t *chunk = NULL;
 static active_fds_t scrmfs_active_fds[SCRMFS_MAX_FILEDESCS];
 static rlim_t scrmfs_fd_limit;
-static const char scrmfs_mount_prefix[] = "/tmp";
-static size_t scrmfs_mount_prefixlen = 4;
+static char*  scrmfs_mount_prefix = NULL;
+static size_t scrmfs_mount_prefixlen = 0;
+static key_t  scrmfs_mount_key = 0;
+
+/* mount memfs at some prefix location */
+int scrmfs_mount(const char prefix[], int rank)
+{
+    scrmfs_mount_prefix = strdup(prefix);
+    scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
+    //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+    scrmfs_mount_key = IPC_PRIVATE;
+    return 0;
+}
 
 /* initialize our global pointers into the given superblock */
-void* scrmfs_init_globals(void* superblock)
+static void* scrmfs_init_globals(void* superblock)
 {
     void* ptr = NULL;
 
@@ -378,10 +389,9 @@ void* scrmfs_init_globals(void* superblock)
     return ptr;
 }
 
-
 /* grab a superblock shm segment from SCR_Init */
 /* currently called from each open call */
-void* scrmfs_get_shmblock(size_t size, key_t key)
+static void* scrmfs_get_shmblock(size_t size, key_t key)
 {
     void *scr_shmblock = NULL;
 
@@ -427,9 +437,60 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
     return scr_shmblock;
 }
 
+static int scrmfs_init()
+{
+    /* TODO: expose API as a init call that can be called from SCR_Init */ 
+
+    if (! scrmfs_initialized) {
+        /* record the max fd for the system */
+        /* RLIMIT_NOFILE specifies a value one greater than the maximum
+         * file descriptor number that can be opened by this process */
+        struct rlimit *r_limit = malloc(sizeof(r_limit));
+        if (r_limit == NULL) {
+            perror("failed to allocate memory for call to getrlimit");
+            return 1;
+        }
+        if (getrlimit(RLIMIT_NOFILE, r_limit) < 0) {
+            perror("rlimit failed:");
+            return 1;
+        }
+        scrmfs_fd_limit = r_limit->rlim_cur;
+        free(r_limit);
+        debug("FD limit for system = %ld\n",scrmfs_fd_limit);
+
+        scrmfs_mount("/tmp", 0);
+        
+        /* determine the size of the superblock */
+        size_t superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
+                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
+                                 /* generous allocation for chunk map (one file can take entire space)*/
+                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
+                                 (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
+
+        /* get a superblock of persistent memory and initialize our
+         * global variables for this block */
+        scrmfs_superblock = scrmfs_get_shmblock (superblock_size, scrmfs_mount_key);
+        if(scrmfs_superblock == NULL)
+        {
+            debug("scrmfs_get_shmblock() failed\n");
+            return 1;
+        }
+
+        /* remember that we've now initialized the library */
+        scrmfs_initialized = 1;
+    }
+
+    return 0;
+}
+
 /* sets flag if the path is a special path */
 static inline int scrmfs_intercept_path(const char* path)
 {
+    /* initialize our globals if we haven't already */
+    if (! scrmfs_initialized) {
+      scrmfs_init();
+    }
+
     /* if the path starts with our mount point, intercept it */
     if (strncmp(path, scrmfs_mount_prefix, scrmfs_mount_prefixlen) == 0) {
         return 1;
@@ -442,6 +503,11 @@ static inline int scrmfs_intercept_path(const char* path)
 static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 {
     int oldfd = *fd;
+
+    /* initialize our globals if we haven't already */
+    if (! scrmfs_initialized) {
+      scrmfs_init();
+    }
 
     if (oldfd < scrmfs_fd_limit) {
         /* this fd is a real system fd, so leave it as is */
@@ -459,14 +525,14 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 }
 
 /* given a file descriptor, return the file id */
-int scrmfs_get_fid_from_fd(int fd)
+static inline int scrmfs_get_fid_from_fd(int fd)
 {
   /* right now, this is the same thing */
   return fd;
 }
 
 /* given a path, return an fd */
-int scrmfs_get_fid_from_path(const char* path)
+static int scrmfs_get_fid_from_path(const char* path)
 {
     int i = 0;
     while (i < SCRMFS_MAX_FILES)
@@ -504,50 +570,6 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
     char* start = chunk[chunk_id].buf;
     char* buf = start + offset;
     return (void*)buf;
-}
-
-static int scrmfs_init()
-{
-    /* TODO: expose API as a init call that can be called from SCR_Init */ 
-
-    if (! scrmfs_initialized) {
-        /* record the max fd for the system */
-        /* RLIMIT_NOFILE specifies a value one greater than the maximum
-         * file descriptor number that can be opened by this process */
-        struct rlimit *r_limit = malloc(sizeof(r_limit));
-        if (r_limit == NULL) {
-            perror("failed to allocate memory for call to getrlimit");
-            return 1;
-        }
-        if (getrlimit(RLIMIT_NOFILE, r_limit) < 0) {
-            perror("rlimit failed:");
-            return 1;
-        }
-        scrmfs_fd_limit = r_limit->rlim_cur;
-        free(r_limit);
-        debug("FD limit for system = %ld\n",scrmfs_fd_limit);
-        
-        /* determine the size of the superblock */
-        size_t superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
-                                 /* generous allocation for chunk map (one file can take entire space)*/
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
-                                 (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
-
-        /* get a superblock of persistent memory and initialize our
-         * global variables for this block */
-        scrmfs_superblock = scrmfs_get_shmblock (superblock_size, SCRMFS_SUPERBLOCK_KEY);
-        if(scrmfs_superblock == NULL)
-        {
-            debug("scrmfs_get_shmblock() failed\n");
-            return 1;
-        }
-
-        /* remember that we've now initialized the library */
-        scrmfs_initialized = 1;
-    }
-
-    return 0;
 }
 
 /* ---------------------------------------
@@ -908,14 +930,6 @@ int SCRMFS_DECL(open64)(const char* path, int flags, ...)
 int SCRMFS_DECL(open)(const char *path, int flags, ...)
 {
     int ret;
-
-    /* TODO: add a scrmfs_mount call, initialize there, then can assume
-     * we're initialized */
-
-    /* initialize our globals if we haven't already */
-    if (! scrmfs_initialized) {
-      scrmfs_init();
-    }
 
     /* if O_CREAT is set, we should also have some mode flags */
     int mode = 0;
