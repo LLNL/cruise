@@ -1,38 +1,30 @@
 #include "uthash.h"
 #include "scrmfs-defs.h"
 
-
 typedef struct
 {
     int fd;
     off_t pos;
-} active_fids_t;
+} active_fds_t;
 
 typedef struct
 {
-    off_t pos;    /* current file position: TODO: move this to a file descriptor */
     off_t size;   /* current file size */
     off_t chunks; /* number of chunks currently allocated to file */
-    off_t current_chunk;
-    int current_index;
-    off_t chunk_offset[SCRMFS_MAX_CHUNKS]; /* chunk offset location in the mem pool */
-} chunk_map_t;
+    off_t chunk_ids[SCRMFS_MAX_CHUNKS]; /* chunk offset location in the mem pool */
+} scrmfs_filemeta_t;
 
 
 /* path to fid lookup struct */
 typedef struct
 {
     int in_use;
-    int real_fd;
     const char filename[SCRMFS_MAX_FILENAME];
-    chunk_map_t *chunk_map;
-} filename_to_chunk_map;
+} scrmfs_filename_t;
 
 typedef struct
 {
     char buf[SCRMFS_CHUNK_SIZE];
-    int in_use;
-    off_t written_size;
 } chunk_t;
 
 /* legacy structures from the dynamic mem design */
@@ -58,5 +50,4 @@ typedef struct
         unsigned long current_offset;
         UT_hash_handle hh;
         scr_chunk_t* chunk_list;
-}scr_file_t;
-
+} scr_file_t;
