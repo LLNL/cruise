@@ -387,15 +387,12 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
 
     /* TODO:improve error-propogation */
     int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
-    if ( scr_shmblock_shmid < 0 )
-    {
-        if ( errno == EEXIST )
-        {
+    if ( scr_shmblock_shmid < 0 ) {
+        if ( errno == EEXIST ) {
             /* Superblock exists. Donot init, just get and attach */
             scr_shmblock_shmid = shmget(key, size, 0);
             scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
-            if(scr_shmblock < 0)
-            {
+            if(scr_shmblock < 0) {
                 perror("shmat() failed");
                 return NULL;
             }
@@ -403,19 +400,14 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
 
             /* init our global variables to point to spots in superblock */
             scrmfs_init_globals(scr_shmblock);
-        }
-        else
-        {
+        } else {
             perror("shmget() failed");
             return NULL;
         }
-    }
-    else
-    {
+    } else {
         /* valid segment created, attach to proc and init structures */
         scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
-        if(scr_shmblock < 0)
-        {
+        if(scr_shmblock < 0) {
             perror("shmat() failed");
         }
         debug("Superblock created at %p\n!",scr_shmblock);
@@ -424,15 +416,12 @@ void* scrmfs_get_shmblock(size_t size, key_t key)
         scrmfs_init_globals(scr_shmblock);
 
         /* initialize block allocators within block */
-        if (!scrmfs_stack_init_done)
-        {
+        if (! scrmfs_stack_init_done) {
             scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
             scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
             scrmfs_stack_init_done = 1;
             debug("Meta-stacks initialized!\n");
         }
-
-
     }
     
     return scr_shmblock;
@@ -454,13 +443,10 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 {
     int oldfd = *fd;
 
-    if (oldfd < scrmfs_fd_limit)
-    {
+    if (oldfd < scrmfs_fd_limit) {
         /* this fd is a real system fd, so leave it as is */
         *intercept = 0;
-    }
-    else
-    {
+    } else {
         /* this is an fd we generated and returned to the user,
          * so intercept the call and shift the fd */
         int newfd = oldfd - scrmfs_fd_limit;
@@ -470,6 +456,13 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
     }
 
     return;
+}
+
+/* given a file descriptor, return the file id */
+int scrmfs_get_fid_from_fd(int fd)
+{
+  /* right now, this is the same thing */
+  return fd;
 }
 
 /* given a path, return an fd */
@@ -491,7 +484,7 @@ int scrmfs_get_fid_from_path(const char* path)
 
 /* given a file descriptor, return a pointer to the meta data,
  * otherwise return NULL */
-static inline scrmfs_filemeta_t* scrmfs_get_meta_fid(int fid)
+static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
 {
     /* check that the file descriptor is within range of our array */
     if (fid >= 0 && fid < SCRMFS_MAX_FILES) {
@@ -565,7 +558,7 @@ static int scrmfs_init()
 static int scrmfs_truncate_fid(int fid, off_t length)
 {
     /* get meta data for this file */
-    scrmfs_filemeta_t* meta = scrmfs_get_meta_fid(fid);
+    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
     /* determine the number of chunks to leave after truncating */
     off_t num_chunks = 0;
@@ -611,8 +604,7 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
      * linux fs, which means we'll need to do a read / write */
 
     /* check whether the old path is in our file system */
-    if (scrmfs_intercept_path(oldpath))
-    {
+    if (scrmfs_intercept_path(oldpath)) {
         /* for now, we can only rename within our file system */
         if (! scrmfs_intercept_path(newpath)) {
             /* ERROR: can't yet rename across file systems */
@@ -623,8 +615,7 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
         /* verify that we really have a file by the old name */
         int fid = scrmfs_get_fid_from_path(oldpath);
         debug("orig file in position %d\n",fid);
-        if (fid < 0)
-        {
+        if (fid < 0) {
             /* ERROR: oldname does not exist */
             debug("Couldn't find entry for %s in SCRMFS\n",oldpath);
             errno = ENOENT;
@@ -632,8 +623,7 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
         }
 
         /* verify that we don't already have a file by the new name */
-        if (scrmfs_get_fid_from_path(newpath) < 0)
-        {
+        if (scrmfs_get_fid_from_path(newpath) < 0) {
             /* check that new name is within bounds */
             size_t newpathlen = strlen(newpath) + 1;
             if (newpathlen > SCRMFS_MAX_FILENAME) {
@@ -644,18 +634,14 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
             /* finally overwrite the old name with the new name */
             debug("Changing %s to %s\n",(void *)&scrmfs_filelist[fid].filename, newpath);
             strcpy((void *)&scrmfs_filelist[fid].filename, newpath);
-        }
-        else
-        {
+        } else {
             /* ERROR: new name already exists */
             debug("File %s exists\n",newpath);
             errno = EEXIST;
             return -1;
         }
         return 0;
-    }
-    else
-    {
+    } else {
         /* for now, we can only rename within our file system */
         if (scrmfs_intercept_path(newpath)) {
             /* ERROR: can't yet rename across file systems */
@@ -723,6 +709,7 @@ int SCRMFS_DECL(close)(int fd)
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
+        /* TODO: free file descriptor */
         debug("closing fd %d\n",fd);
         return 0;
     } else {
@@ -941,8 +928,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     
     /* TODO: use the fd_limit to determine if this call should be by-passed*/
     /* if intercept, or if not a special path in "exclusions" */
-    if (scrmfs_intercept_path(path))
-    {
+    if (scrmfs_intercept_path(path)) {
         /* TODO: handle relative paths using current working directory */
 
         /* TODO: check that path is short enough */
@@ -951,6 +937,9 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
             errno = ENAMETOOLONG;
             return -1;
         }
+
+        /* assume that we'll place the file pointer at the start of the file */
+        off_t pos = 0;
 
         /* check whether this file already exists */
         int fid = scrmfs_get_fid_from_path(path);
@@ -967,8 +956,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                 /* allocate a file id slot for this new file */
                 fid = scrmfs_stack_pop(free_fid_stack);
                 debug("scrmfs_stack_pop() gave %d\n",fid);
-                if (fid < 0)
-                {
+                if (fid < 0) {
                     /* need to create a new file, but we can't */
                     debug("scrmfs_stack_pop() failed (%d)\n",fid);
                     errno = ENOSPC;
@@ -981,7 +969,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                 debug("Filename %s got scrmfs fd %d\n",scrmfs_filelist[fid].filename,fid);
 
                 /* initialize meta data */
-                scrmfs_filemeta_t *meta = scrmfs_get_meta_fid(fid);
+                scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
                 meta->size = 0;
                 meta->chunks = 0;
             } else {
@@ -993,21 +981,28 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         } else {
             /* file already exists */
 
-            /* check that O_CREAT and O_EXCL are not set */
+            /* if O_CREAT and O_EXCL are set, this is an error */
             if ((flags & O_CREAT) && (flags & O_EXCL)) {
                 /* ERROR: trying to open a file that exists with O_CREATE and O_EXCL */
                 errno = EEXIST;
                 return -1;
             }
 
-            /* need to truncate existing file if O_TRUNC is set with RDWR or WRONLY */
+            /* if O_TRUNC is set with RDWR or WRONLY, need to truncate file */
             if ((flags & O_TRUNC) && (flags & (O_RDWR | O_WRONLY))) {
                 scrmfs_truncate_fid(fid, 0);
             }
+
+            /* if O_APPEND is set, we need to place file pointer at end of file */
+            if (flags & O_APPEND) {
+                scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+                pos = meta->size;
+            }
         }
 
-        /* mark this file id slot as taken */
-        scrmfs_active_fds[fid].pos = 0;
+        /* TODO: allocate a free file descriptor and associate it with fid */
+        /* set file pointer */
+        scrmfs_active_fds[fid].pos = pos;
         debug("SCRMFS_open generated fd %d for file %s\n",fid,path);    
 
         /* don't conflict with active system fds that range from 0 - (fd_limit) */
@@ -1362,8 +1357,11 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
         /* get a pointer to the file meta data structure */
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_fid(fd);
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
         if (meta == NULL) {
             /* ERROR: invalid file descriptor */
             errno = EBADF;
@@ -1445,10 +1443,12 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
          * so set return value to count */
         ret = count;
 
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
         /* get a pointer to the file meta data structure */
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_fid(fd);
-        if (meta == NULL)
-        {
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+        if (meta == NULL) {
             /* ERROR: invalid file descriptor */
             errno = EBADF;
             return -1;
@@ -1597,8 +1597,11 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
         /* check that file descriptor is good */
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_fid(fd);
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
         if (meta == NULL) {
             /* bad file descriptor */
             errno = EBADF;
