@@ -396,6 +396,7 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
     void *scr_shmblock = NULL;
 
     /* TODO:improve error-propogation */
+    //int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU | SHM_HUGETLB);
     int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
     if ( scr_shmblock_shmid < 0 ) {
         if ( errno == EEXIST ) {
@@ -461,10 +462,11 @@ static int scrmfs_init()
         scrmfs_mount("/tmp", 0);
         
         /* determine the size of the superblock */
+        /* generous allocation for chunk map (one file can take entire space)*/
         size_t superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
                                  (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
-                                 /* generous allocation for chunk map (one file can take entire space)*/
                                  (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
+                                 scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +
                                  (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
 
         /* get a superblock of persistent memory and initialize our
@@ -1518,10 +1520,12 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         if (count <= remaining) {
             /* all bytes for this write fit within the current chunk */
             memcpy(chunk_buf, buf, count);
+//            _intel_fast_memcpy(chunk_buf, buf, count);
         } else {
             /* otherwise, fill up the remainder of the current chunk */
             char* ptr = (char*) buf;
             memcpy(chunk_buf, ptr, remaining);
+//            _intel_fast_memcpy(chunk_buf, ptr, remaining);
             ptr += remaining;
 
             /* then write the rest of the bytes starting from beginning
@@ -1540,6 +1544,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
                 /* write data */
                 memcpy(chunk_buf, ptr, nwrite);
+//                _intel_fast_memcpy(chunk_buf, ptr, nwrite);
                 ptr += nwrite;
 
                 /* update number of bytes written */

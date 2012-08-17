@@ -181,10 +181,12 @@ int MPI_Finalize(void)
 {
     int ret;
 
+#if 0
     if(getenv("SCRMFS_INTERNAL_TIMING"))
         scrmfs_shutdown(1);
     else
         scrmfs_shutdown(0);
+#endif
 
     ret = SCRMFS_MPI_CALL(PMPI_Finalize)();
     return(ret);

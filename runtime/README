@@ -58,3 +58,5 @@ mpicc $PRE_SCRMFS_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
 7. Use the "ipcs" command to list the currently opened shm segments.
    Use "ipcrm -M key" to delete it after a run.
 
+./ipc_cleanup
+
