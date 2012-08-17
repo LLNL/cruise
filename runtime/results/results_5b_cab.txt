@@ -1,0 +1,170 @@
+cab831{moody20}:icc --version
+icc (ICC) 11.1 20090630
+Copyright (C) 1985-2009 Intel Corporation.  All rights reserved.
+
+64MB chunks
+memcpy()
+
+./configure --prefix `pwd`/install --with-mem-align=8 --with-log-path=`pwd`/log-dir --with-jobid-env=SLURM_JOBID --enable-ld-preload CC=mpiicc CFLAGS="-O3"
+
+
+
+
+mpiicc $PRE_SCRMFS_FLAGS -O3 -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
+
+setenv MPIBIND bycore
+cab831{moody20}:srun -n1 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk; ./ipc_cleanup
+FileIO: Min 3470.90 MB/s        Max 3470.90 MB/s        Avg 3470.90 MB/s        Agg 3470.90 MB/s
+
+cab831{moody20}:srun -n2 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 3390.38 MB/s        Max 3396.09 MB/s        Avg 3393.24 MB/s        Agg 6786.48 MB/s
+
+cab831{moody20}:srun -n3 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 3266.18 MB/s        Max 3275.21 MB/s        Avg 3270.17 MB/s        Agg 9810.52 MB/s
+
+cab831{moody20}:srun -n4 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 3158.88 MB/s        Max 3171.34 MB/s        Avg 3166.55 MB/s        Agg 12666.19 MB/s
+
+cab831{moody20}:srun -n5 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2969.54 MB/s        Max 2979.24 MB/s        Avg 2975.70 MB/s        Agg 14878.49 MB/s
+
+cab831{moody20}:srun -n6 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2729.76 MB/s        Max 2739.11 MB/s        Avg 2734.98 MB/s        Agg 16409.86 MB/s
+
+cab831{moody20}:srun -n7 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2418.73 MB/s        Max 2432.07 MB/s        Avg 2425.37 MB/s        Agg 16977.61 MB/s
+
+cab831{moody20}:srun -n8 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2124.45 MB/s        Max 2150.69 MB/s        Avg 2143.46 MB/s        Agg 17147.66 MB/s
+
+cab831{moody20}:srun -n9 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2192.39 MB/s        Max 3763.84 MB/s        Avg 2384.83 MB/s        Agg 21463.44 MB/s
+
+cab831{moody20}:srun -n10 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2193.63 MB/s        Max 3728.09 MB/s        Avg 2514.45 MB/s        Agg 25144.47 MB/s
+
+cab831{moody20}:srun -n11 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2194.56 MB/s        Max 3563.89 MB/s        Avg 2581.78 MB/s        Agg 28399.61 MB/s
+
+cab831{moody20}:srun -n12 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2196.30 MB/s        Max 3463.83 MB/s        Avg 2629.39 MB/s        Agg 31552.74 MB/s
+
+cab831{moody20}:srun -n13 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2091.00 MB/s        Max 3196.15 MB/s        Avg 2554.87 MB/s        Agg 33213.33 MB/s
+
+cab831{moody20}:srun -n14 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2188.84 MB/s        Max 2880.18 MB/s        Avg 2493.31 MB/s        Agg 34906.29 MB/s
+
+cab831{moody20}:srun -n15 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2191.17 MB/s        Max 2515.13 MB/s        Avg 2351.25 MB/s        Agg 35268.82 MB/s
+
+cab831{moody20}:srun -n16 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk ; ./ipc_cleanup
+FileIO: Min 2188.90 MB/s        Max 2218.21 MB/s        Avg 2211.00 MB/s        Agg 35375.99 MB/s
+
+
+
+
+mpiicc -O3 -o test_ramdisk_real test_ramdisk.c
+
+cab831{moody20}:srun -n1 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1814.01 MB/s        Max 1814.01 MB/s        Avg 1814.01 MB/s        Agg 1814.01 MB/s
+
+cab831{moody20}:srun -n2 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1736.18 MB/s        Max 1740.66 MB/s        Avg 1738.42 MB/s        Agg 3476.84 MB/s
+
+cab831{moody20}:srun -n3 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1666.58 MB/s        Max 1671.45 MB/s        Avg 1669.76 MB/s        Agg 5009.28 MB/s
+
+cab831{moody20}:srun -n4 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1639.27 MB/s        Max 1645.86 MB/s        Avg 1642.37 MB/s        Agg 6569.46 MB/s
+
+cab831{moody20}:srun -n5 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1563.27 MB/s        Max 1572.10 MB/s        Avg 1568.79 MB/s        Agg 7843.95 MB/s
+
+cab831{moody20}:srun -n6 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1516.59 MB/s        Max 1523.46 MB/s        Avg 1520.36 MB/s        Agg 9122.17 MB/s
+
+cab831{moody20}:srun -n7 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1428.98 MB/s        Max 1439.08 MB/s        Avg 1434.02 MB/s        Agg 10038.11 MB/s
+
+cab831{moody20}:srun -n8 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1363.22 MB/s        Max 1374.62 MB/s        Avg 1368.95 MB/s        Agg 10951.57 MB/s
+
+cab831{moody20}:srun -n9 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1380.29 MB/s        Max 1667.92 MB/s        Avg 1418.68 MB/s        Agg 12768.12 MB/s
+
+cab831{moody20}:srun -n10 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1367.15 MB/s        Max 1636.65 MB/s        Avg 1420.46 MB/s        Agg 14204.57 MB/s
+
+cab831{moody20}:srun -n11 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1354.55 MB/s        Max 1572.14 MB/s        Avg 1419.71 MB/s        Agg 15616.79 MB/s
+
+cab831{moody20}:srun -n12 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1344.67 MB/s        Max 1523.73 MB/s        Avg 1403.08 MB/s        Agg 16836.96 MB/s
+
+cab831{moody20}:srun -n13 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1324.36 MB/s        Max 1466.93 MB/s        Avg 1368.43 MB/s        Agg 17789.65 MB/s
+
+cab831{moody20}:srun -n14 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1303.24 MB/s        Max 1422.02 MB/s        Avg 1341.43 MB/s        Agg 18780.02 MB/s
+
+cab831{moody20}:srun -n15 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1251.10 MB/s        Max 1338.98 MB/s        Avg 1275.16 MB/s        Agg 19127.33 MB/s
+
+cab831{moody20}:srun -n16 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_ramdisk_real
+FileIO: Min 1200.25 MB/s        Max 1244.45 MB/s        Avg 1217.75 MB/s        Agg 19483.95 MB/s
+
+
+
+
+mpiicc -O3 -o test_memcpy test_memcpy.c
+
+cab831{moody20}:srun -n1 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 3509.86 MB/s        Max 3509.86 MB/s        Avg 3509.86 MB/s        Agg 3509.86 MB/s
+
+cab831{moody20}:srun -n2 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 3432.84 MB/s        Max 3439.31 MB/s        Avg 3436.07 MB/s        Agg 6872.15 MB/s
+
+cab831{moody20}:srun -n3 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 3302.20 MB/s        Max 3315.78 MB/s        Avg 3309.31 MB/s        Agg 9927.93 MB/s
+
+cab831{moody20}:srun -n4 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 3194.85 MB/s        Max 3211.92 MB/s        Avg 3205.54 MB/s        Agg 12822.18 MB/s
+
+cab831{moody20}:srun -n5 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2996.56 MB/s        Max 3016.26 MB/s        Avg 3006.77 MB/s        Agg 15033.87 MB/s
+
+cab831{moody20}:srun -n6 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2727.47 MB/s        Max 2749.16 MB/s        Avg 2743.01 MB/s        Agg 16458.04 MB/s
+
+cab831{moody20}:srun -n7 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2424.41 MB/s        Max 2441.31 MB/s        Avg 2434.95 MB/s        Agg 17044.63 MB/s
+
+cab831{moody20}:srun -n8 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2118.34 MB/s        Max 2163.23 MB/s        Avg 2152.29 MB/s        Agg 17218.36 MB/s
+
+cab831{moody20}:srun -n9 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2191.08 MB/s        Max 3817.32 MB/s        Avg 2398.98 MB/s        Agg 21590.80 MB/s
+
+cab831{moody20}:srun -n10 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2190.73 MB/s        Max 3756.69 MB/s        Avg 2524.92 MB/s        Agg 25249.23 MB/s
+
+cab831{moody20}:srun -n11 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2188.32 MB/s        Max 3618.00 MB/s        Avg 2600.01 MB/s        Agg 28600.12 MB/s
+
+cab831{moody20}:srun -n12 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2190.77 MB/s        Max 3507.39 MB/s        Avg 2646.55 MB/s        Agg 31758.62 MB/s
+
+cab831{moody20}:srun -n13 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2189.30 MB/s        Max 3231.64 MB/s        Avg 2607.43 MB/s        Agg 33896.58 MB/s
+
+cab831{moody20}:srun -n14 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2183.83 MB/s        Max 2890.74 MB/s        Avg 2503.29 MB/s        Agg 35046.10 MB/s
+
+cab831{moody20}:srun -n15 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2180.80 MB/s        Max 2530.16 MB/s        Avg 2360.37 MB/s        Agg 35405.53 MB/s
+
+cab831{moody20}:srun -n16 -N1 /collab/usr/global/tools/mpi/install/bin/mpibind ./test_memcpy
+FileIO: Min 2187.63 MB/s        Max 2230.43 MB/s        Avg 2221.33 MB/s        Agg 35541.26 MB/s
+
+

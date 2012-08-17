@@ -1,0 +1,15 @@
+Experiments to run for the talk:
+
+A. Single node runs:
+        1. showing FUSE overheads (OSU Cluster)
+        2. showing ramdisk vs memcpy performance (OSU and Sierra)
+        3. write-up memcpy version of test_ramdisk to use in other experiments
+        4. stream
+        5. Design experiments
+                a 1 superblock vs 1-per-process (Sierra)
+                b varying number of processes to show NUMA impact (Sierra)
+                c varying chunk sizes for a given file
+
+B. Large-scale runs:
+        1. scalability, in comparison with tmpfs(Zen / cab)
+        2. fast version of memcpy
