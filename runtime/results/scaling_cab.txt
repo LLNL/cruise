@@ -220,3 +220,67 @@ FileIO: Min 1497.97 MB/s	Max 1859.86 MB/s	Avg 1789.30 MB/s	Agg 114514.90 MB/s
 FileIO: Min 1518.80 MB/s	Max 1862.68 MB/s	Avg 1784.07 MB/s	Agg 114180.45 MB/s
 FileIO: Min 1497.24 MB/s	Max 1865.30 MB/s	Avg 1784.59 MB/s	Agg 114214.05 MB/s
 
+
+
+srun -n 2048 -N 128 -m block ./test_memcpy
+FileIO: Min 2182.32 MB/s	Max 2232.98 MB/s	Avg 2217.67 MB/s	Agg 4541780.19 MB/s
+FileIO: Min 2190.33 MB/s	Max 2233.38 MB/s	Avg 2217.75 MB/s	Agg 4541951.38 MB/s
+FileIO: Min 2190.41 MB/s	Max 2235.16 MB/s	Avg 2218.01 MB/s	Agg 4542479.45 MB/s
+
+srun -n 2048 -N 128 -m block ./test_ramdisk
+FileIO: Min 2187.35 MB/s	Max 2224.06 MB/s	Avg 2209.99 MB/s	Agg 4526067.77 MB/s
+FileIO: Min 2139.78 MB/s	Max 2256.50 MB/s	Avg 2209.00 MB/s	Agg 4524022.14 MB/s
+FileIO: Min 2074.38 MB/s	Max 2223.02 MB/s	Avg 2209.01 MB/s	Agg 4524046.39 MB/s
+
+srun -n 2048 -N 128 -m block ./test_ramdisk_real
+FileIO: Min 1175.77 MB/s	Max 1287.47 MB/s	Avg 1230.55 MB/s	Agg 2520169.52 MB/s
+FileIO: Min 1180.98 MB/s	Max 1282.78 MB/s	Avg 1229.09 MB/s	Agg 2517170.93 MB/s
+FileIO: Min 1183.24 MB/s	Max 1292.17 MB/s	Avg 1231.47 MB/s	Agg 2522053.65 MB/s
+
+srun -n 128 -N 128 -m block ./test_memcpy
+FileIO: Min 2596.49 MB/s	Max 3896.87 MB/s	Avg 3520.14 MB/s	Agg 450577.32 MB/s
+FileIO: Min 2914.84 MB/s	Max 3583.46 MB/s	Avg 3517.17 MB/s	Agg 450197.39 MB/s
+FileIO: Min 2231.60 MB/s	Max 3760.70 MB/s	Avg 3498.61 MB/s	Agg 447821.75 MB/s
+
+srun -n 128 -N 128 -m block ./test_ramdisk
+FileIO: Min 2116.97 MB/s	Max 3805.99 MB/s	Avg 3442.75 MB/s	Agg 440671.67 MB/s
+FileIO: Min 2722.64 MB/s	Max 3854.34 MB/s	Avg 3469.41 MB/s	Agg 444084.52 MB/s
+FileIO: Min 1913.45 MB/s	Max 3871.23 MB/s	Avg 3416.54 MB/s	Agg 437317.52 MB/s
+
+srun -n 128 -N 128 -m block ./test_ramdisk_real
+FileIO: Min 1513.87 MB/s	Max 1869.19 MB/s	Avg 1787.14 MB/s	Agg 228753.36 MB/s
+FileIO: Min 1515.93 MB/s	Max 1947.06 MB/s	Avg 1791.75 MB/s	Agg 229343.86 MB/s
+FileIO: Min 1497.14 MB/s	Max 1918.13 MB/s	Avg 1790.76 MB/s	Agg 229217.91 MB/s
+
+
+
+srun -n 4096 -N 256 -m block ./test_memcpy
+FileIO: Min 2022.41 MB/s	Max 2372.23 MB/s	Avg 2217.88 MB/s	Agg 9084419.73 MB/s
+FileIO: Min 2069.83 MB/s	Max 2281.56 MB/s	Avg 2218.11 MB/s	Agg 9085373.84 MB/s
+FileIO: Min 1957.58 MB/s	Max 2388.60 MB/s	Avg 2217.31 MB/s	Agg 9082119.60 MB/s
+
+srun -n 4096 -N 256 -m block ./test_ramdisk
+FileIO: Min 2068.24 MB/s	Max 2293.53 MB/s	Avg 2209.25 MB/s	Agg 9049072.04 MB/s
+FileIO: Min 2121.48 MB/s	Max 2247.27 MB/s	Avg 2209.37 MB/s	Agg 9049592.13 MB/s
+FileIO: Min 2059.55 MB/s	Max 2300.30 MB/s	Avg 2208.96 MB/s	Agg 9047918.21 MB/s
+
+srun -n 4096 -N 256 -m block ./test_ramdisk_real
+FileIO: Min 1172.12 MB/s	Max 1288.65 MB/s	Avg 1228.47 MB/s	Agg 5031801.46 MB/s
+FileIO: Min 1179.87 MB/s	Max 1291.78 MB/s	Avg 1230.14 MB/s	Agg 5038653.91 MB/s
+FileIO: Min 1175.60 MB/s	Max 1311.54 MB/s	Avg 1228.49 MB/s	Agg 5031902.50 MB/s
+
+srun -n 256 -N 256 -m block ./test_memcpy
+FileIO: Min 1926.40 MB/s	Max 3856.18 MB/s	Avg 3474.28 MB/s	Agg 889415.29 MB/s
+FileIO: Min 2808.42 MB/s	Max 3768.69 MB/s	Avg 3508.08 MB/s	Agg 898068.44 MB/s
+FileIO: Min 1982.13 MB/s	Max 3843.61 MB/s	Avg 3436.47 MB/s	Agg 879736.14 MB/s
+
+srun -n 256 -N 256 -m block ./test_ramdisk
+FileIO: Min 1926.98 MB/s	Max 3841.75 MB/s	Avg 3424.76 MB/s	Agg 876739.37 MB/s
+FileIO: Min 1996.45 MB/s	Max 3802.48 MB/s	Avg 3433.26 MB/s	Agg 878913.98 MB/s
+FileIO: Min 2096.24 MB/s	Max 3862.55 MB/s	Avg 3419.42 MB/s	Agg 875370.34 MB/s
+
+srun -n 256 -N 256 -m block ./test_ramdisk_real
+FileIO: Min 1476.95 MB/s	Max 1868.48 MB/s	Avg 1785.90 MB/s	Agg 457191.13 MB/s
+FileIO: Min 1499.97 MB/s	Max 1926.57 MB/s	Avg 1787.87 MB/s	Agg 457693.62 MB/s
+FileIO: Min 1440.73 MB/s	Max 1880.65 MB/s	Avg 1794.22 MB/s	Agg 459319.06 MB/s
+
