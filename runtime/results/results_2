@@ -1,0 +1,73 @@
+64MB file; 8 procs on westmere cores; cpu bound
+
+ramdisk:
+
+[rajachan@storage16 stream]$ mpirun_rsh -np 8 -hostfile ./hfile  MV2_CPU_MAPPING=0:1:2:3:4:5:6:7 ./test_ramdisk
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1060.28 MB/s        Max 1075.77 MB/s        Avg 1069.41 MB/s        Agg 8555.26 MB/s
+
+
+SSD storage16 fusion-io:
+
+[rajachan@storage16 stream]$ mpirun_rsh -np 8 -hostfile ./hfile  MV2_CPU_MAPPING=0:1:2:3:4:5:6:7 ./test_ramdisk
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min   67.22 MB/s        Max   93.49 MB/s        Avg   78.30 MB/s        Agg  626.39 MB/s
+
+
+ext4 tmp
+
+ [rajachan@storage16 stream]$ mpirun_rsh -np 8 -hostfile ./hfile  MV2_CPU_MAPPING=0:1:2:3:4:5:6:7 ./test_ramdisk
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min    9.91 MB/s        Max   17.20 MB/s        Avg   12.18 MB/s        Agg   97.43 MB/s
+
+
+NFS:
+
+[rajachan@storage16 stream]$ mpirun_rsh -np 8 -hostfile ./hfile  MV2_CPU_MAPPING=0:1:2:3:4:5:6:7 ./test_ramdisk
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min   10.10 MB/s        Max   10.91 MB/s        Avg   10.56 MB/s        Agg   84.50 MB/s
+
+
+Lustre parFS:
+
+[rajachan@storage16 stream]$ mpirun_rsh -np 8 -hostfile ./hfile  MV2_CPU_MAPPING=0:1:2:3:4:5:6:7 ./test_ramdisk
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min   93.59 MB/s        Max   97.06 MB/s        Avg   95.52 MB/s        Agg  764.18 MB/s
+
+memcpy with test_memcpy:
+
+[rajachan@storage16 stream]$ mpirun_rsh -np 8 -hostfile ./hfile  MV2_CPU_MAPPING=0:1:2:3:4:5:6:7 ./test_memcpy
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1869.61 MB/s        Max 1895.69 MB/s        Avg 1887.23 MB/s        Agg 15097.85 MB/s
+
+
