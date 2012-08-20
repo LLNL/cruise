@@ -8,9 +8,9 @@
 #define SCRMFS_MAX_FILENAME     ( 128 )
 
 //#define SCRMFS_MAX_MEM          ( 1 * 1024 * 1024 * 1024 )
-#define SCRMFS_MAX_MEM          ( 256 * 1024 * 1024 )
+#define SCRMFS_MAX_MEM          ( 128 * 1024 * 1024 )
 
-#define SCRMFS_CHUNK_BITS       ( 26 )
+#define SCRMFS_CHUNK_BITS       ( 12 )
 #define SCRMFS_CHUNK_SIZE       ( 1 << SCRMFS_CHUNK_BITS )
 #define SCRMFS_CHUNK_MASK       ( SCRMFS_CHUNK_SIZE - 1 )
 #define SCRMFS_MAX_CHUNKS       ( SCRMFS_MAX_MEM >> SCRMFS_CHUNK_BITS )
