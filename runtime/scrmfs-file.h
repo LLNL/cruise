@@ -3,9 +3,8 @@
 
 typedef struct
 {
-    int fd;
     off_t pos;
-} active_fds_t;
+} scrmfs_fd_t;
 
 typedef struct
 {
@@ -24,8 +23,9 @@ typedef struct
 
 typedef struct
 {
-    char buf[SCRMFS_CHUNK_SIZE];
-} chunk_t;
+    /* location: memory or file */
+    /* compression type / size */
+} scrmfs_chunkmeta_t;
 
 /* legacy structures from the dynamic mem design */
 

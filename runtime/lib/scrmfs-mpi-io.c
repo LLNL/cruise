@@ -29,6 +29,9 @@
 #include "scrmfs-dynamic.h"
 
 extern char* __progname;
+extern char* __progname_full;
+
+struct scrmfs_job_runtime* scrmfs_global_job = NULL;
 
 /* maximum number of memory segments each process will write to the log */
 #define CP_MAX_MEM_SEGMENTS 8
@@ -223,6 +226,100 @@ struct variance_dt
     double T;
     double S;
 };
+
+void scrmfs_finalize(struct scrmfs_job_runtime* job)
+{
+    if(!job)
+    {
+        return;
+    }
+
+    free(job);
+}
+
+void scrmfs_initialize(int argc, char** argv,  int nprocs, int rank)
+{
+    int i;
+    char* disable;
+    char* disable_timing;
+    char* envstr;
+    char* truncate_string = "<TRUNCATED>";
+    int truncate_offset;
+    int chars_left = 0;
+    int ret;
+    int tmpval;
+
+    disable = getenv("SCRMFS_DISABLE");
+    if(disable)
+    {
+        /* turn off tracing */
+        return;
+    }
+
+    disable_timing = getenv("SCRMFS_DISABLE_TIMING");
+
+    if(scrmfs_global_job != NULL)
+    {
+        return;
+    }
+
+    /* allocate structure to track scrmfs_global_job information */
+    scrmfs_global_job = malloc(sizeof(*scrmfs_global_job));
+    if(!scrmfs_global_job)
+    {
+        return;
+    }
+    memset(scrmfs_global_job, 0, sizeof(*scrmfs_global_job));
+
+    if(disable_timing)
+    {
+        scrmfs_global_job->flags |= CP_FLAG_NOTIMING;
+    }
+
+    /* set up file records */
+    for(i=0; i<CP_MAX_FILES; i++)
+    {
+        scrmfs_global_job->file_runtime_array[i].log_file = 
+            &scrmfs_global_job->file_array[i];
+    }
+
+    strcpy(scrmfs_global_job->log_job.version_string, CP_VERSION);
+    scrmfs_global_job->log_job.magic_nr = CP_MAGIC_NR;
+    scrmfs_global_job->log_job.uid = getuid();
+    scrmfs_global_job->log_job.start_time = time(NULL);
+    scrmfs_global_job->log_job.nprocs = nprocs;
+
+    /* record exe and arguments */
+    for(i=0; i<argc; i++)
+    {
+        chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
+        strncat(scrmfs_global_job->exe, argv[i], chars_left);
+        if(i < (argc-1))
+        {
+            chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
+            strncat(scrmfs_global_job->exe, " ", chars_left);
+        }
+    }
+
+    /* if we don't see any arguments, then use glibc symbol to get
+     * program name at least (this happens in fortran)
+     */
+    if(argc == 0)
+    {
+        chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
+        strncat(scrmfs_global_job->exe, __progname_full, chars_left);
+        chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
+        strncat(scrmfs_global_job->exe, " <unknown args>", chars_left);
+    }
+
+    if(chars_left == 0)
+    {
+        /* we ran out of room; mark that string was truncated */
+        truncate_offset = CP_EXE_LEN - strlen(truncate_string);
+        sprintf(&scrmfs_global_job->exe[truncate_offset], "%s", 
+            truncate_string);
+    }
+}
 
 void scrmfs_mpi_initialize(int *argc, char ***argv)
 {

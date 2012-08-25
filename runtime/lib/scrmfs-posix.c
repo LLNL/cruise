@@ -33,10 +33,6 @@
 typedef int64_t off64_t;
 #endif
 
-extern char* __progname_full;
-
-struct scrmfs_job_runtime* scrmfs_global_job = NULL;
-
 //#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
@@ -126,6 +122,7 @@ SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nmemb,
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fclose, int, (FILE *fp));
 
+/* keep track of what we've initialized */
 static int scrmfs_initialized = 0;
 static int scrmfs_stack_init_done = 0;
 
@@ -135,9 +132,13 @@ static void* free_fid_stack = NULL;
 static void* free_chunk_stack = NULL;
 static scrmfs_filename_t* scrmfs_filelist = NULL;
 static scrmfs_filemeta_t* scrmfs_filemetas = NULL;
-static chunk_t *chunk = NULL;
-static active_fds_t scrmfs_active_fds[SCRMFS_MAX_FILEDESCS];
+static char* scrmfs_chunks = NULL;
+
+/* array of file descriptors */
+static scrmfs_fd_t scrmfs_fds[SCRMFS_MAX_FILEDESCS];
 static rlim_t scrmfs_fd_limit;
+
+/* mount point information */
 static char*  scrmfs_mount_prefix = NULL;
 static size_t scrmfs_mount_prefixlen = 0;
 static key_t  scrmfs_mount_key = 0;
@@ -187,8 +188,8 @@ static void* scrmfs_init_globals(void* superblock)
     ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
 
     /* chunk repository */
-    chunk = (chunk_t*) ptr;
-    ptr += SCRMFS_MAX_CHUNKS * sizeof(chunk_t);
+    scrmfs_chunks = ptr;
+    ptr += SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
 
     return ptr;
 }
@@ -271,7 +272,7 @@ static int scrmfs_init()
                                  (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
                                  (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
                                  scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +
-                                 (SCRMFS_MAX_CHUNKS * sizeof(chunk_t));
+                                 (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);
 
         /* get a superblock of persistent memory and initialize our
          * global variables for this block */
@@ -378,7 +379,7 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
 {
     /* identify physical chunk id, find start of its buffer and add the offset */
     int chunk_id = meta->chunk_ids[id];
-    char* start = chunk[chunk_id].buf;
+    char* start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
     char* buf = start + offset;
     return (void*)buf;
 }
@@ -695,7 +696,7 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
             if (flags & O_CREAT) {
                 debug("Couldn't find entry for %s in SCRMFS\n",path);
                 debug("scrmfs_superblock = %p; free_fid_stack = %p; free_chunk_stack = %p; scrmfs_filelist = %p; chunks = %p\n",
-                                            scrmfs_superblock,free_fid_stack,free_chunk_stack,scrmfs_filelist,chunk);
+                                            scrmfs_superblock,free_fid_stack,free_chunk_stack,scrmfs_filelist,scrmfs_chunks);
 
                 /* allocate a file id slot for this new file */
                 fid = scrmfs_stack_pop(free_fid_stack);
@@ -745,8 +746,8 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         }
 
         /* TODO: allocate a free file descriptor and associate it with fid */
-        /* set file pointer */
-        scrmfs_active_fds[fid].pos = pos;
+        /* set in_use flag and file pointer */
+        scrmfs_fds[fid].pos = pos;
         debug("SCRMFS_open generated fd %d for file %s\n",fid,path);    
 
         /* don't conflict with active system fds that range from 0 - (fd_limit) */
@@ -811,8 +812,8 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
             return (off_t)-1;
         }
 
-        debug("seeking from %ld\n",scrmfs_active_fds[fd].pos);        
-        off_t current_pos = scrmfs_active_fds[fd].pos;
+        debug("seeking from %ld\n",scrmfs_fds[fd].pos);        
+        off_t current_pos = scrmfs_fds[fd].pos;
         if (whence == SEEK_SET) {
             /* seek to offset */
             current_pos = offset;
@@ -823,9 +824,9 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
             /* seek to EOF + offset */
             current_pos = meta->size + offset;
         }
-        scrmfs_active_fds[fd].pos = current_pos;
+        scrmfs_fds[fd].pos = current_pos;
 
-        debug("seeking to %ld\n",scrmfs_active_fds[fd].pos);        
+        debug("seeking to %ld\n",scrmfs_fds[fd].pos);        
         return current_pos;
     } else {
         MAP_OR_FAIL(lseek);
@@ -870,7 +871,7 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
         }
 
         /* get the current file pointer position */
-        off_t oldpos = scrmfs_active_fds[fd].pos;
+        off_t oldpos = scrmfs_fds[fd].pos;
 
         /* check that we don't read past the end of the file */
         off_t newpos = oldpos + count;
@@ -882,7 +883,7 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
         }
 
         /* update position */
-        scrmfs_active_fds[fd].pos = newpos;
+        scrmfs_fds[fd].pos = newpos;
 
         /* assume that we'll read all data */
         ret = count;
@@ -957,9 +958,9 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
  
         /* Raghu: Added a new struct to store positions of active fids.
          * This struct is not part of superblock - doesn't have to be persistent */
-        off_t oldpos = scrmfs_active_fds[fd].pos;
+        off_t oldpos = scrmfs_fds[fd].pos;
         off_t newpos = oldpos + count;
-        scrmfs_active_fds[fd].pos = newpos;
+        scrmfs_fds[fd].pos = newpos;
 
         /* if we write past the end of the file, we need to update the
          * file size, and we may need to allocate more chunks */
@@ -1342,102 +1343,4 @@ int SCRMFS_DECL(fclose)(FILE *fp)
     MAP_OR_FAIL(fclose);
     int ret = __real_fclose(fp);
     return ret;
-}
-
-/* ---------------------------------------
- * Library routines
- * --------------------------------------- */
-
-void scrmfs_finalize(struct scrmfs_job_runtime* job)
-{
-    if(!job)
-    {
-        return;
-    }
-
-    free(job);
-}
-
-void scrmfs_initialize(int argc, char** argv,  int nprocs, int rank)
-{
-    int i;
-    char* disable;
-    char* disable_timing;
-    char* envstr;
-    char* truncate_string = "<TRUNCATED>";
-    int truncate_offset;
-    int chars_left = 0;
-    int ret;
-    int tmpval;
-
-    disable = getenv("SCRMFS_DISABLE");
-    if(disable)
-    {
-        /* turn off tracing */
-        return;
-    }
-
-    disable_timing = getenv("SCRMFS_DISABLE_TIMING");
-
-    if(scrmfs_global_job != NULL)
-    {
-        return;
-    }
-
-    /* allocate structure to track scrmfs_global_job information */
-    scrmfs_global_job = malloc(sizeof(*scrmfs_global_job));
-    if(!scrmfs_global_job)
-    {
-        return;
-    }
-    memset(scrmfs_global_job, 0, sizeof(*scrmfs_global_job));
-
-    if(disable_timing)
-    {
-        scrmfs_global_job->flags |= CP_FLAG_NOTIMING;
-    }
-
-    /* set up file records */
-    for(i=0; i<CP_MAX_FILES; i++)
-    {
-        scrmfs_global_job->file_runtime_array[i].log_file = 
-            &scrmfs_global_job->file_array[i];
-    }
-
-    strcpy(scrmfs_global_job->log_job.version_string, CP_VERSION);
-    scrmfs_global_job->log_job.magic_nr = CP_MAGIC_NR;
-    scrmfs_global_job->log_job.uid = getuid();
-    scrmfs_global_job->log_job.start_time = time(NULL);
-    scrmfs_global_job->log_job.nprocs = nprocs;
-
-    /* record exe and arguments */
-    for(i=0; i<argc; i++)
-    {
-        chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
-        strncat(scrmfs_global_job->exe, argv[i], chars_left);
-        if(i < (argc-1))
-        {
-            chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
-            strncat(scrmfs_global_job->exe, " ", chars_left);
-        }
-    }
-
-    /* if we don't see any arguments, then use glibc symbol to get
-     * program name at least (this happens in fortran)
-     */
-    if(argc == 0)
-    {
-        chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
-        strncat(scrmfs_global_job->exe, __progname_full, chars_left);
-        chars_left = CP_EXE_LEN-strlen(scrmfs_global_job->exe);
-        strncat(scrmfs_global_job->exe, " <unknown args>", chars_left);
-    }
-
-    if(chars_left == 0)
-    {
-        /* we ran out of room; mark that string was truncated */
-        truncate_offset = CP_EXE_LEN - strlen(truncate_string);
-        sprintf(&scrmfs_global_job->exe[truncate_offset], "%s", 
-            truncate_string);
-    }
 }
