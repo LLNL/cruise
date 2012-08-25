@@ -223,10 +223,7 @@ extern struct scrmfs_job_runtime* scrmfs_global_job;
 
 void scrmfs_initialize(int argc, char** argv, int nprocs, int rank);
 void scrmfs_finalize(struct scrmfs_job_runtime* job);
-void scrmfs_condense(void);
-void scrmfs_search_bench(int argc, char** argv, int iters);
 void scrmfs_shutdown(int timing_flag);
-void scrmfs_shutdown_bench(int argc, char** argv, int rank, int nprocs);
 void scrmfs_walk_file_accesses(struct scrmfs_job_runtime* final_job);
 double scrmfs_wtime(void);
 
