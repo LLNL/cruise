@@ -4,7 +4,6 @@ mkdir `pwd`/log-dir
 ./prepare
 ./configure \
   --prefix `pwd`/install \
-  --with-mem-align=8 \
   --with-log-path=`pwd`/log-dir \
   --with-jobid-env=SLURM_JOBID \
   --enable-ld-preload \

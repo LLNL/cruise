@@ -90,7 +90,6 @@ ifndef DISABLE_LDPRELOAD
 	install -m 755 lib/libscrmfs.so $(libdir)
 endif
 	install -d $(bindir)
-	install -m 755 scrmfs-mk-log-dirs.pl $(bindir)
 	install -m 755 scrmfs-gen-cc.pl $(bindir)
 	install -m 755 scrmfs-gen-cxx.pl $(bindir)
 	install -m 755 scrmfs-gen-fortran.pl $(bindir)
