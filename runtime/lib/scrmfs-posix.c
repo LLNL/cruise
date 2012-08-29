@@ -78,12 +78,12 @@ extern char* __progname_full;
  * POSIX wrappers: paths
  * --------------------------------------- */
 
+SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
+SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
+SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
-SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
-SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
-SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
 //SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
 SCRMFS_FORWARD_DECL(__lxstat, int, (int vers, const char* path, struct stat *buf));
 SCRMFS_FORWARD_DECL(__lxstat64, int, (int vers, const char* path, struct stat64 *buf));
@@ -108,6 +108,7 @@ SCRMFS_FORWARD_DECL(pwrite, ssize_t, (int fd, const void *buf, size_t count, off
 SCRMFS_FORWARD_DECL(pwrite64, ssize_t, (int fd, const void *buf, size_t count, off64_t offset));
 SCRMFS_FORWARD_DECL(lseek, off_t, (int fd, off_t offset, int whence));
 SCRMFS_FORWARD_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
+SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
 SCRMFS_FORWARD_DECL(mmap, void*, (void *addr, size_t length, int prot, int flags, int fd, off_t offset));
 SCRMFS_FORWARD_DECL(mmap64, void*, (void *addr, size_t length, int prot, int flags, int fd, off64_t offset));
 SCRMFS_FORWARD_DECL(__fxstat, int, (int vers, int fd, struct stat *buf));
@@ -125,7 +126,6 @@ SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nmemb, FILE *
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nmemb, FILE *stream));
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
-SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 
 pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -347,7 +347,7 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 static inline int scrmfs_get_fid_from_fd(int fd)
 {
   /* check that file descriptor is within range */
-  if (fd < 1 || fd > SCRMFS_MAX_FILEDESCS) {
+  if (fd < 0 || fd >= SCRMFS_MAX_FILEDESCS) {
     return -1;
   }
 
@@ -444,151 +444,69 @@ static int scrmfs_unlink_fid(int fid)
  * POSIX wrappers: paths
  * --------------------------------------- */
 
-int SCRMFS_DECL(flock)(int fd, int operation)
-{
-    int intercept;
-    int ret;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
-
-        /* TODO:check if FD is currently open
-        if (0 ) {
-            errno = EBADF;
-            return -1;
-        }*/
-
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fd);
-        /* currently handling the blocking variants only */
-        switch (operation)
-        {
-            case LOCK_EX:
-                ret = pthread_spin_lock(&meta->fspinlock);
-                if ( ret ) {
-                    perror("pthread_spin_lock() failed");
-                    return -1;
-                }
-                meta->flock_status = EX_LOCKED;
-                break;
-            case LOCK_SH:
-                /* not needed for CR; will not be supported*/
-                meta->flock_status = SH_LOCKED;
-                break;
-            case LOCK_UN:
-                ret = pthread_spin_unlock(&meta->fspinlock);
-                meta->flock_status = UNLOCKED;
-                break;
-            default:
-                errno = EINVAL;
-                return -1;
-        }
-
-    return 0;
-
-    } else {
-        MAP_OR_FAIL(flock);
-        ret = __real_flock(fd,operation);
-        return ret;
-    }
-
-}
 int SCRMFS_DECL(access)(const char *path, int mode)
 {
-    int pathlen = 0;
-
+    /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
-
         /* check if path exists */
-        if ( scrmfs_get_fid_from_path(path) < 0 ) {
+        if (scrmfs_get_fid_from_path(path) < 0) {
             errno = ENOENT;
             return -1;
         }
 
-        /* check if length of path is within bounds */
-        pathlen = strlen(path);
-        if ( pathlen > SCRMFS_MAX_FILENAME ) {
-            errno = ENAMETOOLONG;
-            return -1;
-        }
-
-    /* currently a no-op */
-    return 0;
-
+        /* currently a no-op */
+        return 0;
     } else {
         MAP_OR_FAIL(access);
-        int ret = __real_access(path,mode);
+        int ret = __real_access(path, mode);
         return ret;
     }
-
-
 }
 
 int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
 {
-    int pathlen = 0;
-
+    /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
-        /* check if length of path is within bounds */
-        pathlen = strlen(path);
-        if ( pathlen > SCRMFS_MAX_FILENAME ) {
-            errno = ENAMETOOLONG;
-            return -1;
-        }
-
         /* check if path is a filename instead */
-        if ( scrmfs_get_fid_from_path(path) > 0 ) {
+        if (scrmfs_get_fid_from_path(path) >= 0) {
             errno = EEXIST;
             return -1;
         }
 
-    /*Currently a no-op*/
-    return 0;
-
+        /* Currently a no-op */
+        return 0;
     } else {
         MAP_OR_FAIL(mkdir);
         int ret = __real_mkdir(path, mode);
         return ret;
     }
-
 }
-
 
 int SCRMFS_DECL(rmdir)(const char *path)
 {
-    int pathlen = 0;
-
+    /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
-
-        /*check if the mountpoint itself is being deleted*/
-        if ( !strcmp(path, scrmfs_mount_prefix) ) {
+        /* check if the mount point itself is being deleted */
+        if (! strcmp(path, scrmfs_mount_prefix)) {
             errno = EBUSY;
             return -1;
         }
 
-        /* check if length of path is within bounds */
-        pathlen = strlen(path);
-        if ( pathlen > SCRMFS_MAX_FILENAME ) {
-            errno = ENAMETOOLONG;
-            return -1;
-        }
-
         /* check if path is a filename instead */
-        if ( scrmfs_get_fid_from_path(path) > 0 ) {
+        if (scrmfs_get_fid_from_path(path) >= 0) {
             errno = ENOTDIR;
             return -1;
         }
 
-    /* currently a no-op; alternatively, just return EPERM
-     * (EPERM:The file system containing pathname does not
-     * support the removal of directories)*/
-    return 0;
-
+        /* currently a no-op; alternatively, just return EPERM
+         * (EPERM:The file system containing pathname does not
+         * support the removal of directories)*/
+        return 0;
     } else {
         MAP_OR_FAIL(rmdir);
         int ret = __real_rmdir(path);
         return ret;
     }
-
-
 }
 
 int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
@@ -1356,6 +1274,55 @@ int SCRMFS_DECL(fdatasync)(int fd)
     } else {
         MAP_OR_FAIL(fdatasync);
         int ret = __real_fdatasync(fd);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(flock)(int fd, int operation)
+{
+    int intercept;
+    int ret;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept) {
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
+        /* get the file id for this file descriptor */
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+        if (meta == NULL) {
+            /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return -1;
+        }
+
+        /* currently handling the blocking variants only */
+        switch (operation)
+        {
+            case LOCK_EX:
+                ret = pthread_spin_lock(&meta->fspinlock);
+                if ( ret ) {
+                    perror("pthread_spin_lock() failed");
+                    return -1;
+                }
+                meta->flock_status = EX_LOCKED;
+                break;
+            case LOCK_SH:
+                /* not needed for CR; will not be supported*/
+                meta->flock_status = SH_LOCKED;
+                break;
+            case LOCK_UN:
+                ret = pthread_spin_unlock(&meta->fspinlock);
+                meta->flock_status = UNLOCKED;
+                break;
+            default:
+                errno = EINVAL;
+                return -1;
+        }
+
+        return 0;
+    } else {
+        MAP_OR_FAIL(flock);
+        ret = __real_flock(fd,operation);
         return ret;
     }
 }
