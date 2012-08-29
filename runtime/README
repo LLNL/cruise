@@ -1,6 +1,7 @@
-1. Configure with the following flags:
+1. Prepare and run 'configure':
 
 mkdir `pwd`/log-dir
+./prepare
 ./configure \
   --prefix `pwd`/install \
   --with-mem-align=8 \

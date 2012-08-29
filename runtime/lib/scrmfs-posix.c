@@ -1288,7 +1288,7 @@ int SCRMFS_DECL(flock)(int fd, int operation)
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
 
-        /* get the file id for this file descriptor */
+        /* get the file meta for this file descriptor */
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
         if (meta == NULL) {
             /* ERROR: invalid file descriptor */
@@ -1300,6 +1300,7 @@ int SCRMFS_DECL(flock)(int fd, int operation)
         switch (operation)
         {
             case LOCK_EX:
+                debug("locking file %d..\n",fid);
                 ret = pthread_spin_lock(&meta->fspinlock);
                 if ( ret ) {
                     perror("pthread_spin_lock() failed");
@@ -1308,11 +1309,13 @@ int SCRMFS_DECL(flock)(int fd, int operation)
                 meta->flock_status = EX_LOCKED;
                 break;
             case LOCK_SH:
-                /* not needed for CR; will not be supported*/
+                /* not needed for CR; will not be supported,
+                 * update flock_status anyway */
                 meta->flock_status = SH_LOCKED;
                 break;
             case LOCK_UN:
                 ret = pthread_spin_unlock(&meta->fspinlock);
+                debug("unlocking file %d..\n",fid);
                 meta->flock_status = UNLOCKED;
                 break;
             default:
