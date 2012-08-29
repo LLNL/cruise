@@ -35,7 +35,7 @@ typedef int64_t off64_t;
 
 extern char* __progname_full;
 
-//#define SCRMFS_DEBUG
+#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
@@ -111,11 +111,14 @@ SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nmemb, FILE *
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nmemb, FILE *stream));
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
+SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
-//SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
+SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
+SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
+SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
 
 pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 struct scrmfs_job_runtime* scrmfs_global_job = NULL;
@@ -367,8 +370,8 @@ int scrmfs_mount(const char prefix[], int rank)
 {
     scrmfs_mount_prefix = strdup(prefix);
     scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
-    //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
-    scrmfs_mount_key = IPC_PRIVATE;
+    scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+    //scrmfs_mount_key = IPC_PRIVATE;
     return 0;
 }
 
@@ -420,7 +423,7 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
                 perror("shmat() failed");
                 return NULL;
             }
-            debug("Superblock exists at %p\n!",scr_shmblock);
+            debug("Superblock exists at %p!\n",scr_shmblock);
 
             /* init our global variables to point to spots in superblock */
             scrmfs_init_globals(scr_shmblock);
@@ -465,7 +468,7 @@ static int scrmfs_init()
             return 1;
         }
         if (getrlimit(RLIMIT_NOFILE, r_limit) < 0) {
-            perror("rlimit failed:");
+            perror("rlimit failed");
             return 1;
         }
         scrmfs_fd_limit = r_limit->rlim_cur;
@@ -634,6 +637,153 @@ static int scrmfs_unlink_fid(int fid)
 /* ---------------------------------------
  * POSIX wrappers
  * --------------------------------------- */
+
+int SCRMFS_DECL(flock)(int fd, int operation)
+{
+    int intercept;
+    int ret;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept) {
+
+        /* TODO:check if FD is currently open
+        if (0 ) {
+            errno = EBADF;
+            return -1;
+        }*/
+
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fd);
+        /* currently handling the blocking variants only */
+        switch (operation)
+        {
+            case LOCK_EX:
+                ret = pthread_spin_lock(&meta->fspinlock);
+                if ( ret ) {
+                    perror("pthread_spin_lock() failed");
+                    return -1;
+                }
+                meta->flock_status = EX_LOCKED;
+                break;
+            case LOCK_SH:
+                /* not needed for CR; will not be supported*/
+                meta->flock_status = SH_LOCKED;
+                break;
+            case LOCK_UN:
+                ret = pthread_spin_unlock(&meta->fspinlock);
+                meta->flock_status = UNLOCKED;
+                break;
+            default:
+                errno = EINVAL;
+                return -1;
+        }
+
+    return 0;
+
+    } else {
+        MAP_OR_FAIL(flock);
+        ret = __real_flock(fd,operation);
+        return ret;
+    }
+
+}
+int SCRMFS_DECL(access)(const char *path, int mode)
+{
+    int pathlen = 0;
+
+    if (scrmfs_intercept_path(path)) {
+
+        /* check if path exists */
+        if ( scrmfs_get_fid_from_path(path) < 0 ) {
+            errno = ENOENT;
+            return -1;
+        }
+
+        /* check if length of path is within bounds */
+        pathlen = strlen(path);
+        if ( pathlen > SCRMFS_MAX_FILENAME ) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+
+    /* currently a no-op */
+    return 0;
+
+    } else {
+        MAP_OR_FAIL(access);
+        int ret = __real_access(path,mode);
+        return ret;
+    }
+
+
+}
+
+int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
+{
+    int pathlen = 0;
+
+    if (scrmfs_intercept_path(path)) {
+        /* check if length of path is within bounds */
+        pathlen = strlen(path);
+        if ( pathlen > SCRMFS_MAX_FILENAME ) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+
+        /* check if path is a filename instead */
+        if ( scrmfs_get_fid_from_path(path) > 0 ) {
+            errno = EEXIST;
+            return -1;
+        }
+
+    /*Currently a no-op*/
+    return 0;
+
+    } else {
+        MAP_OR_FAIL(mkdir);
+        int ret = __real_mkdir(path, mode);
+        return ret;
+    }
+
+}
+
+
+int SCRMFS_DECL(rmdir)(const char *path)
+{
+    int pathlen = 0;
+
+    if (scrmfs_intercept_path(path)) {
+
+        /*check if the mountpoint itself is being deleted*/
+        if ( !strcmp(path, scrmfs_mount_prefix) ) {
+            errno = EBUSY;
+            return -1;
+        }
+
+        /* check if length of path is within bounds */
+        pathlen = strlen(path);
+        if ( pathlen > SCRMFS_MAX_FILENAME ) {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+
+        /* check if path is a filename instead */
+        if ( scrmfs_get_fid_from_path(path) > 0 ) {
+            errno = ENOTDIR;
+            return -1;
+        }
+
+    /* currently a no-op; alternatively, just return EPERM
+     * (EPERM:The file system containing pathname does not
+     * support the removal of directories)*/
+    return 0;
+
+    } else {
+        MAP_OR_FAIL(rmdir);
+        int ret = __real_rmdir(path);
+        return ret;
+    }
+
+
+}
 
 int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
 {
@@ -997,10 +1147,13 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                 strcpy((void *)&scrmfs_filelist[fid].filename, path);
                 debug("Filename %s got scrmfs fd %d\n",scrmfs_filelist[fid].filename,fid);
 
-                /* initialize meta data */
+                /* initialize meta data*/
                 scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
                 meta->size = 0;
                 meta->chunks = 0;
+                meta->flock_status = UNLOCKED;
+                pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_PRIVATE);
+
             } else {
                 /* ERROR: trying to open a file that does not exist without O_CREATE */
                 debug("Couldn't find entry for %s in SCRMFS\n",path);
@@ -1388,6 +1541,7 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
     if (intercept) {
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
+        debug("Reading mfs file %d\n",fid);
 
         /* get a pointer to the file meta data structure */
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
@@ -1645,16 +1799,26 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
 
         debug("seeking from %ld\n",scrmfs_active_fds[fd].pos);        
         off_t current_pos = scrmfs_active_fds[fd].pos;
-        if (whence == SEEK_SET) {
-            /* seek to offset */
-            current_pos = offset;
-        } else if (whence == SEEK_CUR) {
-            /* seek to current position + offset */
-            current_pos += offset;
-        } else if (whence == SEEK_END) {
-            /* seek to EOF + offset */
-            current_pos = meta->size + offset;
+
+        switch (whence)
+        {
+            case SEEK_SET:
+                /* seek to offset */
+                current_pos = offset;
+                break;
+            case SEEK_CUR:
+                /* seek to current position + offset */
+                current_pos += offset;
+                break;
+            case SEEK_END:
+                /* seek to EOF + offset */
+                current_pos = meta->size + offset;
+                break;
+            default:
+                errno = EINVAL;
+                return (off_t)-1;
         }
+        
         scrmfs_active_fds[fd].pos = current_pos;
 
         debug("seeking to %ld\n",scrmfs_active_fds[fd].pos);        
