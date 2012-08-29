@@ -10,8 +10,8 @@ SCRMFS_LD_FLAGS="@LDFLAGS@"
 #   final one is necessary to give the linker a change to resolve indirect
 #   dependencies on PnetCDF and HDF5 symbols (if the app used a library which 
 #   in turn used one of those HLLs).
-PRE_LD_FLAGS="-L$SCRMFS_LIB_PATH $SCRMFS_LD_FLAGS -lscrmfs-mpi-io -lz $CP_WRAPPERS"
-POST_LD_FLAGS="-L$SCRMFS_LIB_PATH -lscrmfs-posix -lscrmfs-mpi-io"
+PRE_LD_FLAGS="-L$SCRMFS_LIB_PATH $SCRMFS_LD_FLAGS -lz $CP_WRAPPERS"
+POST_LD_FLAGS="-L$SCRMFS_LIB_PATH -lscrmfs-posix"
 
 
 usage="\
