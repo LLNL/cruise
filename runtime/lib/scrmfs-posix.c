@@ -795,7 +795,8 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                 meta->size = 0;
                 meta->chunks = 0;
                 meta->flock_status = UNLOCKED;
-                pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_PRIVATE);
+                /* PTHREAD_PROCESS_SHARED allows Process-Shared Synchronization*/
+                pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_SHARED);
 
             } else {
                 /* ERROR: trying to open a file that does not exist without O_CREATE */
