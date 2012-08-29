@@ -58,6 +58,9 @@
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "scrmfs-runtime"
 
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
+
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "2.x"
 
@@ -89,7 +92,7 @@
 #define __CP_LOG_HINTS ""
 
 /* Location to store log files at run time */
-#define __CP_LOG_PATH "/g/g92/rajachan/memfs/runtime/log-dir"
+#define __CP_LOG_PATH "/home/rajachan/memfs/runtime/log-dir"
 
 /* Memory alignment in bytes */
 #define __CP_MEM_ALIGNMENT 8

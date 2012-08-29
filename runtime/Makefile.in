@@ -1,4 +1,4 @@
-all: lib/libscrmfs-posix.a lib/libscrmfs-mpi-io.a 
+all: lib/libscrmfs-posix.a
 
 DESTDIR =
 srcdir = @srcdir@
@@ -32,17 +32,17 @@ LIBS = -lz @LIBBZ2@
 lib::
 	@mkdir -p $@
 
-lib/scrmfs-mpi-io.o: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
-	$(CC) $(CFLAGS) -c $< -o $@
+#lib/scrmfs-mpi-io.o: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/scrmfs-mpi-io.po: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
-	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+#lib/scrmfs-mpi-io.po: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-lib/scrmfs-mpi-init-finalize.o: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
-	$(CC) $(CFLAGS) -c $< -o $@
+#lib/scrmfs-mpi-init-finalize.o: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/scrmfs-mpi-init-finalize.po: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
-	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+#lib/scrmfs-mpi-init-finalize.po: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 lib/scrmfs-posix.o: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h $(SCRMFS_LOG_FORMAT) | lib
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -72,8 +72,8 @@ scrmfs-stack.po: scrmfs-stack.c scrmfs-stack.h
 %.i: %.c
 	$(CC) -E $(CFLAGS) -c $< -o $@
 
-lib/libscrmfs-mpi-io.a: lib/scrmfs-mpi-io.o lib/scrmfs-mpi-init-finalize.o
-	ar rcs $@ $^
+#lib/libscrmfs-mpi-io.a: lib/scrmfs-mpi-io.o lib/scrmfs-mpi-init-finalize.o
+#	ar rcs $@ $^
 
 lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o scrmfs-stack.o
 	ar rcs $@ $^
@@ -85,7 +85,7 @@ lib/libscrmfs.so: lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack
 install:: all
 	install -d $(libdir)
 	install -m 755 lib/libscrmfs-posix.a $(libdir)
-	install -m 755 lib/libscrmfs-mpi-io.a $(libdir)
+#	install -m 755 lib/libscrmfs-mpi-io.a $(libdir)
 ifndef DISABLE_LDPRELOAD
 	install -m 755 lib/libscrmfs.so $(libdir)
 endif
