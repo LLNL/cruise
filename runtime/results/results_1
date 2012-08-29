@@ -1,0 +1,26 @@
+50MB file
+
+to /dev/shm
+
+[rajachan@node012 fuse-template]$ ./test_ramdisk
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min 1610.27 MB/s        Max 1610.27 MB/s        Avg 1610.27 MB/s        Agg 1610.27 MB/s
+
+to /dev/shm mounted over dummy_fuse default options
+
+[rajachan@node012 fuse-template]$ ./test_fuse
+Completed checkpoint 1.
+Completed checkpoint 2.
+Completed checkpoint 3.
+Completed checkpoint 4.
+Completed checkpoint 5.
+Completed checkpoint 6.
+FileIO: Min   80.25 MB/s        Max   80.25 MB/s        Avg   80.25 MB/s        Agg   80.25 MB/s
+
+
+to /dev/shm mounted over dummy_fuse default options + obig_writes

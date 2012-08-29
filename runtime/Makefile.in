@@ -78,7 +78,8 @@ lib/libscrmfs-mpi-io.a: lib/scrmfs-mpi-io.o lib/scrmfs-mpi-init-finalize.o
 lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o scrmfs-stack.o
 	ar rcs $@ $^
 
-lib/libscrmfs.so: lib/scrmfs-mpi-io.po lib/scrmfs-mpi-init-finalize.po lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack.po
+#lib/libscrmfs.so: lib/scrmfs-mpi-io.po lib/scrmfs-mpi-init-finalize.po lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack.po
+lib/libscrmfs.so: lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack.po
 	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
 
 install:: all
