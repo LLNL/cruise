@@ -106,6 +106,7 @@ SCRMFS_FORWARD_DECL(pread, ssize_t, (int fd, void *buf, size_t count, off_t offs
 SCRMFS_FORWARD_DECL(pread64, ssize_t, (int fd, void *buf, size_t count, off64_t offset));
 SCRMFS_FORWARD_DECL(pwrite, ssize_t, (int fd, const void *buf, size_t count, off_t offset));
 SCRMFS_FORWARD_DECL(pwrite64, ssize_t, (int fd, const void *buf, size_t count, off64_t offset));
+SCRMFS_FORWARD_DECL(posix_fadvise, int, (int fd, off_t offset, off_t len, int advice));
 SCRMFS_FORWARD_DECL(lseek, off_t, (int fd, off_t offset, int whence));
 SCRMFS_FORWARD_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
 SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
@@ -941,6 +942,45 @@ off64_t SCRMFS_DECL(lseek64)(int fd, off64_t offset, int whence)
       off64_t ret = __real_lseek64(fd, offset, whence);
       return ret;
     }
+}
+
+int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
+{
+    /* check whether we should intercept this path */
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept) {
+        switch( advice ) {
+            case POSIX_FADV_NORMAL:
+            case POSIX_FADV_SEQUENTIAL:
+                /* can use this hint for a better compression strategy */
+            case POSIX_FADV_RANDOM:
+            case POSIX_FADV_NOREUSE:
+            case POSIX_FADV_WILLNEED:
+                /* with the spill-over case, we can use this hint to
+                 * to better manage the in-memory parts of a file. On
+                 * getting this advice, move the chunks that are on the
+                 * spill-over device to the in-memory portion
+                 */
+            case POSIX_FADV_DONTNEED:
+                /* similar to the previous case, but move contents from memory
+                 * to the spill-over device instead.
+                 */
+
+                /* ERROR: fn not yet supported */
+                fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+            default:
+                /* this function returns the errno itself, not -1 */
+                errno = EINVAL;
+                return errno;
+        }
+    return 0;
+    } else {
+      MAP_OR_FAIL(posix_fadvise);
+      off64_t ret = __real_posix_fadvise(fd,offset,len,advice);
+      return ret;
+    }
+
 }
 
 ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
