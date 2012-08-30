@@ -28,6 +28,7 @@
 
 #include "scrmfs.h"
 #include "scrmfs-file.h"
+#include "utlist.h"
 
 #ifndef HAVE_OFF64_T
 typedef int64_t off64_t;
@@ -155,6 +156,7 @@ static rlim_t scrmfs_fd_limit;
 static char*  scrmfs_mount_prefix = NULL;
 static size_t scrmfs_mount_prefixlen = 0;
 static key_t  scrmfs_mount_key = 0;
+
 
 #if 0
 /* simple memcpy which compilers should be able to vectorize
@@ -365,7 +367,8 @@ static int scrmfs_get_fid_from_path(const char* path)
         if(scrmfs_filelist[i].in_use &&
            strcmp((void *)&scrmfs_filelist[i].filename, path) == 0)
         {
-            debug("File found: scrmfs_filelist[%d].filename = %s\n",i,(void *)&scrmfs_filelist[i].filename);
+            debug("File found: scrmfs_filelist[%d].filename = %s\n",
+                                i,(void *)&scrmfs_filelist[i].filename);
             return i;
         }
         i++;
@@ -385,6 +388,67 @@ static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
     }
     return NULL;
 }
+
+/* get a list of chunks for a given file (useful for RDMA, etc.);
+ * to be exposed as API */
+chunk_list_t* scrmfs_get_chunk_list(int fd)
+{
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept) {
+
+        int i = 0;
+        chunk_list_t *chunk_list = NULL;
+        chunk_list_t *chunk_list_elem;
+    
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
+        /* get meta data for this file */
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+        
+        while ( i < meta->chunks ) {
+
+            chunk_list_elem = (chunk_list_t*)malloc(sizeof(chunk_list_t));
+            /* get the chunk id for the i-th chunk and
+             * add it to the chunk_list */
+            chunk_list_elem->chunk_id = meta->chunk_ids[i];
+
+            /* currently using macros from utlist.h to
+             * handle link-list operations */
+            LL_APPEND( chunk_list, chunk_list_elem);
+            i++;
+        }
+        return chunk_list;
+
+    } else {
+        /* file not managed by SCRMFS */
+        errno = EBADF;
+        return NULL;
+    }
+}
+
+#if 0
+/* debug function to print list of chunks constituting a file
+ * and to test above function*/
+void scrmfs_print_chunk_list(int fd)
+{
+    chunk_list_t *chunk_list;
+    chunk_list_t *chunk_element;
+
+    chunk_list = scrmfs_get_chunk_list(fd);
+
+    LL_FOREACH(chunk_list,chunk_element) {
+        printf("%d,",chunk_element->chunk_id);
+    }
+
+    LL_FOREACH(chunk_list,chunk_element) {
+        free(chunk_element);
+    }
+    fprintf(stdout,"\n");
+    
+}
+#endif
 
 /* given a chunk id and an offset within that chunk, return the pointer
  * to the memory location corresponding to that location */
@@ -1372,6 +1436,7 @@ int SCRMFS_DECL(flock)(int fd, int operation)
     }
 }
 
+/* TODO: check correctness */
 void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {
@@ -1379,10 +1444,68 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
-        /* ERROR: fn not yet supported */
-        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
-        errno = EBADF;
-        return MAP_FAILED;
+
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
+        /* get the file meta for this file descriptor */
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+
+        /* allocate memory required to mmap the data if add is NULL*/
+        if ( ! addr )
+            addr = malloc(length);
+
+        /* TODO: check if offset is multiple of page size */
+
+        /* check that we don't copy past the end of the file */
+        off_t total_length = offset + length;
+ 
+        if (total_length > meta->size) {
+            /* trying to copy past the end of the file, so
+             * adjust the total amount to be copied */
+            total_length = meta->size;
+            length = (size_t) (total_length - offset);
+        }
+
+        /* get pointer to position within current chunk */
+        int chunk_id = offset >> SCRMFS_CHUNK_BITS;
+        off_t chunk_offset = offset & SCRMFS_CHUNK_MASK;
+        void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+
+        /* determine how many bytes remain in the current chunk */
+        size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
+        if (length <= remaining) {
+            /* all bytes for this write fit within the current chunk */
+            memcpy(addr, chunk_buf, length);
+        } else {
+            /* copy what's left of current chunk */
+            char* ptr = (char*) addr;
+            memcpy(ptr, chunk_buf, remaining);
+            ptr += remaining;
+
+            /* read from the next chunk */
+            size_t read = remaining;
+            while (read < length) {
+                /* get pointer to start of next chunk */
+                chunk_id++;
+                chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
+
+                /* compute size to read from this chunk */
+                size_t to_read = length - read;
+                if (to_read > SCRMFS_CHUNK_SIZE) {
+                    to_read = SCRMFS_CHUNK_SIZE;
+                }
+
+                /* copy data */
+                memcpy(ptr, chunk_buf, to_read);
+                ptr += to_read;
+
+                /* update number of bytes written */
+                read += to_read;
+            }
+        }
+
+        return addr;
     } else {
         MAP_OR_FAIL(mmap);
         void* ret = __real_mmap(addr, length, prot, flags, fd, offset);
