@@ -942,6 +942,14 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
+        /* check that the file descriptor is valid */
+        int fid = scrmfs_get_fid_from_fd(fd);
+        if (fid < 0) {
+            errno = EBADF;
+            return errno;
+        }
+
+        /* process advice from caller */
         switch( advice ) {
             case POSIX_FADV_NORMAL:
             case POSIX_FADV_SEQUENTIAL:
@@ -967,13 +975,14 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
                 errno = EINVAL;
                 return errno;
         }
-    return 0;
+
+        /* just a hint so return success even if we don't do anything */
+        return 0;
     } else {
       MAP_OR_FAIL(posix_fadvise);
-      off64_t ret = __real_posix_fadvise(fd,offset,len,advice);
+      int ret = __real_posix_fadvise(fd, offset, len, advice);
       return ret;
     }
-
 }
 
 ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
