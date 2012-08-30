@@ -34,8 +34,6 @@
 typedef int64_t off64_t;
 #endif
 
-extern char* __progname_full;
-
 #define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
@@ -129,12 +127,6 @@ SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nmemb,
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
-
-pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-struct scrmfs_job_runtime* scrmfs_global_job = NULL;
-static int my_rank = -1;
-static struct stat64 cp_stat_buf;
-static int scrmfs_mem_alignment = 1;
 
 /* keep track of what we've initialized */
 static int scrmfs_initialized = 0;
@@ -1014,6 +1006,14 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
+        /* check that the file descriptor is valid */
+        int fid = scrmfs_get_fid_from_fd(fd);
+        if (fid < 0) {
+            errno = EBADF;
+            return errno;
+        }
+
+        /* process advice from caller */
         switch( advice ) {
             case POSIX_FADV_NORMAL:
             case POSIX_FADV_SEQUENTIAL:
@@ -1039,13 +1039,14 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
                 errno = EINVAL;
                 return errno;
         }
-    return 0;
+
+        /* just a hint so return success even if we don't do anything */
+        return 0;
     } else {
       MAP_OR_FAIL(posix_fadvise);
-      off64_t ret = __real_posix_fadvise(fd,offset,len,advice);
+      int ret = __real_posix_fadvise(fd, offset, len, advice);
       return ret;
     }
-
 }
 
 ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)

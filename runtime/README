@@ -1,10 +1,8 @@
 1. Prepare and run 'configure':
 
-mkdir `pwd`/log-dir
 ./prepare
 ./configure \
   --prefix `pwd`/install \
-  --with-log-path=`pwd`/log-dir \
   --with-jobid-env=SLURM_JOBID \
   --enable-ld-preload \
   CC=mpicc CFLAGS="-g -O0"
@@ -25,7 +23,11 @@ mkdir `pwd`/log-dir
 	This is needed to generate the .so lib that we will preload
 	(if not statically building)
 
-2. make && make install
+2. Build library
+
+make clean
+make
+make install
 
 3. Run ./install/bin/scrmfs-mk-log-dirs.pl
 	
@@ -45,7 +47,6 @@ mkdir `pwd`/log-dir
 	
 setenv PRE_SCRMFS_FLAGS `./install/bin/scrmfs-config --pre-ld-flags`
 setenv POST_SCRMFS_FLAGS `./install/bin/scrmfs-config --post-ld-flags`
-
 mpicc $PRE_SCRMFS_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
 
 	If you are running test_interpose, you can do something similar in
