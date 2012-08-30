@@ -127,12 +127,6 @@ SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 
-//pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-struct scrmfs_job_runtime* scrmfs_global_job = NULL;
-static int my_rank = -1;
-static struct stat64 cp_stat_buf;
-static int scrmfs_mem_alignment = 1;
-
 /* keep track of what we've initialized */
 static int scrmfs_initialized = 0;
 static int scrmfs_stack_init_done = 0;
