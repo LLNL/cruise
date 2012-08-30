@@ -969,6 +969,7 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
 
                 /* ERROR: fn not yet supported */
                 fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+                break;
             default:
                 /* this function returns the errno itself, not -1 */
                 errno = EINVAL;
