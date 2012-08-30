@@ -33,8 +33,6 @@
 typedef int64_t off64_t;
 #endif
 
-extern char* __progname_full;
-
 #define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
@@ -129,7 +127,7 @@ SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
 SCRMFS_FORWARD_DECL(fsync, int, (int fd));
 SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 
-pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+//pthread_mutex_t cp_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 struct scrmfs_job_runtime* scrmfs_global_job = NULL;
 static int my_rank = -1;
 static struct stat64 cp_stat_buf;
