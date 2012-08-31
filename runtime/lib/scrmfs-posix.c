@@ -73,6 +73,13 @@ typedef int64_t off64_t;
 
 #endif
 
+
+extern pthread_mutex_t scrmfs_stack_mutex;
+#define SCRMFS_STACK_LOCK() pthread_mutex_lock(&scrmfs_stack_mutex)
+#define SCRMFS_STACK_UNLOCK() pthread_mutex_unlock(&scrmfs_stack_mutex)
+
+
+
 /* ---------------------------------------
  * POSIX wrappers: paths
  * --------------------------------------- */
@@ -111,6 +118,7 @@ SCRMFS_FORWARD_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
 SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
 SCRMFS_FORWARD_DECL(mmap, void*, (void *addr, size_t length, int prot, int flags, int fd, off_t offset));
 SCRMFS_FORWARD_DECL(mmap64, void*, (void *addr, size_t length, int prot, int flags, int fd, off64_t offset));
+SCRMFS_FORWARD_DECL(msync, int, (void *addr, size_t length, int flags));
 SCRMFS_FORWARD_DECL(__fxstat, int, (int vers, int fd, struct stat *buf));
 SCRMFS_FORWARD_DECL(__fxstat64, int, (int vers, int fd, struct stat64 *buf));
 SCRMFS_FORWARD_DECL(close, int, (int fd));
@@ -148,6 +156,9 @@ static rlim_t scrmfs_fd_limit;
 static char*  scrmfs_mount_prefix = NULL;
 static size_t scrmfs_mount_prefixlen = 0;
 static key_t  scrmfs_mount_key = 0;
+
+/* mutex to lock stack operations */
+pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 #if 0
@@ -473,7 +484,9 @@ static int scrmfs_truncate_fid(int fid, off_t length)
     while (meta->chunks > num_chunks) {
         meta->chunks--;
         debug("truncate chunk %d\n", meta->chunk_ids[meta->chunks]);
+        SCRMFS_STACK_LOCK();
         scrmfs_stack_push(free_chunk_stack, meta->chunk_ids[meta->chunks]);
+        SCRMFS_STACK_UNLOCK();
     }
     
     /* set the new size */
@@ -492,7 +505,9 @@ static int scrmfs_unlink_fid(int fid)
     scrmfs_filelist[fid].in_use = 0;
 
     /* add this id back to the free stack */
+    SCRMFS_STACK_LOCK();
     scrmfs_stack_push(free_fid_stack, fid);
+    SCRMFS_STACK_UNLOCK();
 
     return 0;
 }
@@ -829,7 +844,9 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                                             scrmfs_superblock,free_fid_stack,free_chunk_stack,scrmfs_filelist,scrmfs_chunks);
 
                 /* allocate a file id slot for this new file */
+                SCRMFS_STACK_LOCK();
                 fid = scrmfs_stack_pop(free_fid_stack);
+                SCRMFS_STACK_UNLOCK();
                 debug("scrmfs_stack_pop() gave %d\n",fid);
                 if (fid < 0) {
                     /* need to create a new file, but we can't */
@@ -1167,25 +1184,26 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
             if (newpos > maxsize) {
                 /* compute number of additional bytes we need */
                 off_t additional = newpos - maxsize;
-                while (additional > 0)
-                {
-                  /* allocate a new chunk */
-                  int id = scrmfs_stack_pop(free_chunk_stack);
-                  if (id < 0)
-                  {
-                      debug("scrmfs_stack_pop() failed (%d)\n", id);
+                while (additional > 0) {
 
-                      /* ERROR: device out of space */
-                      errno = ENOSPC;
-                      return -1;
-                  }
+                    /* allocate a new chunk */
+                    SCRMFS_STACK_LOCK();
+                    int id = scrmfs_stack_pop(free_chunk_stack);
+                    SCRMFS_STACK_UNLOCK();
+                    if (id < 0) {
+                        debug("scrmfs_stack_pop() failed (%d)\n", id);
 
-                  /* add it to the chunk list of this file */
-                  meta->chunk_ids[meta->chunks] = id;
-                  meta->chunks++;
+                        /* ERROR: device out of space */
+                        errno = ENOSPC;
+                        return -1;
+                    }
 
-                  /* subtract bytes from the number we need */
-                  additional -= SCRMFS_CHUNK_SIZE;
+                    /* add it to the chunk list of this file */
+                    meta->chunk_ids[meta->chunks] = id;
+                    meta->chunks++;
+
+                    /* subtract bytes from the number we need */
+                    additional -= SCRMFS_CHUNK_SIZE;
                 }
             }
         }
@@ -1433,7 +1451,6 @@ int SCRMFS_DECL(flock)(int fd, int operation)
     }
 }
 
-/* TODO: check correctness */
 void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {
@@ -1510,6 +1527,16 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     }
 }
 
+int msync(void *addr, size_t length, int flags)
+{
+    /* need to keep track of all the mmaps that are linked to
+     * a given file before this function can be implemented*/
+    fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+    errno = ENOSYS;
+    return ENOMEM;
+
+}
+
 void* SCRMFS_DECL(mmap64)(void *addr, size_t length, int prot, int flags,
     int fd, off64_t offset)
 {
@@ -1519,7 +1546,7 @@ void* SCRMFS_DECL(mmap64)(void *addr, size_t length, int prot, int flags,
     if (intercept) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
-        errno = EBADF;
+        errno = ENOSYS;
         return MAP_FAILED;
     } else {
         MAP_OR_FAIL(mmap64);
