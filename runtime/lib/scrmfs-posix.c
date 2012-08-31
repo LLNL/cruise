@@ -757,10 +757,6 @@ int SCRMFS_DECL(__lxstat64)(int vers, const char *path, struct stat64 *buf)
     }
 }
 
-/* MISSING:
- * access()
- * mkdir(), rmdir(), etc */
-
 /* ---------------------------------------
  * POSIX wrappers: file descriptors
  * --------------------------------------- */
