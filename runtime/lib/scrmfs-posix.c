@@ -1451,6 +1451,7 @@ int SCRMFS_DECL(flock)(int fd, int operation)
     }
 }
 
+/* TODO: handle different flags */
 void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {
@@ -1465,11 +1466,11 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
         /* get the file meta for this file descriptor */
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
-        /* allocate memory required to mmap the data if add is NULL*/
+        /* allocate memory required to mmap the data if addr is NULL;
+         * using posix_memalign instead of malloc to align mmap'ed area
+         * to page size */
         if ( ! addr )
-            addr = malloc(length);
-
-        /* TODO: check if offset is multiple of page size */
+            posix_memalign( &addr, sysconf(_SC_PAGE_SIZE), length);
 
         /* check that we don't copy past the end of the file */
         off_t total_length = offset + length;
