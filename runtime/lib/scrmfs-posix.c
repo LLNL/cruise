@@ -160,6 +160,9 @@ static key_t  scrmfs_mount_key = 0;
 /* mutex to lock stack operations */
 pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static int scrmfs_init();
+static int scrmfs_get_fid_from_path(const char* path);
+static int scrmfs_add_new_directory(const char * path);
 
 #if 0
 /* simple memcpy which compilers should be able to vectorize
@@ -179,8 +182,23 @@ int scrmfs_mount(const char prefix[], int rank)
 {
     scrmfs_mount_prefix = strdup(prefix);
     scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
-//KMM commented out because we're just using a single rank
-//downside, can't attach to this in another srun (PRIVATE, that is)
+
+
+    // add mount point as a new directory in the file list
+    /* check if it already exists */
+    if (scrmfs_get_fid_from_path(prefix) >= 0) {
+        errno = EEXIST;
+        return -1;
+    }
+    else{
+        int fid = scrmfs_add_new_directory(prefix);
+        // if there was an error, return it
+        if (fid < 0)
+           return fid;
+    }
+
+    //KMM commented out because we're just using a single rank, so use PRIVATE
+    //downside, can't attach to this in another srun (PRIVATE, that is)
     //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
     scrmfs_mount_key = IPC_PRIVATE;
     return 0;
@@ -284,7 +302,6 @@ static int scrmfs_init()
         free(r_limit);
         debug("FD limit for system = %ld\n",scrmfs_fd_limit);
 
-        scrmfs_mount("/tmp", 0);
         
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
@@ -305,6 +322,8 @@ static int scrmfs_init()
 
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
+
+        scrmfs_mount("/tmp", 0);
     }
 
     return 0;
@@ -553,6 +572,7 @@ static int scrmfs_add_new_file(const char * path){
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
     meta->size = 0;
     meta->chunks = 0;
+    meta->is_dir = 0;
     meta->flock_status = UNLOCKED;
     /* PTHREAD_PROCESS_SHARED allows Process-Shared Synchronization*/
     pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_SHARED);
@@ -560,6 +580,18 @@ static int scrmfs_add_new_file(const char * path){
     return fid;
 }
 
+/* add a new directory and initialize metadata
+ * returns the new fid, or a negative value on error */
+static int scrmfs_add_new_directory(const char * path){
+
+   int fid = scrmfs_add_new_file(path);
+   // was there an error? if so, return it
+   if (fid < 0) 
+      return fid;
+   scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+   meta->is_dir = 1;
+   return fid;
+}
 
 /* ---------------------------------------
  * POSIX wrappers: paths
@@ -589,15 +621,19 @@ debug("access: returning __real_access %d,%s\n", ret, path);
 
 int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
 {
+/* Support for directories is very limited at this time
+ * mkdir simply puts an entry into the filelist for the
+ * requested directory (assuming it does not exist)
+ * It doesn't check to see if parent directory exists
+*/
     /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
-        /* check if path is a filename instead */
+        /* check if it already exists */
         if (scrmfs_get_fid_from_path(path) >= 0) {
             errno = EEXIST;
             return -1;
         }
-
-        /* Currently a no-op */
+        int fid = scrmfs_add_new_directory(path);
         return 0;
     } else {
         MAP_OR_FAIL(mkdir);
