@@ -517,6 +517,50 @@ static int scrmfs_unlink_fid(int fid)
     return 0;
 }
 
+
+/* allocate a file id slot for a new file 
+ * return the fid or -1 on error */
+static int scrmfs_get_slot_for_new_file(){
+
+    SCRMFS_STACK_LOCK();
+    int fid = scrmfs_stack_pop(free_fid_stack);
+    SCRMFS_STACK_UNLOCK();
+    debug("scrmfs_stack_pop() gave %d\n",fid);
+    if (fid < 0) {
+        /* need to create a new file, but we can't */
+        debug("scrmfs_stack_pop() failed (%d)\n",fid);
+        errno = ENOSPC;
+        return -1;
+    }
+    return fid;
+}
+
+/* add a new file and initialize metadata
+ * returns the new fid, or negative value on error */
+static int scrmfs_add_new_file(const char * path){
+
+    int fid = scrmfs_get_slot_for_new_file();
+    // was there an error? if so, return it
+    if (fid < 0) 
+       return fid;
+
+    /* mark this slot as in use and copy the filename */
+    scrmfs_filelist[fid].in_use = 1;
+    strcpy((void *)&scrmfs_filelist[fid].filename, path);
+    debug("Filename %s got scrmfs fd %d\n",scrmfs_filelist[fid].filename,fid);
+
+    /* initialize meta data*/
+    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+    meta->size = 0;
+    meta->chunks = 0;
+    meta->flock_status = UNLOCKED;
+    /* PTHREAD_PROCESS_SHARED allows Process-Shared Synchronization*/
+    pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_SHARED);
+   
+    return fid;
+}
+
+
 /* ---------------------------------------
  * POSIX wrappers: paths
  * --------------------------------------- */
@@ -865,29 +909,11 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                                             scrmfs_superblock,free_fid_stack,free_chunk_stack,scrmfs_filelist,scrmfs_chunks);
 
                 /* allocate a file id slot for this new file */
-                SCRMFS_STACK_LOCK();
-                fid = scrmfs_stack_pop(free_fid_stack);
-                SCRMFS_STACK_UNLOCK();
-                debug("scrmfs_stack_pop() gave %d\n",fid);
-                if (fid < 0) {
-                    /* need to create a new file, but we can't */
-                    debug("scrmfs_stack_pop() failed (%d)\n",fid);
-                    errno = ENOSPC;
-                    return -1;
+                fid = scrmfs_add_new_file(path);
+                if (fid < 0){
+                   // some error occured, return it
+                   return fid;
                 }
-
-                /* mark this slot as in use and copy the filename */
-                scrmfs_filelist[fid].in_use = 1;
-                strcpy((void *)&scrmfs_filelist[fid].filename, path);
-                debug("Filename %s got scrmfs fd %d\n",scrmfs_filelist[fid].filename,fid);
-
-                /* initialize meta data*/
-                scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-                meta->size = 0;
-                meta->chunks = 0;
-                meta->flock_status = UNLOCKED;
-                /* PTHREAD_PROCESS_SHARED allows Process-Shared Synchronization*/
-                pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_SHARED);
 
             } else {
                 /* ERROR: trying to open a file that does not exist without O_CREATE */
