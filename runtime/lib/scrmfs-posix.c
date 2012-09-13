@@ -179,8 +179,10 @@ int scrmfs_mount(const char prefix[], int rank)
 {
     scrmfs_mount_prefix = strdup(prefix);
     scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
-    scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
-    //scrmfs_mount_key = IPC_PRIVATE;
+//KMM commented out because we're just using a single rank
+//downside, can't attach to this in another srun (PRIVATE, that is)
+    //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+    scrmfs_mount_key = IPC_PRIVATE;
     return 0;
 }
 
@@ -336,6 +338,9 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 
     if (oldfd < scrmfs_fd_limit) {
         /* this fd is a real system fd, so leave it as is */
+        *intercept = 0;
+    } else if (oldfd < 0) {
+        /* this is an invalid fd, so we should not intercept it */
         *intercept = 0;
     } else {
         /* this is an fd we generated and returned to the user,
@@ -523,14 +528,17 @@ int SCRMFS_DECL(access)(const char *path, int mode)
         /* check if path exists */
         if (scrmfs_get_fid_from_path(path) < 0) {
             errno = ENOENT;
+debug("access: scrmfs_get_id_from path failed, returning -1, %s\n", path);
             return -1;
         }
-
+debug("access: path intercepted, returning 0, %s\n", path);
         /* currently a no-op */
         return 0;
     } else {
+debug("access: calling MAP_OR_FAIL, %s\n", path);
         MAP_OR_FAIL(access);
         int ret = __real_access(path, mode);
+debug("access: returning __real_access %d,%s\n", ret, path);
         return ret;
     }
 }
@@ -688,18 +696,31 @@ int SCRMFS_DECL(unlink)(const char *path)
 }
 
 /*
-int SCRMFS_DECL(__stat)( const char *path, struct stat *buf)
+int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
 {
+    debug("stat was called for %s....\n",path);
+    if (scrmfs_intercept_path(path)) {
+        int fid = scrmfs_get_fid_from_path(path);
+        if (fid < 0) {
+            errno = ENOENT;
+            return -1;
+        }
 
-    int ret;
-    debug("stat called..\n");
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
-    MAP_OR_FAIL(__stat);
-    ret = __real_stat(path,buf);
-    
-    return ret;
+        buf->st_size = meta->size;
 
-} */
+        return 0;
+    } else {
+        MAP_OR_FAIL(stat);
+        int ret = __real_stat(path, buf);
+        return ret;
+    }
+
+
+
+} 
+*/
 
 int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
 {
@@ -1405,18 +1426,10 @@ int SCRMFS_DECL(flock)(int fd, int operation)
     int ret;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
-        /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
-
-        /* get the file meta for this file descriptor */
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-        if (meta == NULL) {
-            /* ERROR: invalid file descriptor */
-            errno = EBADF;
-            return -1;
-        }
-
-        /* currently handling the blocking variants only */
+     // KMM I removed the locking code because it was causing
+     // hangs
+      /*
+        -- currently handling the blocking variants only 
         switch (operation)
         {
             case LOCK_EX:
@@ -1429,8 +1442,8 @@ int SCRMFS_DECL(flock)(int fd, int operation)
                 meta->flock_status = EX_LOCKED;
                 break;
             case LOCK_SH:
-                /* not needed for CR; will not be supported,
-                 * update flock_status anyway */
+                -- not needed for CR; will not be supported,
+                --  update flock_status anyway 
                 meta->flock_status = SH_LOCKED;
                 break;
             case LOCK_UN:
@@ -1442,6 +1455,7 @@ int SCRMFS_DECL(flock)(int fd, int operation)
                 errno = EINVAL;
                 return -1;
         }
+       */
 
         return 0;
     } else {
