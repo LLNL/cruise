@@ -163,6 +163,7 @@ pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int scrmfs_init();
 static int scrmfs_get_fid_from_path(const char* path);
 static int scrmfs_add_new_directory(const char * path);
+static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid);
 
 #if 0
 /* simple memcpy which compilers should be able to vectorize
@@ -401,6 +402,40 @@ static int scrmfs_get_fid_from_path(const char* path)
         i++;
     }
     return -1;
+}
+
+/* checks to see if fid is a directory
+ * returns 1 for yes
+ * returns 0 for no */
+static int scrmfs_is_dir(int fid){
+
+   scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+   return meta->is_dir;
+}
+
+/* checks to see if a directory is empty
+ * assumes that check for is_dir has already been made
+ * only checks for full path matches, does not check relative paths,
+ * e.g. ../dirname will not work
+ * returns 1 for yes it is empty
+ * returns 0 for no */
+static int scrmfs_is_dir_empty(const char * path){
+
+    int i = 0;
+    while (i < SCRMFS_MAX_FILES) {
+       if(scrmfs_filelist[i].in_use){
+           char * strptr = strstr(path, scrmfs_filelist[i].filename);
+           /* if the file starts with the path, it is inside of that directory 
+            * also check to make sure that it's not the directory entry itself */
+           if (strptr == scrmfs_filelist[i].filename && strcmp(path,scrmfs_filelist[i].filename)){
+              debug("File found: scrmfs_filelist[%d].filename = %s\n",
+                                 i,(void *)&scrmfs_filelist[i].filename);
+              return 0;
+           }
+       } 
+       ++i;
+    }
+    return 1;
 }
 
 /* given a file id, return a pointer to the meta data,
@@ -652,15 +687,24 @@ int SCRMFS_DECL(rmdir)(const char *path)
             return -1;
         }
 
-        /* check if path is a filename instead */
-        if (scrmfs_get_fid_from_path(path) >= 0) {
+        /* check if path exists */
+        int fid = scrmfs_get_fid_from_path(path);
+        if (fid < 0){
+            errno = ENOENT;
+            return -1;
+        }
+        /* is it a directory? */
+        if (!scrmfs_is_dir(fid)){
             errno = ENOTDIR;
             return -1;
         }
-
-        /* currently a no-op; alternatively, just return EPERM
-         * (EPERM:The file system containing pathname does not
-         * support the removal of directories)*/
+        /* is it empty? */
+        if (!scrmfs_is_dir_empty(path)){
+            errno = ENOTEMPTY;
+            return -1;
+        }
+        /* remove the directory from the file list */ 
+        int ret = scrmfs_unlink_fid(fid);
         return 0;
     } else {
         MAP_OR_FAIL(rmdir);
