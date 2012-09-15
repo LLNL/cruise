@@ -55,7 +55,7 @@ int main(int argc, char ** argv){
   //CHECK(rc = test_stat());
   CHECK(rc = test_access());
   CHECK(rc = test_write());
-  //read
+  CHECK(rc = test_read());
   //seek
   return 0;
 }
@@ -234,6 +234,7 @@ int test_access(){
 
 int test_write(){
    char afile[20] = "/tmp/afile";
+   char adir[20] = "/tmp/somewhere";
    char buf[1000];
    int count = 1000;
    int fd;
@@ -250,6 +251,54 @@ int test_write(){
    close(fd);
    unlink(afile);
 
+   /* try to write to a directory
+    * should fail */
+   mkdir(adir,S_IRWXU);
+   fd = open(adir, O_DIRECTORY);
+   TESTFAILERR(ret, write(fd, buf, count), EINVAL);
+
+   close(fd);
+   rmdir(adir);
 
    return 1;
+}
+
+int test_read(){
+   char afile[20] = "/tmp/afile";
+   char adir[20] = "/tmp/somewhere";
+   char buf[1000];
+   int count = 1000;
+   int fd;
+   int ret;
+
+
+   /* try to read a non-existent file
+    * should fail */
+   TESTFAILERR(ret, read(UNUSEDFD, buf, count), EBADF);
+
+   /* try to read from an existent file with 0 bytes
+    * should succeed, should read 0 bytes */
+   fd = open(afile, O_CREAT);
+   TESTSUCC(ret, read(fd, buf, count));
+   TESTSUCC(ret, 0==ret? 1:-1);
+ 
+   /* test reading from a file with bytes
+    * should succeed */
+   write(fd, buf, count);
+   TESTSUCC(ret, read(fd, buf, count));
+   /* should read 0 bytes since at the end of the file */
+   TESTSUCC(ret, 0==ret? 1:-1);
+   /* seek to beginning and read, should get count bytes */
+   lseek(fd,0, SEEK_SET);
+   TESTSUCC(ret, read(fd, buf, count));
+   TESTSUCC(ret, count==ret? 1:-1);
+
+   /* try to read a directory
+    * should fail */
+   mkdir(adir,S_IRWXU);
+   fd = open(adir, O_DIRECTORY);
+   TESTFAILERR(ret, read(fd, buf, count), EISDIR);
+
+   close(fd);
+   rmdir(adir);
 }
