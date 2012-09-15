@@ -90,7 +90,7 @@ SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
-//SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
+SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
 SCRMFS_FORWARD_DECL(__lxstat, int, (int vers, const char* path, struct stat *buf));
 SCRMFS_FORWARD_DECL(__lxstat64, int, (int vers, const char* path, struct stat64 *buf));
 SCRMFS_FORWARD_DECL(__xstat, int, (int vers, const char* path, struct stat *buf));
@@ -828,7 +828,7 @@ int SCRMFS_DECL(unlink)(const char *path)
     }
 }
 
-/*
+
 int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
 {
     debug("stat was called for %s....\n",path);
@@ -853,7 +853,7 @@ int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
 
 
 } 
-*/
+
 
 int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
 {
