@@ -410,7 +410,10 @@ static int scrmfs_get_fid_from_path(const char* path)
 static int scrmfs_is_dir(int fid){
 
    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-   return meta->is_dir;
+   if (meta)
+     return meta->is_dir;
+   else  // if it doesn't exist, then it's not a directory?
+     return 0;
 }
 
 /* checks to see if a directory is empty
@@ -1215,6 +1218,13 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
     if (intercept) {
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
+       
+        /* it's an error to read from a directory */
+        if(scrmfs_is_dir(fid)){
+           errno = EISDIR;
+           return -1;
+        }
+
         debug("Reading mfs file %d\n",fid);
 
         /* get a pointer to the file meta data structure */
@@ -1302,6 +1312,12 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
+
+        /* it's an error to write to a directory */
+        if(scrmfs_is_dir(fid)){
+           errno = EINVAL;
+           return -1;
+        }
 
         /* get a pointer to the file meta data structure */
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
