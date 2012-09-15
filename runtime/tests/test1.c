@@ -47,15 +47,15 @@ int test1();
 int main(int argc, char ** argv){
   int rc;
 
-  /*CHECK(rc = test_open()); 
+  CHECK(rc = test_open()); 
   CHECK(rc = test_close());
   CHECK(rc = test_unlink());
   CHECK(rc = test_mkdir());
-  CHECK(rc = test_rmdir());*/
+  CHECK(rc = test_rmdir());
   CHECK(rc = test_stat());
-  /*CHECK(rc = test_access());
+  CHECK(rc = test_access());
   CHECK(rc = test_write());
-  CHECK(rc = test_read());*/
+  CHECK(rc = test_read());
   //seek
   return 0;
 }
