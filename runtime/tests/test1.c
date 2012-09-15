@@ -47,15 +47,15 @@ int test1();
 int main(int argc, char ** argv){
   int rc;
 
-  CHECK(rc = test_open()); 
+  /*CHECK(rc = test_open()); 
   CHECK(rc = test_close());
   CHECK(rc = test_unlink());
   CHECK(rc = test_mkdir());
-  CHECK(rc = test_rmdir());
-  //CHECK(rc = test_stat());
-  CHECK(rc = test_access());
+  CHECK(rc = test_rmdir());*/
+  CHECK(rc = test_stat());
+  /*CHECK(rc = test_access());
   CHECK(rc = test_write());
-  CHECK(rc = test_read());
+  CHECK(rc = test_read());*/
   //seek
   return 0;
 }
@@ -197,11 +197,26 @@ int test_rmdir(){
 
 int test_stat(){
    char afile[20] = "/tmp/afile";
+   char buf[1000];
+   int count = 1000;
    int fd;
-   struct stat buf;
+   int ret;
+   struct stat statbuf;
 
-   //TESTFAIL(fd, stat(afile, &buf));
+   /* call stat for non-existent file
+    * should fail */
+   TESTFAILERR(ret, stat(afile, &statbuf), ENOENT);
+
+   fd = open(afile, O_CREAT);
+   TESTSUCC(ret, stat(afile, &statbuf)); 
+   TESTSUCC(ret, statbuf.st_size == 0? 1: -1);
+
+   write(fd, buf, count);
+   TESTSUCC(ret, stat(afile, &statbuf)); 
+   TESTSUCC(ret, statbuf.st_size == count? 1: -1);
    
+   close(fd);
+   unlink(afile);
    return 1;
 }
 
