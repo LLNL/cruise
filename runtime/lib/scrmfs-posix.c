@@ -441,6 +441,35 @@ static int scrmfs_is_dir_empty(const char * path){
     return 1;
 }
 
+static int scrmfs_fill_in_stat_buf(int fid, struct stat * buf){
+
+   scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+   if (!meta)
+      return -1;
+   
+   /* initialize all the values */
+   buf->st_dev = 0;     /* ID of device containing file */
+   buf->st_ino = 0;     /* inode number */
+   buf->st_mode = 0;    /* protection */
+   buf->st_nlink = 0;   /* number of hard links */
+   buf->st_uid = 0;     /* user ID of owner */
+   buf->st_gid = 0;     /* group ID of owner */
+   buf->st_rdev = 0;    /* device ID (if special file) */
+   buf->st_size = 0;    /* total size, in bytes */
+   buf->st_blksize = 0; /* blocksize for file system I/O */
+   buf->st_blocks = 0;  /* number of 512B blocks allocated */
+   buf->st_atime = 0;   /* time of last access */
+   buf->st_mtime = 0;   /* time of last modification */
+   buf->st_ctime = 0;   /* time of last status change */
+
+   buf->st_size = meta->size;
+   if(scrmfs_is_dir(fid))
+      buf->st_mode |= S_IFDIR;
+   else
+      buf->st_mode |= S_IFREG;
+
+}
+
 /* given a file id, return a pointer to the meta data,
  * otherwise return NULL */
 static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
@@ -838,10 +867,7 @@ int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
             errno = ENOENT;
             return -1;
         }
-
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-
-        buf->st_size = meta->size;
+        scrmfs_fill_in_stat_buf(fid, buf);
 
         return 0;
     } else {
@@ -868,10 +894,7 @@ int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
         }
 
         /* get meta data for this file */
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-        
-        /* set the file size */
-        buf->st_size = meta->size;
+        scrmfs_fill_in_stat_buf(fid, buf);
 
         return 0;
     } else { 
