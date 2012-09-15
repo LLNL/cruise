@@ -64,6 +64,7 @@ int main(int argc, char ** argv){
 
 int test_open(){
    char afile[20] = "/tmp/file1.txt";
+   char adir[20] = "/tmp/somewhere";
    int fd;
    int fd1;
 
@@ -87,9 +88,24 @@ int test_open(){
          error("open of existing file did not return right file desc, fd=%d\n", fd);
          return -1;
    }
+
+   /* test opening directory without O_DIRECTORY
+    * should fail */
+   mkdir(adir,S_IRWXU);
+   TESTFAILERR(fd, open(adir, O_WRONLY), ENOTDIR);
+
+   /* test opening directory with O_DIRECTORY
+    * should succeed */
+   TESTSUCC(fd, open(adir, O_WRONLY|O_DIRECTORY));
+
+   /* test opening regular file with O_DIRECTORY
+    * should fail */
+   TESTFAILERR(fd, open(afile, O_WRONLY|O_DIRECTORY), ENOTDIR);
+
    close(fd);
    close(fd1);
    unlink(afile);
+   rmdir(adir);
 
    return 1;
 }
