@@ -70,7 +70,7 @@ int test_open(){
 
    /* open a file that does not exist without create flag
     * should fail */
-   TESTFAIL(fd,open(afile, O_WRONLY));
+   TESTFAILERR(fd,open(afile, O_WRONLY), ENOENT);
 
    /* open a file that does not exist with create flag
     * should succeed */
@@ -78,7 +78,7 @@ int test_open(){
 
    /* open a file that already exists with create and exlusive flags
     * should fail */
-   TESTFAIL(fd,open(afile, O_CREAT|O_EXCL));
+   TESTFAILERR(fd,open(afile, O_CREAT|O_EXCL), EEXIST);
 
    /* open a file that already exists with create flag
     * should succeed */
@@ -89,6 +89,7 @@ int test_open(){
    }
    close(fd);
    close(fd1);
+   unlink(afile);
 
    return 1;
 }
@@ -100,7 +101,7 @@ int test_close(){
 
    /* close a file that does not exist
     * should fail */
-   TESTFAIL(ret, close(UNUSEDFD));
+   TESTFAILERR(ret, close(UNUSEDFD), EBADF);
   
    /* test that closing an existing file works
     * should succeed */ 
@@ -154,7 +155,7 @@ int test_mkdir(){
 
    /* try to make it again
     * should fail */
-   TESTFAIL(ret,mkdir(adir,S_IRWXU));
+   TESTFAILERR(ret,mkdir(adir,S_IRWXU), EEXIST);
   
    rmdir(adir);
 
@@ -168,7 +169,7 @@ int test_rmdir(){
 
    /* try to delete a directory that doesn't exist
     * should fail */
-   TESTFAIL(ret,rmdir(adir));
+   TESTFAILERR(ret,rmdir(adir), ENOENT);
 
    /* try to remove a direcotry that exists
     * should succeed */
@@ -194,10 +195,10 @@ int test_access(){
 
    /* test if we can access a non-existent file
     * should fail */
-   TESTFAIL(fd, access(afile, R_OK));
-   TESTFAIL(fd, access(afile, W_OK));
-   TESTFAIL(fd, access(afile, X_OK));
-   TESTFAIL(fd, access(afile, F_OK));
+   TESTFAILERR(fd, access(afile, R_OK), ENOENT);
+   TESTFAILERR(fd, access(afile, W_OK), ENOENT);
+   TESTFAILERR(fd, access(afile, X_OK), ENOENT);
+   TESTFAILERR(fd, access(afile, F_OK), ENOENT);
 
    /* create the file, see if we can access it
     * since we are not checking permissions at this time, all these
@@ -224,7 +225,7 @@ int test_write(){
 
    /* try to write to a file that doesn't exist
     * should fail */
-   TESTFAIL(ret, write(UNUSEDFD, buf, count));
+   TESTFAILERR(ret, write(UNUSEDFD, buf, count), EBADF);
 
    /* write to an existing file
     * should succeed */
