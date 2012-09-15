@@ -197,6 +197,7 @@ int test_rmdir(){
 
 int test_stat(){
    char afile[20] = "/tmp/afile";
+   char adir[20] = "/tmp/somewhere";
    char buf[1000];
    int count = 1000;
    int fd;
@@ -207,16 +208,34 @@ int test_stat(){
     * should fail */
    TESTFAILERR(ret, stat(afile, &statbuf), ENOENT);
 
+   /* open a file, stat it, size should be 0 
+    * should succeed */
    fd = open(afile, O_CREAT);
    TESTSUCC(ret, stat(afile, &statbuf)); 
    TESTSUCC(ret, statbuf.st_size == 0? 1: -1);
 
+   /* write to file, stat, size should be count
+    * should succeed */
    write(fd, buf, count);
    TESTSUCC(ret, stat(afile, &statbuf)); 
    TESTSUCC(ret, statbuf.st_size == count? 1: -1);
+ 
+   /* check to see that this is a regular file */
+   TESTSUCC(ret, S_ISREG(statbuf.st_mode)==1? 1:-1);
+   /* check that this is not a directory */
+   TESTSUCC(ret, S_ISDIR(statbuf.st_mode)==0? 1:-1);
+
+   /* make a directory and make sure that ISDIR 
+    * reports is a directory */
+   mkdir(adir,S_IRWXU);
+   TESTSUCC(ret, stat(adir, &statbuf)); 
+   TESTSUCC(ret, S_ISDIR(statbuf.st_mode)==1? 1:-1);
+   TESTSUCC(ret, S_ISREG(statbuf.st_mode)==0? 1:-1);
+  
    
    close(fd);
    unlink(afile);
+   rmdir(adir);
    return 1;
 }
 
