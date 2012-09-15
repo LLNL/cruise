@@ -248,6 +248,8 @@ int test_write(){
     * should succeed */
    TESTSUCC(fd, open(afile, O_CREAT));
    TESTSUCC(ret, write(fd, buf, count));
+   /* should write count bytes */
+   TESTSUCC(ret, ret == count? 1: -1);
    close(fd);
    unlink(afile);
 
