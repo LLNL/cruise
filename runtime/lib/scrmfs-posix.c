@@ -1017,6 +1017,17 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
                 return -1;
             }
 
+            /* if O_DIRECTORY is set and fid is not a directory, error */
+            if ((flags & O_DIRECTORY) && !scrmfs_is_dir(fid)){
+                errno = ENOTDIR;
+                return -1;
+            }
+            /* if O_DIRECTORY is not set and fid is a directory, error */ 
+            if (!(flags & O_DIRECTORY) && scrmfs_is_dir(fid)){
+                errno = ENOTDIR;
+                return -1;
+            }
+
             /* if O_TRUNC is set with RDWR or WRONLY, need to truncate file */
             if ((flags & O_TRUNC) && (flags & (O_RDWR | O_WRONLY))) {
                 scrmfs_truncate_fid(fid, 0);
