@@ -808,6 +808,12 @@ int SCRMFS_DECL(unlink)(const char *path)
             return -1;
         }
 
+        if (scrmfs_is_dir(fid)){
+            /* ERROR: is a directory */
+            debug("Attempting to unlink a directory %s in SCRMFS\n",path);
+            errno = EISDIR;
+            return -1;
+        }
         /* delete the file */
         scrmfs_unlink_fid(fid);
 
