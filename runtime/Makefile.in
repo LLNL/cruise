@@ -14,6 +14,12 @@ LDFLAGS = @LDFLAGS@
 CC = @CC@
 LD = @LD@
 
+CONTAINER_HOME = /g/g23/mohror1/NoLoss/container
+CONTAINER_INCS = -I$(CONTAINER_HOME)/include
+CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
+CONTAINER_LIBS = -lcontainer
+#CONTAINER_LIBNAME = $(CONTAINER_HOME)/lib/libcontainer.a
+
 DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
 SCRMFS_LOG_FORMAT = $(srcdir)/../scrmfs-log-format.h
 
@@ -44,11 +50,17 @@ lib::
 #lib/scrmfs-mpi-init-finalize.po: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-lib/scrmfs-posix.o: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h $(SCRMFS_LOG_FORMAT) | lib
-	$(CC) $(CFLAGS) -c $< -o $@
+lib/scrmfs-container.o: lib/scrmfs-container.c | lib
+	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c $< -o $@
 
-lib/scrmfs-posix.po: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h $(SCRMFS_LOG_FORMAT) | lib
-	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+lib/scrmfs-container.po: lib/scrmfs-container.c | lib
+	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
+
+lib/scrmfs-posix.o: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h lib/scrmfs-container.c $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c $< -o $@
+
+lib/scrmfs-posix.po: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h lib/scrmfs-container.c $(SCRMFS_LOG_FORMAT) | lib
+	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
 
 lib/lookup3.o: lib/lookup3.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -75,12 +87,12 @@ scrmfs-stack.po: scrmfs-stack.c scrmfs-stack.h
 #lib/libscrmfs-mpi-io.a: lib/scrmfs-mpi-io.o lib/scrmfs-mpi-init-finalize.o
 #	ar rcs $@ $^
 
-lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o scrmfs-stack.o
+lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o lib/scrmfs-container.o scrmfs-stack.o 
 	ar rcs $@ $^
 
 #lib/libscrmfs.so: lib/scrmfs-mpi-io.po lib/scrmfs-mpi-init-finalize.po lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack.po
-lib/libscrmfs.so: lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po scrmfs-stack.po
-	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
+lib/libscrmfs.so: lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po lib/scrmfs-container.po scrmfs-stack.po
+	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) $(CONTAINER_LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz $(CONTAINER_LIBS)
 
 install:: all
 	install -d $(libdir)

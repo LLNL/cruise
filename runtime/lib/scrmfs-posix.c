@@ -34,6 +34,13 @@
 typedef int64_t off64_t;
 #endif
 
+static int scrmfs_use_memfs = 1;
+//set by environment var SCRMFS_USE_CONTAINERS=1
+static int scrmfs_use_containers;
+static char scrmfs_container_info[100]; /* not sure what this is for */
+static cs_store_handle_t cs_store_handle; /* the container store handle */
+static cs_set_handle_t cs_set_handle; /* the container set handle */
+
 #define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
@@ -287,6 +294,18 @@ static int scrmfs_init()
     /* TODO: expose API as a init call that can be called from SCR_Init */ 
 
     if (! scrmfs_initialized) {
+
+        /* will we use containers or shared memory to store the files? */
+        scrmfs_use_containers = 0;
+        char * env = getenv("SCRMFS_USE_CONTAINERS");
+        if(env){
+           int val = atoi(env);
+           if (val != 0)
+             scrmfs_use_containers = 1;
+             scrmfs_use_memfs = 0;
+        }
+        debug("are we using containers? %d\n", scrmfs_use_containers);
+
         /* record the max fd for the system */
         /* RLIMIT_NOFILE specifies a value one greater than the maximum
          * file descriptor number that can be opened by this process */
@@ -320,6 +339,29 @@ static int scrmfs_init()
             debug("scrmfs_get_shmblock() failed\n");
             return 1;
         }
+      
+        /* initialize the container store */
+        if(scrmfs_use_containers){
+           int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
+           if (ret != CS_SUCCESS){
+              debug("failed to create container store\n");
+              return -1;
+           }
+           debug("successfully created container store\n");
+           char prefix[100];
+           int exclusive = 0;
+           size_t size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+           sprintf(prefix,"cs_set1");
+
+           ret = cs_store_set_create (cs_store_handle, prefix, size, exclusive, &cs_set_handle);
+           if (ret != CS_SUCCESS){
+              debug("creation of container set for %s failed: %d\n",prefix, ret);
+              return -1;
+           }
+           else
+              debug("creation of container set for %s succeeded\n", prefix);
+
+       }
 
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
@@ -483,6 +525,19 @@ static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
     return NULL;
 }
 
+static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid){
+
+    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+    if (!meta)
+       return (scrmfs_chunkmeta_t *)NULL;
+   
+    if (cid >= 0 && cid < SCRMFS_MAX_CHUNKS){
+       scrmfs_chunkmeta_t * cmeta = &(meta->chunk_meta[cid]);
+       return cmeta;
+    }
+    return (scrmfs_chunkmeta_t *)NULL;
+}
+
 /* get a list of chunks for a given file (useful for RDMA, etc.);
  * to be exposed as API */
 chunk_list_t* scrmfs_get_chunk_list(int fd)
@@ -578,6 +633,22 @@ static int scrmfs_truncate_fid(int fid, off_t length)
         SCRMFS_STACK_LOCK();
         scrmfs_stack_push(free_chunk_stack, meta->chunk_ids[meta->chunks]);
         SCRMFS_STACK_UNLOCK();
+
+        if (scrmfs_use_containers){
+            char prefix[100];
+            sprintf(prefix,"fid_%d_chunk_%d", fid, meta->chunk_ids[meta->chunks]);
+
+            int ret = cs_set_container_remove(cs_set_handle, prefix);
+            if (ret != CS_SUCCESS){
+               debug("removal of container for %s failed: %d\n",prefix, ret);
+               /* removal of containers is not implemented in the container library, so 
+                * this will always fail */
+               //return -1;
+            }
+            else
+               debug("removal of container for %s succeeded\n", prefix);
+        }
+        meta->chunk_meta[meta->chunks].location = -1;
     }
     
     /* set the new size */
@@ -643,6 +714,7 @@ static int scrmfs_add_new_file(const char * path){
     meta->flock_status = UNLOCKED;
     /* PTHREAD_PROCESS_SHARED allows Process-Shared Synchronization*/
     pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_SHARED);
+
    
     return fid;
 }
@@ -1383,8 +1455,31 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
                     /* add it to the chunk list of this file */
                     meta->chunk_ids[meta->chunks] = id;
-                    meta->chunks++;
+    
+                    if(scrmfs_use_containers){
+                        char prefix[100];
+                        int create = 1;
+                        int created = 0;
+                        size_t size = 1 << SCRMFS_CHUNK_BITS;
+                        meta->chunk_meta[meta->chunks].location = CONTAINER;
+                        cs_container_handle_t ch = 
+                             meta->chunk_meta[meta->chunks].container_data.cs_container_handle;
+                        sprintf(prefix,"fid_%d_chunk_%d", fid, id);
 
+                        int ret = cs_set_container_open(cs_set_handle, prefix, size, 
+                                      create, &created, &ch);
+                        if (ret != CS_SUCCESS){
+                           debug("creation of container for %s failed: %d\n",prefix, ret);
+                           return -1;
+                        }
+                        else
+                           debug("creation of container for %s succeeded\n", prefix);
+                    }
+                    else{
+                        meta->chunk_meta[meta->chunks].location = MEMFS;
+                    }
+
+                    meta->chunks++;
                     /* subtract bytes from the number we need */
                     additional -= SCRMFS_CHUNK_SIZE;
                 }

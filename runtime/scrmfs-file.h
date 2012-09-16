@@ -1,6 +1,8 @@
 #include "uthash.h"
 #include "scrmfs-defs.h"
 
+#include<container.h>
+
 enum flock_enum
 {
     UNLOCKED,
@@ -19,11 +21,24 @@ typedef struct
     struct chunk_list_t *next;
 } chunk_list_t;
 
+
+typedef struct{
+     cs_container_handle_t  cs_container_handle;
+} scrmfs_container_t;
+
+#define MEMFS 0
+#define CONTAINER 1 
+typedef struct{
+    int location;
+    scrmfs_container_t container_data;
+} scrmfs_chunkmeta_t;
+
 typedef struct
 {
     off_t size;   /* current file size */
     off_t chunks; /* number of chunks currently allocated to file */
     off_t chunk_ids[SCRMFS_MAX_CHUNKS]; /* offset to chunk in the mem pool */
+    scrmfs_chunkmeta_t chunk_meta[SCRMFS_MAX_CHUNKS]; /* meta data for chunks */
     int is_dir;  /* is this file a directory */
     pthread_spinlock_t fspinlock;
     enum flock_enum flock_status;
