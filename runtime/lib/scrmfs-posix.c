@@ -125,6 +125,7 @@ SCRMFS_FORWARD_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
 SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
 SCRMFS_FORWARD_DECL(mmap, void*, (void *addr, size_t length, int prot, int flags, int fd, off_t offset));
 SCRMFS_FORWARD_DECL(mmap64, void*, (void *addr, size_t length, int prot, int flags, int fd, off64_t offset));
+SCRMFS_FORWARD_DECL(munmap, int,(void *addr, size_t length));
 SCRMFS_FORWARD_DECL(msync, int, (void *addr, size_t length, int flags));
 SCRMFS_FORWARD_DECL(__fxstat, int, (int vers, int fd, struct stat *buf));
 SCRMFS_FORWARD_DECL(__fxstat64, int, (int vers, int fd, struct stat64 *buf));
@@ -1911,8 +1912,22 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
         /* allocate memory required to mmap the data if addr is NULL;
          * using posix_memalign instead of malloc to align mmap'ed area
          * to page size */
-        if ( ! addr )
-            posix_memalign( &addr, sysconf(_SC_PAGE_SIZE), length);
+        if ( ! addr ) {
+            int ret = posix_memalign( &addr, sysconf(_SC_PAGE_SIZE), length);
+            if ( ret ) {
+                /* posix_memalign does not set errno */
+                if ( ret == EINVAL ) {
+                    errno = EINVAL;
+                    return MAP_FAILED;
+                }
+
+                if ( ret = ENOMEM ) {
+                    errno = ENOMEM;
+                    return MAP_FAILED;
+                }
+            }
+            
+        }
 
         /* check that we don't copy past the end of the file */
         off_t total_length = offset + length;
@@ -1970,9 +1985,16 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     }
 }
 
+int munmap(void *addr, size_t length)
+{
+    fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+    errno = ENOSYS;
+    return ENODEV;
+}
+
 int msync(void *addr, size_t length, int flags)
 {
-    /* need to keep track of all the mmaps that are linked to
+    /* TODO: need to keep track of all the mmaps that are linked to
      * a given file before this function can be implemented*/
     fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
     errno = ENOSYS;
