@@ -37,6 +37,7 @@ typedef int64_t off64_t;
 static int scrmfs_use_memfs = 1;
 //set by environment var SCRMFS_USE_CONTAINERS=1
 static int scrmfs_use_containers;
+static int scrmfs_use_spillover;
 static char scrmfs_container_info[100]; /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle; /* the container set handle */
@@ -150,8 +151,10 @@ static int scrmfs_stack_init_done = 0;
 
 /* global persistent memory block (metadata + data) */
 static void* scrmfs_superblock = NULL;
+static void* scrmfs_spilloverblock = NULL;
 static void* free_fid_stack = NULL;
 static void* free_chunk_stack = NULL;
+static void* free_spillchunk_stack = NULL;
 static scrmfs_filename_t* scrmfs_filelist = NULL;
 static scrmfs_filemeta_t* scrmfs_filemetas = NULL;
 static char* scrmfs_chunks = NULL;
@@ -234,6 +237,12 @@ static void* scrmfs_init_globals(void* superblock)
     free_chunk_stack = ptr;
     ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
 
+    if ( scrmfs_use_spillover ) {
+        /* SCR stack to manage spill-over data chunks */
+        free_spillchunk_stack = ptr;
+        ptr += scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS);
+    }
+
     /* chunk repository */
     /* Only set this up if we're using memfs, otherwise
      * it doesn't exist */
@@ -247,6 +256,49 @@ static void* scrmfs_init_globals(void* superblock)
 
     return ptr;
 }
+
+
+static void* scrmfs_get_spillblock(size_t size, const char *path)
+{
+    void *scr_spillblock = NULL;
+    int spillblock_fd;
+
+    spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL);
+
+    if ( spillblock_fd < 0 ) {
+        if ( errno == EEXIST ) {
+            /* spillover block exists; attach and return */
+            spillblock_fd = __real_open(path, O_RDWR );
+
+            /*TODO: align to SSD block size*/
+            scr_spillblock = __real_mmap(  NULL,
+                                    size,
+                                    PROT_READ | PROT_WRITE,
+                                    MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE);
+        }
+        else {
+            perror("open() in scrmfs_get_spillblock() failed");
+            return NULL;
+        }
+    }
+    else {
+        /* spillover block does not exist; create and initialize */
+        scr_spillblock = mmap(  NULL,
+                                size,
+                                PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE);
+
+        /* initialize the spillover-chunks stack */    
+        if (! scrmfs_initialized ) {
+            scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
+            debug("Meta-stacks initialized!\n");
+        }
+    }
+
+    return scr_spillblock;
+
+}
+
 
 /* grab a superblock shm segment from SCR_Init */
 /* currently called from each open call */
@@ -305,14 +357,25 @@ static int scrmfs_init()
 
         /* will we use containers or shared memory to store the files? */
         scrmfs_use_containers = 0;
+        scrmfs_use_spillover = 0;
+
         char * env = getenv("SCRMFS_USE_CONTAINERS");
         if(env){
-           int val = atoi(env);
-           if (val != 0)
-             scrmfs_use_containers = 1;
-             scrmfs_use_memfs = 0;
+            int val = atoi(env);
+            if (val != 0)
+                scrmfs_use_containers = 1;
+                scrmfs_use_memfs = 0;
         }
+
+        env = getenv("SCRMFS_USE_SPILLOVER");
+        if(env){
+            int val = atoi(env);
+            if ( val!= 0)
+                scrmfs_use_spillover=1;
+        }
+
         debug("are we using containers? %d\n", scrmfs_use_containers);
+        debug("are we using spillover? %d\n", scrmfs_use_spillover);
 
         /* record the max fd for the system */
         /* RLIMIT_NOFILE specifies a value one greater than the maximum
@@ -334,12 +397,21 @@ static int scrmfs_init()
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
         size_t superblock_size ;
-        if (scrmfs_use_memfs){
+        if (scrmfs_use_memfs && !scrmfs_use_spillover){
            superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
                                  (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
                                  (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
                                  scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +
                                  (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);
+        }
+        else if ( scrmfs_use_memfs && scrmfs_use_spillover ) {
+           superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
+                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
+                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
+                                 scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +
+                                 scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS) +
+                                 (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);
+            
         }
         // don't actually need the chunks if we're not storing in memory
         else{
@@ -379,6 +451,17 @@ static int scrmfs_init()
            else
               debug("creation of container set for %s succeeded\n", prefix);
 
+        }
+
+        /* initialize spillover store */
+        if( scrmfs_use_spillover ) {
+            size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+            scrmfs_spilloverblock = scrmfs_get_spillblock (spillover_size);
+
+            if( !scrmfs_spilloverblock ) {
+                debug("scrmfs_get_spillblock() failed!\n");
+            }
+        
         }
 
         /* remember that we've now initialized the library */
@@ -623,7 +706,14 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
 {
     /* identify physical chunk id, find start of its buffer and add the offset */
     int chunk_id = meta->chunk_ids[id];
-    char* start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
+
+    if ( id < SCRMFS_MAX_CHUNKS ) {
+        char* start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
+    }
+    /* compute buffer loc within spillover device chunk */
+    else {
+        char* start = scr_spillblock + ( (chunk_id - SCRMFS_MAX_CHUNKS ) << SCRMFS_CHUNK_BITS);
+    }
     char* buf = start + offset;
     return (void*)buf;
 }
@@ -1489,6 +1579,7 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
     return ret;
 }
 
+/* TODO: find right place to msync spillover mapping */
 ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 {
     ssize_t ret;
@@ -1541,10 +1632,21 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                     SCRMFS_STACK_LOCK();
                     int id = scrmfs_stack_pop(free_chunk_stack);
                     SCRMFS_STACK_UNLOCK();
-                    if (id < 0) {
-                        debug("scrmfs_stack_pop() failed (%d)\n", id);
 
-                        /* ERROR: device out of space */
+                    if (id < 0 && scrmfs_use_spillover) {
+                        debug("getting blocks from spill-over device (%d)\n", id);
+
+                        /* memfs out of chunks, get blocks from spillover dev */
+                        /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+                        id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+                        if (id < SCRMFS_MAX_CHUNKS) {
+                            debug("spill-over device out of space (%d)\n", id);
+                            errno = ENOSPC;
+                            return -1;
+                        }
+                    }
+                    else if (id < 0 && !scrmfs_use_spillover) {
+                        debug("memfs out of space (%d)\n", id);
                         errno = ENOSPC;
                         return -1;
                     }
@@ -1571,7 +1673,13 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                         debug("creation of container for %s succeeded\n", prefix);
                     }
                     else{
-                        meta->chunk_meta[meta->chunks].location = MEMFS;
+                        /* set location based on chunk ID obtained */
+                        if (id >= SCRMFS_MAX_CHUNKS) {
+                            meta->chunk_meta[meta->chunks].location = SPILLOVER_DEV;
+                        }
+                        else {
+                            meta->chunk_meta[meta->chunks].location = MEMFS;
+                        }
                     }
 
                     meta->chunks++;

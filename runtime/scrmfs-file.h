@@ -27,7 +27,9 @@ typedef struct{
 } scrmfs_container_t;
 
 #define MEMFS 0
-#define CONTAINER 1 
+#define CONTAINER 1
+#define SPILLOVER_DEV 2
+
 typedef struct{
     int location;
     scrmfs_container_t container_data;
