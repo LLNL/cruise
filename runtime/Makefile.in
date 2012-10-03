@@ -14,7 +14,7 @@ LDFLAGS = @LDFLAGS@
 CC = @CC@
 LD = @LD@
 
-CONTAINER_HOME = /g/g23/mohror1/NoLoss/container
+CONTAINER_HOME = ./container
 CONTAINER_INCS = -I$(CONTAINER_HOME)/include
 CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
 CONTAINER_LIBS = -lcontainer
