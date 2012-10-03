@@ -1,0 +1,11 @@
+- Deal with stale handles in set and container.
+ (or maybe only container?)
+
+     -> Need to think about when revalidation is needed.
+
+
+- Improve space allocation
+     -> Move to page allocator and pool allocator (fed from pages)
+
+- Keep track of open containers/sets and use refcounting on ContainerSet,
+     Container

@@ -1,0 +1,23 @@
+
+if ENABLE_UNIT_TESTS
+
+testlibs = $(builddir)/lib/libcontainer.la \
+	   @BOOST_UNIT_TEST_FRAMEWORK_LIB@
+
+check_PROGRAMS += test/ranges
+TESTS += test/ranges
+test_ranges_SOURCES = test/ranges.cpp
+test_ranges_LDADD = ${testlibs}
+
+check_PROGRAMS += test/offset
+TESTS += test/offset
+test_offset_SOURCES = test/offset.cpp
+test_offset_LDADD = ${testlibs}
+
+
+check_PROGRAMS += test/simple
+TESTS += test/simple
+test_simple_SOURCES = test/simple.cpp
+test_simple_LDADD = lib/libcontainer.la ${testlibs}
+
+endif
