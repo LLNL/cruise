@@ -274,7 +274,9 @@ static void* scrmfs_get_spillblock(size_t size, const char *path)
             scr_spillblock = __real_mmap(  NULL,
                                     size,
                                     PROT_READ | PROT_WRITE,
-                                    MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE);
+                                    MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE,
+                                    spillblock_fd,
+                                    0 );
         }
         else {
             perror("open() in scrmfs_get_spillblock() failed");
@@ -286,7 +288,9 @@ static void* scrmfs_get_spillblock(size_t size, const char *path)
         scr_spillblock = mmap(  NULL,
                                 size,
                                 PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE);
+                                MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE,
+                                spillblock_fd,
+                                0 );
 
         /* initialize the spillover-chunks stack */    
         if (! scrmfs_initialized ) {
@@ -456,7 +460,7 @@ static int scrmfs_init()
         /* initialize spillover store */
         if( scrmfs_use_spillover ) {
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock (spillover_size);
+            scrmfs_spilloverblock = scrmfs_get_spillblock (spillover_size,"/data/spill_file");
 
             if( !scrmfs_spilloverblock ) {
                 debug("scrmfs_get_spillblock() failed!\n");
@@ -706,13 +710,14 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
 {
     /* identify physical chunk id, find start of its buffer and add the offset */
     int chunk_id = meta->chunk_ids[id];
+    char *start = NULL;
 
     if ( id < SCRMFS_MAX_CHUNKS ) {
-        char* start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
+        start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
     }
     /* compute buffer loc within spillover device chunk */
     else {
-        char* start = scr_spillblock + ( (chunk_id - SCRMFS_MAX_CHUNKS ) << SCRMFS_CHUNK_BITS);
+        start = scrmfs_spilloverblock + ( (chunk_id - SCRMFS_MAX_CHUNKS ) << SCRMFS_CHUNK_BITS);
     }
     char* buf = start + offset;
     return (void*)buf;
