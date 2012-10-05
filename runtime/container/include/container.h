@@ -3,7 +3,7 @@
 
 #include <stddef.h>  /* for size_t */
 
-#include "container_config.h"
+//#include "container_config.h"
 #include "container-types.h"
 
 #ifdef __cplusplus
