@@ -1,1 +1,11 @@
-aclocal -I ../maint/config && autoheader && autoconf
+#!/bin/sh
+
+# original prepare
+# aclocal -I ../maint/config && autoheader && autoconf
+
+# new prepare
+libtoolize --force
+aclocal -I ../maint/config
+autoheader
+automake --force-missing --add-missing
+autoconf -f
