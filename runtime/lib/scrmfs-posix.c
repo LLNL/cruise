@@ -151,13 +151,13 @@ static int scrmfs_stack_init_done = 0;
 
 /* global persistent memory block (metadata + data) */
 static void* scrmfs_superblock = NULL;
-static void* scrmfs_spilloverblock = NULL;
 static void* free_fid_stack = NULL;
 static void* free_chunk_stack = NULL;
 static void* free_spillchunk_stack = NULL;
 static scrmfs_filename_t* scrmfs_filelist = NULL;
 static scrmfs_filemeta_t* scrmfs_filemetas = NULL;
 static char* scrmfs_chunks = NULL;
+static int scrmfs_spilloverblock = 0;
 
 /* array of file descriptors */
 static scrmfs_fd_t scrmfs_fds[SCRMFS_MAX_FILEDESCS];
@@ -258,7 +258,7 @@ static void* scrmfs_init_globals(void* superblock)
 }
 
 
-static void* scrmfs_get_spillblock(size_t size, const char *path)
+static int scrmfs_get_spillblock(size_t size, const char *path)
 {
     void *scr_spillblock = NULL;
     int spillblock_fd;
@@ -269,28 +269,15 @@ static void* scrmfs_get_spillblock(size_t size, const char *path)
         if ( errno == EEXIST ) {
             /* spillover block exists; attach and return */
             spillblock_fd = __real_open(path, O_RDWR );
-
-            /*TODO: align to SSD block size*/
-            scr_spillblock = __real_mmap(  NULL,
-                                    size,
-                                    PROT_READ | PROT_WRITE,
-                                    MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE,
-                                    spillblock_fd,
-                                    0 );
         }
         else {
             perror("open() in scrmfs_get_spillblock() failed");
-            return NULL;
+            return -1;
         }
     }
-    else {
-        /* spillover block does not exist; create and initialize */
-        scr_spillblock = mmap(  NULL,
-                                size,
-                                PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_LOCKED | MAP_NORESERVE,
-                                spillblock_fd,
-                                0 );
+    else { /* new spillover block created */
+
+        /*TODO: align to SSD block size*/
 
         /* initialize the spillover-chunks stack */    
         if (! scrmfs_initialized ) {
@@ -298,8 +285,7 @@ static void* scrmfs_get_spillblock(size_t size, const char *path)
             debug("Meta-stacks initialized!\n");
         }
     }
-
-    return scr_spillblock;
+    return spillblock_fd;
 
 }
 
@@ -462,8 +448,9 @@ static int scrmfs_init()
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
             scrmfs_spilloverblock = scrmfs_get_spillblock (spillover_size,"/data/spill_file");
 
-            if( !scrmfs_spilloverblock ) {
+            if( scrmfs_spilloverblock < 0 ) {
                 debug("scrmfs_get_spillblock() failed!\n");
+                return -1;
             }
         
         }
@@ -712,16 +699,40 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
     int chunk_id = meta->chunk_ids[id];
     char *start = NULL;
 
-    if ( id < SCRMFS_MAX_CHUNKS ) {
+    if ( chunk_id < SCRMFS_MAX_CHUNKS ) {
         start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
     }
     /* compute buffer loc within spillover device chunk */
     else {
-        start = scrmfs_spilloverblock + ( (chunk_id - SCRMFS_MAX_CHUNKS ) << SCRMFS_CHUNK_BITS);
+        debug("wrong chunk ID\n");
+        return -1;
     }
     char* buf = start + offset;
     return (void*)buf;
 }
+
+/* given a chunk id and an offset within that chunk, return the offset
+ * in the spillover file corresponding to that location */
+static inline off_t scrmfs_compute_spill_offset(const scrmfs_filemeta_t* meta, int id, off_t offset)
+{
+    /* identify physical chunk id, find start of its buffer and add the offset */
+    int chunk_id = meta->chunk_ids[id];
+    off_t start = NULL;
+
+    if ( chunk_id < SCRMFS_MAX_CHUNKS ) {
+        debug("wrong spill-chunk ID\n");
+        return -1;
+    }
+    /* compute buffer loc within spillover device chunk */
+    else {
+        /* account for the SCRMFS_MAX_CHUNKS added to identify location when
+         * grabbing this chunk */
+        start = ( (chunk_id - SCRMFS_MAX_CHUNKS ) << SCRMFS_CHUNK_BITS);
+    }
+    off_t buf = start + offset;
+    return buf;
+}
+
 
 /* ---------------------------------------
  * File system operations
@@ -1638,6 +1649,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                     int id = scrmfs_stack_pop(free_chunk_stack);
                     SCRMFS_STACK_UNLOCK();
 
+                    /* shmsegment out of space, grab a block from spill-over device */
                     if (id < 0 && scrmfs_use_spillover) {
                         debug("getting blocks from spill-over device (%d)\n", id);
 
@@ -1658,7 +1670,7 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
                     /* add it to the chunk list of this file */
                     meta->chunk_ids[meta->chunks] = id;
-    
+
                     if(scrmfs_use_containers){
                         char prefix[100];
                         int create = 1;
@@ -1701,47 +1713,74 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         /* determine how many bytes remain in the current chunk */
         size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
         if (scrmfs_use_memfs){
-           void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
 
-           if (count <= remaining) {
-               /* all bytes for this write fit within the current chunk */
-               memcpy(chunk_buf, buf, count);
-   //            _intel_fast_memcpy(chunk_buf, buf, count);
-   //            scrmfs_memcpy(chunk_buf, buf, count);
-           } else {
-               /* otherwise, fill up the remainder of the current chunk */
-               char* ptr = (char*) buf;
-               memcpy(chunk_buf, ptr, remaining);
-   //            _intel_fast_memcpy(chunk_buf, ptr, remaining);
-   //            scrmfs_memcpy(chunk_buf, ptr, remaining);
-               ptr += remaining;
+            void *chunk_buf = NULL;
+            off_t spill_offset = 0;
+
+            if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
+                chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+            } else {
+                spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
+            }
+
+            if (count <= remaining) {
+                /* all bytes for this write fit within the current chunk */
+                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
+                    memcpy(chunk_buf, buf, count);
+                } else {
+                    __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
+                }
+                 
+//                _intel_fast_memcpy(chunk_buf, buf, count);
+//                scrmfs_memcpy(chunk_buf, buf, count);
+            } else {
+                /* otherwise, fill up the remainder of the current chunk */
+                char* ptr = (char*) buf;
+                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
+                    memcpy(chunk_buf, ptr, remaining);
+                } else {
+                    __real_pwrite(scrmfs_spilloverblock, buf, remaining, spill_offset);
+                }
+                
+//                _intel_fast_memcpy(chunk_buf, ptr, remaining);
+//                scrmfs_memcpy(chunk_buf, ptr, remaining);
+                ptr += remaining;
    
-               /* then write the rest of the bytes starting from beginning
-                * of chunks */
-               size_t written = remaining;
-               while (written < count) {
-                   /* get pointer to start of next chunk */
-                   chunk_id++;
-                   chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
+                /* then write the rest of the bytes starting from beginning
+                 * of chunks */
+                size_t written = remaining;
+                while (written < count) {
+                    /* get pointer to start of next chunk */
+                    chunk_id++;
+
+                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
+                        chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
+                    } else {
+                        spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, 0);
+                    }
+                    /* compute size to write to this chunk */
+                    size_t nwrite = count - written;
+                    if (nwrite > SCRMFS_CHUNK_SIZE) {
+                      nwrite = SCRMFS_CHUNK_SIZE;
+                    }
    
-                   /* compute size to write to this chunk */
-                   size_t nwrite = count - written;
-                   if (nwrite > SCRMFS_CHUNK_SIZE) {
-                     nwrite = SCRMFS_CHUNK_SIZE;
-                   }
+                    /* write data */
+
+                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
+                        memcpy(chunk_buf, ptr, nwrite);
+                    } else {
+                        __real_pwrite(scrmfs_spilloverblock, ptr, nwrite, spill_offset);
+                    }
+//                    _intel_fast_memcpy(chunk_buf, ptr, nwrite);
+//                    scrmfs_memcpy(chunk_buf, ptr, nwrite);
+                    ptr += nwrite;
    
-                   /* write data */
-                   memcpy(chunk_buf, ptr, nwrite);
-   //                _intel_fast_memcpy(chunk_buf, ptr, nwrite);
-   //                scrmfs_memcpy(chunk_buf, ptr, nwrite);
-                   ptr += nwrite;
-   
-                   /* update number of bytes written */
-                   written += nwrite;
-               }
-           }
+                    /* update number of bytes written */
+                    written += nwrite;
+                }
+            }
         }
-
+        
         else if(scrmfs_use_containers){
            if (count <= remaining) {
                size_t memsizes = count;
