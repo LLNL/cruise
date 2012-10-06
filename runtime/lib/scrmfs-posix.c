@@ -705,7 +705,7 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
     /* compute buffer loc within spillover device chunk */
     else {
         debug("wrong chunk ID\n");
-        return -1;
+        return NULL;
     }
     char* buf = start + offset;
     return (void*)buf;
@@ -717,7 +717,7 @@ static inline off_t scrmfs_compute_spill_offset(const scrmfs_filemeta_t* meta, i
 {
     /* identify physical chunk id, find start of its buffer and add the offset */
     int chunk_id = meta->chunk_ids[id];
-    off_t start = NULL;
+    off_t start = 0;
 
     if ( chunk_id < SCRMFS_MAX_CHUNKS ) {
         debug("wrong spill-chunk ID\n");
