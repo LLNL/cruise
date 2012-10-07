@@ -1475,118 +1475,145 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
         /* get pointer to position within current chunk */
         int chunk_id = oldpos >> SCRMFS_CHUNK_BITS;
         off_t chunk_offset = oldpos & SCRMFS_CHUNK_MASK;
-        void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+
+        void *chunk_buf = NULL;
+        off_t spill_offset = 0;
+
+        /* get offset in shmsegment or spillover */
+        if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
+            chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+        } else {
+            spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
+        }
+
 
         /* determine how many bytes remain in the current chunk */
         size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
         if (scrmfs_use_memfs){
-           if (count <= remaining) {
-               /* all bytes for this write fit within the current chunk */
-               memcpy(buf, chunk_buf, count);
-           } else {
-               /* read what's left of current chunk */
-               char* ptr = (char*) buf;
-               memcpy(ptr, chunk_buf, remaining);
-               ptr += remaining;
+            if (count <= remaining) {
+                /* all bytes for this read fit within the current chunk */
+                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
+                    memcpy(buf, chunk_buf, count);
+                } else {
+                    __real_pread(scrmfs_spilloverblock, buf, count, spill_offset);
+                }
+            } else {
+                /* read what's left of current chunk */
+                char* ptr = (char*) buf;
+                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
+                    memcpy(ptr, chunk_buf, remaining);
+                } else {
+                    __real_pread(scrmfs_spilloverblock, ptr, remaining, spill_offset);
+                }
+                ptr += remaining;
    
-               /* read from the next chunk */
-               size_t read = remaining;
-               while (read < count) {
-                   /* get pointer to start of next chunk */
-                   chunk_id++;
-                   chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
-   
-                   /* compute size to read from this chunk */
-                   size_t to_read = count - read;
-                   if (to_read > SCRMFS_CHUNK_SIZE) {
-                       to_read = SCRMFS_CHUNK_SIZE;
-                   }
-   
-                   /* write data */
-                   memcpy(ptr, chunk_buf, to_read);
-                   ptr += to_read;
+                /* read from the next chunk */
+                size_t read = remaining;
+                while (read < count) {
+                    /* get pointer to start of next chunk */
+                    chunk_id++;
 
-                   /* update number of bytes written */
-                   read += to_read;
-               }
-           }
+                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
+                        chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
+                    } else {
+                        spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, 0);
+                    }
+   
+                    /* compute size to read from this chunk */
+                    size_t to_read = count - read;
+                    if (to_read > SCRMFS_CHUNK_SIZE) {
+                        to_read = SCRMFS_CHUNK_SIZE;
+                    }
+   
+                    /* write data */
+                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
+                        memcpy(ptr, chunk_buf, to_read);
+                    } else {
+                        __real_pread(scrmfs_spilloverblock, ptr, to_read, spill_offset);
+                    }
+                    ptr += to_read;
+
+                    /* update number of bytes written */
+                    read += to_read;
+                }
+            }
         }
         else if(scrmfs_use_containers){
-           if (count <= remaining) {
-               /* all bytes for this read fit within the current chunk */
-               cs_container_handle_t ch = 
-                          meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-               size_t memcount = 1;
-               size_t memsizes = count;
-               size_t filecount = 1;
-               cs_off_t fileofs = chunk_offset;
-               cs_off_t filesizes = count;
-               cs_off_t transferred = 0;
+            if (count <= remaining) {
+                /* all bytes for this read fit within the current chunk */
+                cs_container_handle_t ch = 
+                           meta->chunk_meta[chunk_id].container_data.cs_container_handle;
+                size_t memcount = 1;
+                size_t memsizes = count;
+                size_t filecount = 1;
+                cs_off_t fileofs = chunk_offset;
+                cs_off_t filesizes = count;
+                cs_off_t transferred = 0;
                
-               int ret = cs_container_read (ch, memcount, &buf, &memsizes, filecount,
-                              &fileofs, &filesizes, &transferred); 
-               if (ret != CS_SUCCESS){
-                  debug("container read failed\n");
-                  return -1;
-               }
-               debug("container read succeeded\n");
-           } else {
-               /* read what's left of current chunk */
-               char* ptr = (char*) buf;
-               size_t memcount = 1;
-               size_t memsizes = remaining;
-               size_t filecount = 1;
-               cs_off_t fileofs = chunk_offset;
-               cs_off_t filesizes = remaining;
-               cs_off_t transferred = 0;
-               cs_container_handle_t ch = 
-                          meta->chunk_meta[chunk_id].container_data.cs_container_handle;
+                int ret = cs_container_read (ch, memcount, &buf, &memsizes, filecount,
+                               &fileofs, &filesizes, &transferred); 
+                if (ret != CS_SUCCESS){
+                   debug("container read failed\n");
+                   return -1;
+                }
+                debug("container read succeeded\n");
+            } else {
+                /* read what's left of current chunk */
+                char* ptr = (char*) buf;
+                size_t memcount = 1;
+                size_t memsizes = remaining;
+                size_t filecount = 1;
+                cs_off_t fileofs = chunk_offset;
+                cs_off_t filesizes = remaining;
+                cs_off_t transferred = 0;
+                cs_container_handle_t ch = 
+                           meta->chunk_meta[chunk_id].container_data.cs_container_handle;
                
-               int ret = cs_container_read (ch, memcount, (void**)&ptr, &memsizes, filecount,
-                              &fileofs, &filesizes, &transferred); 
-               if (ret != CS_SUCCESS){
-                  debug("container read failed\n");
-                  return -1;
-               }
-               debug("container read succeeded\n");
-               ptr += remaining;
+                int ret = cs_container_read (ch, memcount, (void**)&ptr, &memsizes, filecount,
+                               &fileofs, &filesizes, &transferred); 
+                if (ret != CS_SUCCESS){
+                   debug("container read failed\n");
+                   return -1;
+                }
+                debug("container read succeeded\n");
+                ptr += remaining;
+                
+                /* read from the next chunk */
+                size_t read = remaining;
+                while (read < count) {
+                    /* get pointer to start of next chunk */
+                    chunk_id++;
 
-              /* read from the next chunk */
-               size_t read = remaining;
-               while (read < count) {
-                   /* get pointer to start of next chunk */
-                   chunk_id++;
+                    /* compute size to read from this chunk */
+                    size_t to_read = count - read;
+                    if (to_read > SCRMFS_CHUNK_SIZE) {
+                        to_read = SCRMFS_CHUNK_SIZE;
+                    }
 
-                   /* compute size to read from this chunk */
-                   size_t to_read = count - read;
-                   if (to_read > SCRMFS_CHUNK_SIZE) {
-                       to_read = SCRMFS_CHUNK_SIZE;
-                   }
-
-                   /* read data */
-                   ptr = (char*) buf;
-                   memcount = 1;
-                   memsizes = to_read;
-                   filecount = 1;
-                   fileofs = 0;
-                   filesizes = to_read;
-                   transferred = 0;
+                    /* read data */
+                    ptr = (char*) buf;
+                    memcount = 1;
+                    memsizes = to_read;
+                    filecount = 1;
+                    fileofs = 0;
+                    filesizes = to_read;
+                    transferred = 0;
                    
-                   ch = meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-                   ret = cs_container_read (ch, memcount, (void**)&ptr, &memsizes, filecount,
-                                  &fileofs, &filesizes, &transferred); 
-                   if (ret != CS_SUCCESS){
-                      debug("container read failed\n");
-                      return -1;
-                   }
-                   debug("container read succeeded\n");
-                   ptr += to_read;
-
-                   /* update number of bytes read */
-                   read += to_read;
-               }
-             }
-           }
+                    ch = meta->chunk_meta[chunk_id].container_data.cs_container_handle;
+                    ret = cs_container_read (ch, memcount, (void**)&ptr, &memsizes, filecount,
+                                   &fileofs, &filesizes, &transferred); 
+                    if (ret != CS_SUCCESS){
+                       debug("container read failed\n");
+                       return -1;
+                    }
+                    debug("container read succeeded\n");
+                    ptr += to_read;
+ 
+                    /* update number of bytes read */
+                    read += to_read;
+                }
+            }
+        }
     } else {
         MAP_OR_FAIL(read);
         ret = __real_read(fd, buf, count);
