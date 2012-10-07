@@ -30,6 +30,8 @@
 #include "scrmfs-file.h"
 #include "utlist.h"
 
+#include "container/src/container.h"
+
 #ifndef HAVE_OFF64_T
 typedef int64_t off64_t;
 #endif
