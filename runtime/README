@@ -1,5 +1,8 @@
 1. Prepare and run 'configure':
 
+(If using containers, run ./prepare && ./configure --prefix=$PWD && make && make install
+inside the "container" directory before proceeding to the next step)
+
 ./prepare
 ./configure \
   --prefix `pwd`/install \
