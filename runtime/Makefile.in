@@ -50,10 +50,10 @@ lib::
 #lib/scrmfs-mpi-init-finalize.po: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-lib/scrmfs-container.o: lib/scrmfs-container.c container/src/container.h
+lib/scrmfs-container.o: lib/scrmfs-container.c | lib
 	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c $< -o $@
 
-lib/scrmfs-container.po: lib/scrmfs-container.c container/src/container.h
+lib/scrmfs-container.po: lib/scrmfs-container.c | lib
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
 
 lib/scrmfs-posix.o: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h lib/scrmfs-container.c $(SCRMFS_LOG_FORMAT) | lib
