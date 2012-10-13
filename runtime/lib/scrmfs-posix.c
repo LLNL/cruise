@@ -37,12 +37,11 @@ typedef int64_t off64_t;
 #endif
 
 static int scrmfs_use_memfs = 1;
-//set by environment var SCRMFS_USE_CONTAINERS=1
-static int scrmfs_use_containers;
 static int scrmfs_use_spillover;
-static char scrmfs_container_info[100]; /* not sure what this is for */
+static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
+static char scrmfs_container_info[100];   /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
-static cs_set_handle_t cs_set_handle; /* the container set handle */
+static cs_set_handle_t cs_set_handle;     /* the container set handle */
 
 #define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
@@ -87,7 +86,6 @@ static cs_set_handle_t cs_set_handle; /* the container set handle */
 extern pthread_mutex_t scrmfs_stack_mutex;
 #define SCRMFS_STACK_LOCK() pthread_mutex_lock(&scrmfs_stack_mutex)
 #define SCRMFS_STACK_UNLOCK() pthread_mutex_unlock(&scrmfs_stack_mutex)
-
 
 
 /* ---------------------------------------
@@ -197,62 +195,60 @@ int scrmfs_mount(const char prefix[], int rank)
     scrmfs_mount_prefix = strdup(prefix);
     scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
 
-
-    // add mount point as a new directory in the file list
-    /* check if it already exists */
+    /* add mount point as a new directory in the file list */
     if (scrmfs_get_fid_from_path(prefix) >= 0) {
+        /* we can't mount this location, because it already exists */
         errno = EEXIST;
         return -1;
-    }
-    else{
+    } else {
+        /* claim an entry in our file list */
         int fid = scrmfs_add_new_directory(prefix);
-        // if there was an error, return it
-        if (fid < 0)
-           return fid;
+        if (fid < 0) {
+            /* if there was an error, return it */
+            return fid;
+        }
     }
 
-    //KMM commented out because we're just using a single rank, so use PRIVATE
-    //downside, can't attach to this in another srun (PRIVATE, that is)
+    /* KMM commented out because we're just using a single rank, so use PRIVATE
+     * downside, can't attach to this in another srun (PRIVATE, that is) */
     //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
     scrmfs_mount_key = IPC_PRIVATE;
     return 0;
 }
 
 /* initialize our global pointers into the given superblock */
-static void* scrmfs_init_globals(void* superblock)
+static void* scrmfs_init_pointers(void* superblock)
 {
     char* ptr = (char*) superblock;
 
-    /* SCR stack to manage metadata structures */
+    /* stack to manage free file ids */
     free_fid_stack = ptr;
     ptr += scrmfs_stack_bytes(SCRMFS_MAX_FILES);
 
-    /* record list of file names in persistent mem */
+    /* record list of file names */
     scrmfs_filelist = (scrmfs_filename_t*) ptr;
     ptr += SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t);
 
-    /* chunk offset map */
+    /* array of file meta data structures */
     scrmfs_filemetas = (scrmfs_filemeta_t*) ptr;
     ptr += SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t);
 
-    /* SCR stack to manage actual data chunks */
+    /* stack to manage free memory data chunks */
     free_chunk_stack = ptr;
     ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
 
-    if ( scrmfs_use_spillover ) {
-        /* SCR stack to manage spill-over data chunks */
+    if (scrmfs_use_spillover) {
+        /* stack to manage free spill-over data chunks */
         free_spillchunk_stack = ptr;
         ptr += scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS);
     }
 
-    /* chunk repository */
-    /* Only set this up if we're using memfs, otherwise
-     * it doesn't exist */
-    if (scrmfs_use_memfs){
+    /* Only set this up if we're using memfs */
+    if (scrmfs_use_memfs) {
+      /* pointer to start of memory data chunks */
       scrmfs_chunks = ptr;
       ptr += SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-    }
-    else{
+    } else{
       scrmfs_chunks = NULL;
     }
 
@@ -267,33 +263,31 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
 
     spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL);
 
-    if ( spillblock_fd < 0 ) {
-        if ( errno == EEXIST ) {
+    if (spillblock_fd < 0) {
+        if (errno == EEXIST) {
             /* spillover block exists; attach and return */
             spillblock_fd = __real_open(path, O_RDWR );
-        }
-        else {
+        } else {
             perror("open() in scrmfs_get_spillblock() failed");
             return -1;
         }
-    }
-    else { /* new spillover block created */
+    } else { /* new spillover block created */
 
         /*TODO: align to SSD block size*/
 
         /* initialize the spillover-chunks stack */    
-        if (! scrmfs_initialized ) {
+        if (! scrmfs_initialized) {
             scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
             debug("Meta-stacks initialized!\n");
         }
     }
-    return spillblock_fd;
 
+    return spillblock_fd;
 }
 
 
-/* grab a superblock shm segment from SCR_Init */
-/* currently called from each open call */
+/* create superblock of specified size and name, or attach to existing
+ * block if available */
 static void* scrmfs_get_shmblock(size_t size, key_t key)
 {
     void *scr_shmblock = NULL;
@@ -301,9 +295,9 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
     /* TODO:improve error-propogation */
     //int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU | SHM_HUGETLB);
     int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
-    if ( scr_shmblock_shmid < 0 ) {
-        if ( errno == EEXIST ) {
-            /* Superblock exists. Donot init, just get and attach */
+    if (scr_shmblock_shmid < 0) {
+        if (errno == EEXIST) {
+            /* Superblock exists. Do not initialize, just get and attach */
             scr_shmblock_shmid = shmget(key, size, 0);
             scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
             if(scr_shmblock < 0) {
@@ -313,7 +307,7 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
             debug("Superblock exists at %p!\n",scr_shmblock);
 
             /* init our global variables to point to spots in superblock */
-            scrmfs_init_globals(scr_shmblock);
+            scrmfs_init_pointers(scr_shmblock);
         } else {
             perror("shmget() failed");
             return NULL;
@@ -327,9 +321,9 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
         debug("Superblock created at %p\n!",scr_shmblock);
 
         /* init our global variables to point to spots in superblock */
-        scrmfs_init_globals(scr_shmblock);
+        scrmfs_init_pointers(scr_shmblock);
 
-        /* initialize block allocators within block */
+        /* initialize stacks within block */
         if (! scrmfs_stack_init_done) {
             scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
             scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
@@ -346,24 +340,25 @@ static int scrmfs_init()
     /* TODO: expose API as a init call that can be called from SCR_Init */ 
 
     if (! scrmfs_initialized) {
-
         /* will we use containers or shared memory to store the files? */
         scrmfs_use_containers = 0;
         scrmfs_use_spillover = 0;
 
         char * env = getenv("SCRMFS_USE_CONTAINERS");
-        if(env){
+        if (env) {
             int val = atoi(env);
-            if (val != 0)
+            if (val != 0) {
                 scrmfs_use_containers = 1;
                 scrmfs_use_memfs = 0;
+            }
         }
 
         env = getenv("SCRMFS_USE_SPILLOVER");
-        if(env){
+        if (env) {
             int val = atoi(env);
-            if ( val!= 0)
-                scrmfs_use_spillover=1;
+            if (val != 0) {
+                scrmfs_use_spillover = 1;
+            }
         }
 
         debug("are we using containers? %d\n", scrmfs_use_containers);
@@ -385,47 +380,46 @@ static int scrmfs_init()
         free(r_limit);
         debug("FD limit for system = %ld\n",scrmfs_fd_limit);
 
-        
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
-        size_t superblock_size ;
-        if (scrmfs_use_memfs && !scrmfs_use_spillover){
-           superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
-                                 scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +
-                                 (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);
-        }
-        else if ( scrmfs_use_memfs && scrmfs_use_spillover ) {
-           superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
-                                 scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +
-                                 scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS) +
-                                 (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);
+        size_t superblock_size;
+        if (scrmfs_use_memfs && !scrmfs_use_spillover) {
+           superblock_size = 
+               scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
+               (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
+               (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
+               scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +          /* free chunk stack */
+               (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
+        } else if (scrmfs_use_memfs && scrmfs_use_spillover) {
+           superblock_size =
+               scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
+               (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
+               (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
+               scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +          /* free chunk stack */
+               scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS) +    /* free spill over chunk stack */
+               (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
             
-        }
-        // don't actually need the chunks if we're not storing in memory
-        else{
-           superblock_size = scrmfs_stack_bytes(SCRMFS_MAX_FILES) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) +
-                                 (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) +
-                                 scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) ;
+        } else {
+           /* don't actually need the chunks if we're not storing in memory */
+           superblock_size =
+               scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
+               (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
+               (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
+               scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);           /* free chunk stack */
         }
 
         /* get a superblock of persistent memory and initialize our
          * global variables for this block */
-        scrmfs_superblock = scrmfs_get_shmblock (superblock_size, scrmfs_mount_key);
-        if(scrmfs_superblock == NULL)
-        {
+        scrmfs_superblock = scrmfs_get_shmblock(superblock_size, scrmfs_mount_key);
+        if(scrmfs_superblock == NULL) {
             debug("scrmfs_get_shmblock() failed\n");
             return 1;
         }
       
         /* initialize the container store */
-        if(scrmfs_use_containers){
+        if(scrmfs_use_containers) {
            int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
-           if (ret != CS_SUCCESS){
+           if (ret != CS_SUCCESS) {
               debug("failed to create container store\n");
               return -1;
            }
@@ -436,30 +430,30 @@ static int scrmfs_init()
            sprintf(prefix,"cs_set1");
 
            ret = cs_store_set_create (cs_store_handle, prefix, size, exclusive, &cs_set_handle);
-           if (ret != CS_SUCCESS){
+           if (ret != CS_SUCCESS) {
               debug("creation of container set for %s failed: %d\n",prefix, ret);
               return -1;
-           }
-           else
+           } else {
               debug("creation of container set for %s succeeded\n", prefix);
-
+           }
         }
 
         /* initialize spillover store */
-        if( scrmfs_use_spillover ) {
+        if(scrmfs_use_spillover) {
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock (spillover_size,"/data/spill_file");
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size,"/data/spill_file");
 
-            if( scrmfs_spilloverblock < 0 ) {
+            if(scrmfs_spilloverblock < 0) {
                 debug("scrmfs_get_spillblock() failed!\n");
                 return -1;
             }
-        
         }
 
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
 
+        /* TODO: read mount point from env var */
+        /* mount at /tmp if not instructed otherwise */
         scrmfs_mount("/tmp", 0);
     }
 
@@ -502,9 +496,9 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
         /* this is an fd we generated and returned to the user,
          * so intercept the call and shift the fd */
         int newfd = oldfd - scrmfs_fd_limit;
-        *intercept = 1;
         *fd = newfd;
-        debug("Changing fd from exposed %d to internal %d\n",oldfd,newfd);
+        *intercept = 1;
+        debug("Changing fd from exposed %d to internal %d\n", oldfd, newfd);
     }
 
     return;
@@ -537,19 +531,25 @@ static int scrmfs_get_fid_from_path(const char* path)
         }
         i++;
     }
+
+    /* couldn't find specified path */
     return -1;
 }
 
 /* checks to see if fid is a directory
  * returns 1 for yes
  * returns 0 for no */
-static int scrmfs_is_dir(int fid){
-
+static int scrmfs_is_dir(int fid)
+{
    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-   if (meta)
-     return meta->is_dir;
-   else  // if it doesn't exist, then it's not a directory?
+   if (meta) {
+     /* found a file with that id, return value of directory flag */
+     int rc = meta->is_dir;
+     return rc;
+   } else {
+     /* if it doesn't exist, then it's not a directory? */
      return 0;
+   }
 }
 
 /* checks to see if a directory is empty
@@ -558,15 +558,15 @@ static int scrmfs_is_dir(int fid){
  * e.g. ../dirname will not work
  * returns 1 for yes it is empty
  * returns 0 for no */
-static int scrmfs_is_dir_empty(const char * path){
-
+static int scrmfs_is_dir_empty(const char * path)
+{
     int i = 0;
     while (i < SCRMFS_MAX_FILES) {
-       if(scrmfs_filelist[i].in_use){
-           char * strptr = strstr(path, scrmfs_filelist[i].filename);
+       if(scrmfs_filelist[i].in_use) {
            /* if the file starts with the path, it is inside of that directory 
             * also check to make sure that it's not the directory entry itself */
-           if (strptr == scrmfs_filelist[i].filename && strcmp(path,scrmfs_filelist[i].filename)){
+           char * strptr = strstr(path, scrmfs_filelist[i].filename);
+           if (strptr == scrmfs_filelist[i].filename && strcmp(path,scrmfs_filelist[i].filename)) {
               debug("File found: scrmfs_filelist[%d].filename = %s\n",
                                  i,(void *)&scrmfs_filelist[i].filename);
               return 0;
@@ -574,14 +574,17 @@ static int scrmfs_is_dir_empty(const char * path){
        } 
        ++i;
     }
+
+    /* couldn't find any files with this prefix, dir must be empty */
     return 1;
 }
 
-static int scrmfs_fill_in_stat_buf(int fid, struct stat * buf){
-
+static int scrmfs_fill_in_stat_buf(int fid, struct stat * buf)
+{
    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-   if (!meta)
+   if (!meta) {
       return -1;
+   }
    
    /* initialize all the values */
    buf->st_dev = 0;     /* ID of device containing file */
@@ -599,11 +602,13 @@ static int scrmfs_fill_in_stat_buf(int fid, struct stat * buf){
    buf->st_ctime = 0;   /* time of last status change */
 
    buf->st_size = meta->size;
-   if(scrmfs_is_dir(fid))
+   if(scrmfs_is_dir(fid)) {
       buf->st_mode |= S_IFDIR;
-   else
+   } else {
       buf->st_mode |= S_IFREG;
+   }
 
+   return 0;
 }
 
 /* given a file id, return a pointer to the meta data,
@@ -619,16 +624,19 @@ static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
     return NULL;
 }
 
-static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid){
-
+static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid)
+{
+    /* lookup file meta data for specified file id */
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-    if (!meta)
-       return (scrmfs_chunkmeta_t *)NULL;
-   
-    if (cid >= 0 && cid < SCRMFS_MAX_CHUNKS){
-       scrmfs_chunkmeta_t * cmeta = &(meta->chunk_meta[cid]);
-       return cmeta;
+    if (meta != NULL) {
+        /* now lookup chunk meta data for specified chunk id */
+        if (cid >= 0 && cid < SCRMFS_MAX_CHUNKS) {
+           scrmfs_chunkmeta_t* cmeta = &(meta->chunk_meta[cid]);
+           return cmeta;
+        }
     }
+
+    /* failed to find file or chunk id is out of range */
     return (scrmfs_chunkmeta_t *)NULL;
 }
 
@@ -639,7 +647,6 @@ chunk_list_t* scrmfs_get_chunk_list(int fd)
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
-
         int i = 0;
         chunk_list_t *chunk_list = NULL;
         chunk_list_t *chunk_list_elem;
@@ -651,8 +658,8 @@ chunk_list_t* scrmfs_get_chunk_list(int fd)
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
         
         while ( i < meta->chunks ) {
-
             chunk_list_elem = (chunk_list_t*)malloc(sizeof(chunk_list_t));
+
             /* get the chunk id for the i-th chunk and
              * add it to the chunk_list */
             chunk_list_elem->chunk_id = meta->chunk_ids[i];
@@ -662,8 +669,8 @@ chunk_list_t* scrmfs_get_chunk_list(int fd)
             LL_APPEND( chunk_list, chunk_list_elem);
             i++;
         }
-        return chunk_list;
 
+        return chunk_list;
     } else {
         /* file not managed by SCRMFS */
         errno = EBADF;
@@ -699,16 +706,17 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
 {
     /* identify physical chunk id, find start of its buffer and add the offset */
     int chunk_id = meta->chunk_ids[id];
-    char *start = NULL;
 
-    if ( chunk_id < SCRMFS_MAX_CHUNKS ) {
+    char *start = NULL;
+    if (chunk_id < SCRMFS_MAX_CHUNKS) {
         start = scrmfs_chunks + (chunk_id << SCRMFS_CHUNK_BITS);
-    }
-    /* compute buffer loc within spillover device chunk */
-    else {
+    } else {
+        /* compute buffer loc within spillover device chunk */
         debug("wrong chunk ID\n");
         return NULL;
     }
+
+    /* now add offset */
     char* buf = start + offset;
     return (void*)buf;
 }
@@ -721,12 +729,11 @@ static inline off_t scrmfs_compute_spill_offset(const scrmfs_filemeta_t* meta, i
     int chunk_id = meta->chunk_ids[id];
     off_t start = 0;
 
-    if ( chunk_id < SCRMFS_MAX_CHUNKS ) {
+    if (chunk_id < SCRMFS_MAX_CHUNKS) {
         debug("wrong spill-chunk ID\n");
         return -1;
-    }
-    /* compute buffer loc within spillover device chunk */
-    else {
+    } else {
+        /* compute buffer loc within spillover device chunk */
         /* account for the SCRMFS_MAX_CHUNKS added to identify location when
          * grabbing this chunk */
         start = ( (chunk_id - SCRMFS_MAX_CHUNKS ) << SCRMFS_CHUNK_BITS);
@@ -760,20 +767,21 @@ static int scrmfs_truncate_fid(int fid, off_t length)
         scrmfs_stack_push(free_chunk_stack, meta->chunk_ids[meta->chunks]);
         SCRMFS_STACK_UNLOCK();
 
-        if (scrmfs_use_containers){
+        if (scrmfs_use_containers) {
             char prefix[100];
             sprintf(prefix,"fid_%d_chunk_%d", fid, meta->chunk_ids[meta->chunks]);
 
             int ret = cs_set_container_remove(cs_set_handle, prefix);
-            if (ret != CS_SUCCESS){
+            if (ret != CS_SUCCESS) {
                debug("removal of container for %s failed: %d\n",prefix, ret);
                /* removal of containers is not implemented in the container library, so 
                 * this will always fail */
                //return -1;
-            }
-            else
+            } else {
                debug("removal of container for %s succeeded\n", prefix);
+            }
         }
+
         meta->chunk_meta[meta->chunks].location = -1;
     }
     
@@ -803,8 +811,8 @@ static int scrmfs_unlink_fid(int fid)
 
 /* allocate a file id slot for a new file 
  * return the fid or -1 on error */
-static int scrmfs_get_slot_for_new_file(){
-
+static int scrmfs_get_slot_for_new_file()
+{
     SCRMFS_STACK_LOCK();
     int fid = scrmfs_stack_pop(free_fid_stack);
     SCRMFS_STACK_UNLOCK();
@@ -820,19 +828,20 @@ static int scrmfs_get_slot_for_new_file(){
 
 /* add a new file and initialize metadata
  * returns the new fid, or negative value on error */
-static int scrmfs_add_new_file(const char * path){
-
+static int scrmfs_add_new_file(const char * path)
+{
     int fid = scrmfs_get_slot_for_new_file();
-    // was there an error? if so, return it
-    if (fid < 0) 
-       return fid;
+    if (fid < 0)  {
+        /* was there an error? if so, return it */
+        return fid;
+    }
 
     /* mark this slot as in use and copy the filename */
     scrmfs_filelist[fid].in_use = 1;
     strcpy((void *)&scrmfs_filelist[fid].filename, path);
     debug("Filename %s got scrmfs fd %d\n",scrmfs_filelist[fid].filename,fid);
 
-    /* initialize meta data*/
+    /* initialize meta data */
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
     meta->size = 0;
     meta->chunks = 0;
@@ -840,19 +849,20 @@ static int scrmfs_add_new_file(const char * path){
     meta->flock_status = UNLOCKED;
     /* PTHREAD_PROCESS_SHARED allows Process-Shared Synchronization*/
     pthread_spin_init(&meta->fspinlock, PTHREAD_PROCESS_SHARED);
-
    
     return fid;
 }
 
 /* add a new directory and initialize metadata
  * returns the new fid, or a negative value on error */
-static int scrmfs_add_new_directory(const char * path){
-
+static int scrmfs_add_new_directory(const char * path)
+{
    int fid = scrmfs_add_new_file(path);
-   // was there an error? if so, return it
-   if (fid < 0) 
-      return fid;
+   if (fid < 0) {
+       /* was there an error? if so, return it */
+       return fid;
+   }
+
    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
    meta->is_dir = 1;
    return fid;
@@ -868,29 +878,30 @@ int SCRMFS_DECL(access)(const char *path, int mode)
     if (scrmfs_intercept_path(path)) {
         /* check if path exists */
         if (scrmfs_get_fid_from_path(path) < 0) {
+            debug("access: scrmfs_get_id_from path failed, returning -1, %s\n", path);
             errno = ENOENT;
-debug("access: scrmfs_get_id_from path failed, returning -1, %s\n", path);
             return -1;
         }
-debug("access: path intercepted, returning 0, %s\n", path);
+
         /* currently a no-op */
+        debug("access: path intercepted, returning 0, %s\n", path);
         return 0;
     } else {
-debug("access: calling MAP_OR_FAIL, %s\n", path);
+        debug("access: calling MAP_OR_FAIL, %s\n", path);
         MAP_OR_FAIL(access);
         int ret = __real_access(path, mode);
-debug("access: returning __real_access %d,%s\n", ret, path);
+        debug("access: returning __real_access %d,%s\n", ret, path);
         return ret;
     }
 }
 
 int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
 {
-/* Support for directories is very limited at this time
- * mkdir simply puts an entry into the filelist for the
- * requested directory (assuming it does not exist)
- * It doesn't check to see if parent directory exists
-*/
+    /* Support for directories is very limited at this time
+     * mkdir simply puts an entry into the filelist for the
+     * requested directory (assuming it does not exist)
+     * It doesn't check to see if parent directory exists */
+
     /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
         /* check if it already exists */
@@ -898,6 +909,8 @@ int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
             errno = EEXIST;
             return -1;
         }
+
+        /* add directory to file list */
         int fid = scrmfs_add_new_directory(path);
         return 0;
     } else {
@@ -919,20 +932,23 @@ int SCRMFS_DECL(rmdir)(const char *path)
 
         /* check if path exists */
         int fid = scrmfs_get_fid_from_path(path);
-        if (fid < 0){
+        if (fid < 0) {
             errno = ENOENT;
             return -1;
         }
+
         /* is it a directory? */
-        if (!scrmfs_is_dir(fid)){
+        if (!scrmfs_is_dir(fid)) {
             errno = ENOTDIR;
             return -1;
         }
+
         /* is it empty? */
-        if (!scrmfs_is_dir_empty(path)){
+        if (!scrmfs_is_dir_empty(path)) {
             errno = ENOTEMPTY;
             return -1;
         }
+
         /* remove the directory from the file list */ 
         int ret = scrmfs_unlink_fid(fid);
         return 0;
@@ -1038,12 +1054,14 @@ int SCRMFS_DECL(unlink)(const char *path)
             return -1;
         }
 
-        if (scrmfs_is_dir(fid)){
+        /* check that it's not a directory */
+        if (scrmfs_is_dir(fid)) {
             /* ERROR: is a directory */
             debug("Attempting to unlink a directory %s in SCRMFS\n",path);
             errno = EISDIR;
             return -1;
         }
+
         /* delete the file */
         scrmfs_unlink_fid(fid);
 
@@ -1055,7 +1073,6 @@ int SCRMFS_DECL(unlink)(const char *path)
     }
 }
 
-
 int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
 {
     debug("stat was called for %s....\n",path);
@@ -1065,6 +1082,7 @@ int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
             errno = ENOENT;
             return -1;
         }
+
         scrmfs_fill_in_stat_buf(fid, buf);
 
         return 0;
@@ -1073,11 +1091,7 @@ int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
         int ret = __real_stat(path, buf);
         return ret;
     }
-
-
-
 } 
-
 
 int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
 {
