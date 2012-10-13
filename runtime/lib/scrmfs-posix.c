@@ -147,7 +147,6 @@ SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 
 /* keep track of what we've initialized */
 static int scrmfs_initialized = 0;
-static int scrmfs_stack_init_done = 0;
 
 /* global persistent memory block (metadata + data) */
 static void* scrmfs_superblock = NULL;
@@ -271,15 +270,9 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
             perror("open() in scrmfs_get_spillblock() failed");
             return -1;
         }
-    } else { /* new spillover block created */
-
+    } else {
+        /* new spillover block created */
         /*TODO: align to SSD block size*/
-
-        /* initialize the spillover-chunks stack */    
-        if (! scrmfs_initialized) {
-            scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
-            debug("Meta-stacks initialized!\n");
-        }
     }
 
     return spillblock_fd;
@@ -323,13 +316,17 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
         /* init our global variables to point to spots in superblock */
         scrmfs_init_pointers(scr_shmblock);
 
-        /* initialize stacks within block */
-        if (! scrmfs_stack_init_done) {
-            scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
-            scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
-            scrmfs_stack_init_done = 1;
-            debug("Meta-stacks initialized!\n");
+        /* initialize data structures within block */
+        int i;
+        for (i = 0; i < SCRMFS_MAX_FILES) {
+            scrmfs_filelist[i].in_use = 0;
         }
+        scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
+        scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
+        if (scrmfs_use_spillover) {
+            scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
+        }
+        debug("Meta-stacks initialized!\n");
     }
     
     return scr_shmblock;
@@ -807,7 +804,6 @@ static int scrmfs_unlink_fid(int fid)
 
     return 0;
 }
-
 
 /* allocate a file id slot for a new file 
  * return the fid or -1 on error */
@@ -1686,7 +1682,6 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                 /* compute number of additional bytes we need */
                 off_t additional = newpos - maxsize;
                 while (additional > 0) {
-
                     /* allocate a new chunk */
                     SCRMFS_STACK_LOCK();
                     int id = scrmfs_stack_pop(free_chunk_stack);
