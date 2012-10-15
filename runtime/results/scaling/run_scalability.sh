@@ -39,8 +39,6 @@ do
     do
         echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
         # run all sruns in background, so that it gets queued if nodes are not available
-        srun -N $i -n $totprocs $PWD/test_$bench > $OUTPUT_DIR/$bench-n$totprocs-N$i &
-        # clearup shm segments
-        $IPC_CLEANUP
+        srun -N $i -n $totprocs $PWD/test_$bench > $OUTPUT_DIR/$bench-n$totprocs-N$i && $IPC_CLEANUP &
     done
 done
