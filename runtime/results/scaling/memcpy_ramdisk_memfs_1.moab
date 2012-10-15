@@ -1,0 +1,56 @@
+#!/bin/bash
+
+##### These lines are for Moab
+#MSUB -l nodes=1
+#MSUB -l walltime=20:00
+
+max_ppn=12
+nodes=$SLURM_NNODES
+ipc_cleanup="../../ipc_cleanup"
+params="104857600 5 0"
+
+# clean up any shm segments before starting
+procs=$(($max_ppn * $nodes))
+srun -n $nodes -N $nodes $ipc_cleanup
+
+echo "srun -n $procs -N $nodes -m block ./test_memcpy $params"
+for (( i=0; i<3; i++ )) ; do
+  srun -n $procs -N $nodes -m block ./test_memcpy $params
+done
+echo ""
+
+echo "srun -n $procs -N $nodes -m block ./test_ramdisk $params"
+for (( i=0; i<3; i++ )) ; do
+  srun -n $procs -N $nodes -m block ./test_ramdisk $params
+  srun -n $nodes -N $nodes $ipc_cleanup
+done
+echo ""
+
+echo "srun -n $procs -N $nodes -m block ./test_ramdisk_real $params"
+for (( i=0; i<3; i++ )) ; do
+  srun -n $procs -N $nodes -m block ./test_ramdisk_real $params
+done
+echo ""
+
+# clean up any shm segments before starting
+procs=$((1 * $nodes))
+srun -n $nodes -N $nodes $ipc_cleanup
+
+echo "srun -n $procs -N $nodes -m block ./test_memcpy $params"
+for (( i=0; i<3; i++ )) ; do
+  srun -n $procs -N $nodes -m block ./test_memcpy $params
+done
+echo ""
+
+echo "srun -n $procs -N $nodes -m block ./test_ramdisk $params"
+for (( i=0; i<3; i++ )) ; do
+  srun -n $procs -N $nodes -m block ./test_ramdisk $params
+  srun -n $nodes -N $nodes $ipc_cleanup
+done
+echo ""
+
+echo "srun -n $procs -N $nodes -m block ./test_ramdisk_real $params"
+for (( i=0; i<3; i++ )) ; do
+  srun -n $procs -N $nodes -m block ./test_ramdisk_real $params
+done
+echo ""
