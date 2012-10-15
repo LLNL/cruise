@@ -18,6 +18,7 @@ export POST_SCRMFS_FLAGS=`$SCRMFS_INSTALL_DIR/bin/scrmfs-config --post-ld-flags`
 
 export RUN_BENCHMARKS="ramdisk memcpy" #scrmfs " 
 export BENCHMARK_DIR=$PWD
+export BENCHMARK_PARAMS="104857600 5 0"
 
 #build benchmarks
 for bench in `echo $RUN_BENCHMARKS`
@@ -26,7 +27,7 @@ do
     then
         #compile scrmfs-aware test_ramdisk
         echo "building test_$bench.."
-        $CC $PRE_SCRMFS_FLAGS -O3 -o test_$bench $test_scrmfs_src $POST_SCRMFS_FLAGS
+        $CC $PRE_SCRMFS_FLAGS -O3 -o test_$bench $BENCHMARK_DIR/test_ramdisk.c $POST_SCRMFS_FLAGS
     else
         #compile native benchmarks
         echo "building test_$bench.."
@@ -46,7 +47,7 @@ do
         for (( j=0; i<3; j++ ))
         do
             echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
-            srun -N $i -n $totprocs $PWD/test_$bench > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j 
+            srun -N $i -n $totprocs $PWD/test_$bench $BENCHMARK_PARAMS  > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j
             #cleanup all nodes
             srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
         done
