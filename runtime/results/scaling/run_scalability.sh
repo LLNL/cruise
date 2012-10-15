@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#MOAB variabes
+#MSUB -l nodes=8
+#MSUB -l walltime=20:00
+
 #configuration parameters\
 export PROCS_PER_NODE=8
 export MAX_NUM_NODES=8
@@ -14,7 +18,6 @@ export POST_SCRMFS_FLAGS=`$SCRMFS_INSTALL_DIR/bin/scrmfs-config --post-ld-flags`
 
 export RUN_BENCHMARKS="ramdisk memcpy" #scrmfs " 
 export BENCHMARK_DIR=$PWD
-
 
 #build benchmarks
 for bench in `echo $RUN_BENCHMARKS`
@@ -32,13 +35,20 @@ do
 
 done
 
+#cleanup nodes before running
+srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
+
 #run benchmarks
 for bench in `echo $RUN_BENCHMARKS`
 do
     for (( i=1, totprocs=$PROCS_PER_NODE ; i <= $MAX_NUM_NODES; i = i*2, totprocs = i*$PROCS_PER_NODE ))
     do
-        echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
-        # run all sruns in background, so that it gets queued if nodes are not available
-        srun -N $i -n $totprocs $PWD/test_$bench > $OUTPUT_DIR/$bench-n$totprocs-N$i && $IPC_CLEANUP &
+        for (( j=0; i<3; j++ ))
+        do
+            echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
+            srun -N $i -n $totprocs $PWD/test_$bench > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j 
+            #cleanup all nodes
+            srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
+        done
     done
 done
