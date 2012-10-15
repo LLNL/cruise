@@ -44,7 +44,7 @@ for bench in `echo $RUN_BENCHMARKS`
 do
     for (( i=1, totprocs=$PROCS_PER_NODE ; i <= $MAX_NUM_NODES; i = i*2, totprocs = i*$PROCS_PER_NODE ))
     do
-        for (( j=0; i<3; j++ ))
+        for (( j=0; j<3; j++ ))
         do
             echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
             srun -N $i -n $totprocs $PWD/test_$bench $BENCHMARK_PARAMS  > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j
