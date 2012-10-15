@@ -211,7 +211,20 @@ int scrmfs_mount(const char prefix[], int rank)
     /* KMM commented out because we're just using a single rank, so use PRIVATE
      * downside, can't attach to this in another srun (PRIVATE, that is) */
     //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
-    scrmfs_mount_key = IPC_PRIVATE;
+
+    char * env = getenv("SCRMFS_USE_SINGLE_SHM");
+    if (env) {
+        int val = atoi(env);
+        if (val != 0) {
+            scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+        } else {
+            scrmfs_mount_key = IPC_PRIVATE;
+        }
+    } else {
+        scrmfs_mount_key = IPC_PRIVATE;
+    }
+
+
     return 0;
 }
 
