@@ -318,7 +318,7 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
 
         /* initialize data structures within block */
         int i;
-        for (i = 0; i < SCRMFS_MAX_FILES) {
+        for (i = 0; i < SCRMFS_MAX_FILES; i++) {
             scrmfs_filelist[i].in_use = 0;
         }
         scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
