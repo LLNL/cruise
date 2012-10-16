@@ -3,6 +3,10 @@
 
 #include<container.h>
 
+#define SCRMFS_SUCCESS    0
+#define SCRMFS_ERR_NOSPC -1
+#define SCRMFS_ERR_IO    -2
+
 enum flock_enum
 {
     UNLOCKED,
@@ -26,12 +30,14 @@ typedef struct{
      cs_container_handle_t  cs_container_handle;
 } scrmfs_container_t;
 
-#define CHUNK_LOCATION_MEMFS 0
-#define CHUNK_LOCATION_CONTAINER 1
-#define CHUNK_LOCATION_SPILLOVER 2
+#define CHUNK_LOCATION_NULL      0
+#define CHUNK_LOCATION_MEMFS     1
+#define CHUNK_LOCATION_CONTAINER 2
+#define CHUNK_LOCATION_SPILLOVER 3
 
 typedef struct{
     int location;
+    off_t id;
     scrmfs_container_t container_data;
 } scrmfs_chunkmeta_t;
 
@@ -39,7 +45,6 @@ typedef struct
 {
     off_t size;   /* current file size */
     off_t chunks; /* number of chunks currently allocated to file */
-    off_t chunk_ids[SCRMFS_MAX_CHUNKS]; /* offset to chunk in the mem pool */
     scrmfs_chunkmeta_t chunk_meta[SCRMFS_MAX_CHUNKS]; /* meta data for chunks */
     int is_dir;  /* is this file a directory */
     pthread_spinlock_t fspinlock;
