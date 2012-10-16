@@ -6,7 +6,7 @@
 
 #configuration parameters\
 export PROCS_PER_NODE=8
-export MAX_NUM_NODES=128
+export MAX_NUM_NODES=16
 export TEST_MEMCPY_SRC=$PWD/test_memcpy.c
 export TEST_MOD_RAMDISK_SRC=$PWD/test_ramdisk.c
 export OUTPUT_DIR=$PWD/logs
@@ -29,7 +29,7 @@ do
     then
         #compile scrmfs-aware test_ramdisk
         echo "building test_$bench.."
-        $CC $PRE_SCRMFS_FLAGS -L$CONTAINER_DIR/lib -O3 -o test_$bench $BENCHMARK_DIR/test_ramdisk.c $POST_SCRMFS_FLAGS -lcontainer
+        $CC $PRE_SCRMFS_FLAGS -L$CONTAINER_DIR/lib -O3 -o test_$bench $BENCHMARK_DIR/test_$bench.c $POST_SCRMFS_FLAGS -lcontainer
     else
         #compile native benchmarks
         echo "building test_$bench.."
@@ -38,6 +38,8 @@ do
 
 done
 
+
+mkdir $OUTPUT_DIR
 #cleanup nodes before running
 #srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
 
