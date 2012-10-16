@@ -12,11 +12,13 @@ export TEST_MOD_RAMDISK_SRC=$PWD/test_ramdisk.c
 export OUTPUT_DIR=$PWD/logs
 export CC=mpicc
 export SCRMFS_INSTALL_DIR=../../install
+export CONTAINER_DIR=../../container
+export LD_LIBRARY_PATH=$CONTAINER_DIR/lib:$LD_LIBRARY_PATH
 export IPC_CLEANUP=../../ipc_cleanup
 export PRE_SCRMFS_FLAGS=`$SCRMFS_INSTALL_DIR/bin/scrmfs-config --pre-ld-flags`
 export POST_SCRMFS_FLAGS=`$SCRMFS_INSTALL_DIR/bin/scrmfs-config --post-ld-flags`
 
-export RUN_BENCHMARKS="ramdisk memcpy" #scrmfs " 
+export RUN_BENCHMARKS="ramdisk memcpy scrmfs " 
 export BENCHMARK_DIR=$PWD
 export BENCHMARK_PARAMS="104857600 5 0"
 
@@ -27,7 +29,7 @@ do
     then
         #compile scrmfs-aware test_ramdisk
         echo "building test_$bench.."
-        $CC $PRE_SCRMFS_FLAGS -O3 -o test_$bench $BENCHMARK_DIR/test_ramdisk.c $POST_SCRMFS_FLAGS
+        $CC $PRE_SCRMFS_FLAGS -L$CONTAINER_DIR/lib -O3 -o test_$bench $BENCHMARK_DIR/test_ramdisk.c $POST_SCRMFS_FLAGS -lcontainer
     else
         #compile native benchmarks
         echo "building test_$bench.."
@@ -37,7 +39,7 @@ do
 done
 
 #cleanup nodes before running
-srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
+#srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
 
 #run benchmarks
 for bench in `echo $RUN_BENCHMARKS`
