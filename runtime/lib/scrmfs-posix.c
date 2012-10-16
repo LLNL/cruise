@@ -272,7 +272,7 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
     void *scr_spillblock = NULL;
     int spillblock_fd;
 
-    spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL);
+    spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL | S_IRWXU);
 
     if (spillblock_fd < 0) {
         if (errno == EEXIST) {
@@ -284,7 +284,7 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
         }
     } else {
         /* new spillover block created */
-        /*TODO: align to SSD block size*/
+        /* TODO: align to SSD block size*/
     }
 
     return spillblock_fd;
@@ -779,7 +779,7 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
             chunk_meta->location = CHUNK_LOCATION_MEMFS;
         } else if (scrmfs_use_spillover) {
             /* shm segment out of space, grab a block from spill-over device */
-            debug("getting blocks from spill-over device (%d)\n", id);
+            debug("getting blocks from spill-over device\n");
 
             /* TODO: missing lock calls? */
             /* add SCRMFS_MAX_CHUNKS to identify chunk location */
@@ -800,7 +800,7 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         /* memory file system is not enabled, but spill over is */
 
         /* shm segment out of space, grab a block from spill-over device */
-        debug("getting blocks from spill-over device (%d)\n", id);
+        debug("getting blocks from spill-over device \n");
 
         /* TODO: missing lock calls? */
         /* add SCRMFS_MAX_CHUNKS to identify chunk location */
