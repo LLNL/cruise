@@ -752,6 +752,179 @@ static inline off_t scrmfs_compute_spill_offset(const scrmfs_filemeta_t* meta, i
     return buf;
 }
 
+/* read data from specified chunk id, chunk offset, and count into user buffer,
+ * count should fit within chunk starting from specified offset */
+static int scrmfs_read_chunk(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_offset, void* buf, size_t count)
+{
+    /* get chunk meta data */
+    scrmfs_chunkmeta_t* chunk_meta = &meta->chunk_meta[chunk_id];
+
+    if (chunk_meta->location == CHUNK_LOCATION_MEMFS) {
+        /* just need a memcpy to read data */
+        void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+        memcpy(buf, chunk_buf, count);
+    } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
+        /* spill over to a file, so read from file descriptor */
+        off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
+        ssize_t rc = __real_pread(scrmfs_spilloverblock, buf, count, spill_offset);
+        /* TODO: check return code for errors */
+    } else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
+        /* read chunk from containers */
+        cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
+
+        size_t memcount = 1;
+        size_t memsizes = count;
+        size_t filecount = 1;
+        cs_off_t fileofs = chunk_offset;
+        cs_off_t filesizes = count;
+        cs_off_t transferred = 0;
+               
+        int ret = cs_container_read (ch, memcount, &buf, &memsizes, filecount,
+                       &fileofs, &filesizes, &transferred
+        ); 
+        if (ret != CS_SUCCESS){
+            debug("container read failed\n");
+            return -1;
+        }
+        debug("container read succeeded\n");
+    } else {
+        /* unknown chunk type */
+        debug("unknown chunk type in read\n");
+        return -1;
+    }
+
+    /* assume read was successful if we get to here */
+    return 0;
+}
+
+static int scrmfs_alloc_chunk(scrmfs_filemeta_t* meta, int chunk_id)
+{
+    int id;
+
+    /* get chunk meta data */
+    scrmfs_chunkmeta_t* chunk_meta = &meta->chunk_meta[chunk_id];
+    
+    if (scrmfs_use_memfs) {
+        /* allocate a new chunk */
+        SCRMFS_STACK_LOCK();
+        id = scrmfs_stack_pop(free_chunk_stack);
+        SCRMFS_STACK_UNLOCK();
+
+        if (id >= 0) {
+            /* got a chunk from memory */
+            chunk_meta->location = CHUNK_LOCATION_MEMFS;
+        } else if (scrmfs_use_spillover) {
+            /* shm segment out of space, grab a block from spill-over device */
+            debug("getting blocks from spill-over device (%d)\n", id);
+
+            /* TODO: missing lock calls? */
+            /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+            id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+            if (id < SCRMFS_MAX_CHUNKS) {
+                debug("spill-over device out of space (%d)\n", id);
+                return -1;
+            }
+
+            chunk_meta->location = CHUNK_LOCATION_SPILLOVER;
+        } else {
+            debug("memfs out of space (%d)\n", id);
+            return -1;
+        }
+    } else if (scrmfs_use_spillover) {
+        /* shm segment out of space, grab a block from spill-over device */
+        debug("getting blocks from spill-over device (%d)\n", id);
+
+        /* TODO: missing lock calls? */
+        /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+        id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+        if (id < SCRMFS_MAX_CHUNKS) {
+            debug("spill-over device out of space (%d)\n", id);
+            return -1;
+        }
+
+        chunk_meta->location = CHUNK_LOCATION_SPILLOVER;
+    } else if (scrmfs_use_containers) {
+        /* allocate a new chunk */
+        SCRMFS_STACK_LOCK();
+        int id = scrmfs_stack_pop(free_chunk_stack);
+        SCRMFS_STACK_UNLOCK();
+
+        /* write chunk to containers */
+        cs_container_handle_t* ch = chunk_meta->container_data.cs_container_handle;
+
+        char prefix[100];
+        sprintf(prefix,"fid_%d_chunk_%d", fid, id);
+
+        int create = 1;
+        int created = 0;
+        size_t size = 1 << SCRMFS_CHUNK_BITS;
+
+        int ret = cs_set_container_open(cs_set_handle, prefix, size, 
+                      create, &created, ch
+        );
+        if (ret != CS_SUCCESS) {
+           debug("creation of container for %s failed: %d\n",prefix, ret);
+           return -1;
+        }
+        debug("creation of container for %s succeeded\n", prefix);
+
+        /* allocate chunk from containers */
+        chunk_meta->location = CHUNK_LOCATION_CONTAINER;
+    } else {
+        /* don't know how to allocate chunk */
+        return -1;
+    }
+
+    /* add it to the chunk list of this file */
+    meta->chunk_ids[chunk_id] = id;
+
+    return 0;
+}
+
+/* read data from specified chunk id, chunk offset, and count into user buffer,
+ * count should fit within chunk starting from specified offset */
+static int scrmfs_write_chunk(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_offset, void* buf, size_t count)
+{
+    /* get chunk meta data */
+    scrmfs_chunkmeta_t* chunk_meta = &meta->chunk_meta[chunk_id];
+
+    if (chunk_meta->location == CHUNK_LOCATION_MEMFS) {
+        /* just need a memcpy to write data */
+        void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
+        memcpy(chunk_buf, buf, count);
+//        _intel_fast_memcpy(chunk_buf, ptr, remaining);
+//        scrmfs_memcpy(chunk_buf, ptr, remaining);
+    } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
+        /* spill over to a file, so write to file descriptor */
+        off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
+        ssize_t rc = __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
+        /* TODO: check return code for errors */
+    } else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
+        /* write chunk to containers */
+        cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
+
+        size_t memsizes = count;
+        cs_off_t fileofs = chunk_offset;
+        cs_off_t filesizes = count;
+        cs_off_t transferred;
+
+        int ret = cs_container_write (ch, 1, &buf, &memsizes, 1, 
+                          &fileofs, &filesizes, &transferred
+        );
+        if (ret != CS_SUCCESS){
+            debug("container write failed for single container write: %d\n");
+            return -1;
+        }
+        debug("container write was successful\n");
+    } else {
+        /* unknown chunk type */
+        debug("unknown chunk type in read\n");
+        return -1;
+    }
+
+    /* assume read was successful if we get to here */
+    return 0;
+}
 
 /* ---------------------------------------
  * File system operations
@@ -1455,7 +1628,7 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
 
 ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
 {
-    ssize_t ret;
+    ssize_t ret, rc;
 
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
@@ -1501,143 +1674,42 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
         int chunk_id = oldpos >> SCRMFS_CHUNK_BITS;
         off_t chunk_offset = oldpos & SCRMFS_CHUNK_MASK;
 
-        void *chunk_buf = NULL;
-        off_t spill_offset = 0;
-
-        /* get offset in shmsegment or spillover */
-        if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
-            chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
-        } else {
-            spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
-        }
-
-
         /* determine how many bytes remain in the current chunk */
         size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
-        if (scrmfs_use_memfs){
-            if (count <= remaining) {
-                /* all bytes for this read fit within the current chunk */
-                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
-                    memcpy(buf, chunk_buf, count);
-                } else {
-                    __real_pread(scrmfs_spilloverblock, buf, count, spill_offset);
-                }
-            } else {
-                /* read what's left of current chunk */
-                char* ptr = (char*) buf;
-                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
-                    memcpy(ptr, chunk_buf, remaining);
-                } else {
-                    __real_pread(scrmfs_spilloverblock, ptr, remaining, spill_offset);
-                }
-                ptr += remaining;
+        if (count <= remaining) {
+            /* all bytes for this read fit within the current chunk */
+            rc = scrmfs_read_chunk(meta, chunk_id, chunk_offset, buf, count);
+        } else {
+            /* read what's left of current chunk */
+            char* ptr = (char*) buf;
+            rc = scrmfs_read_chunk(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+            ptr += remaining;
    
-                /* read from the next chunk */
-                size_t read = remaining;
-                while (read < count) {
-                    /* get pointer to start of next chunk */
-                    chunk_id++;
+            /* read from the next chunk */
+            size_t read = remaining;
+            while (read < count && rc >= 0) {
+                /* get pointer to start of next chunk */
+                chunk_id++;
 
-                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
-                        chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
-                    } else {
-                        spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, 0);
-                    }
-   
-                    /* compute size to read from this chunk */
-                    size_t to_read = count - read;
-                    if (to_read > SCRMFS_CHUNK_SIZE) {
-                        to_read = SCRMFS_CHUNK_SIZE;
-                    }
-   
-                    /* write data */
-                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
-                        memcpy(ptr, chunk_buf, to_read);
-                    } else {
-                        __real_pread(scrmfs_spilloverblock, ptr, to_read, spill_offset);
-                    }
-                    ptr += to_read;
-
-                    /* update number of bytes written */
-                    read += to_read;
+                /* compute size to read from this chunk */
+                size_t to_read = count - read;
+                if (to_read > SCRMFS_CHUNK_SIZE) {
+                    to_read = SCRMFS_CHUNK_SIZE;
                 }
+   
+                /* read data */
+                rc = scrmfs_read_chunk(meta, chunk_id, 0, (void*)ptr, to_read);
+                ptr += to_read;
+
+                /* update number of bytes written */
+                read += to_read;
             }
         }
-        else if(scrmfs_use_containers){
-            if (count <= remaining) {
-                /* all bytes for this read fit within the current chunk */
-                cs_container_handle_t ch = 
-                           meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-                size_t memcount = 1;
-                size_t memsizes = count;
-                size_t filecount = 1;
-                cs_off_t fileofs = chunk_offset;
-                cs_off_t filesizes = count;
-                cs_off_t transferred = 0;
-               
-                int ret = cs_container_read (ch, memcount, &buf, &memsizes, filecount,
-                               &fileofs, &filesizes, &transferred); 
-                if (ret != CS_SUCCESS){
-                   debug("container read failed\n");
-                   return -1;
-                }
-                debug("container read succeeded\n");
-            } else {
-                /* read what's left of current chunk */
-                char* ptr = (char*) buf;
-                size_t memcount = 1;
-                size_t memsizes = remaining;
-                size_t filecount = 1;
-                cs_off_t fileofs = chunk_offset;
-                cs_off_t filesizes = remaining;
-                cs_off_t transferred = 0;
-                cs_container_handle_t ch = 
-                           meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-               
-                int ret = cs_container_read (ch, memcount, (void**)&ptr, &memsizes, filecount,
-                               &fileofs, &filesizes, &transferred); 
-                if (ret != CS_SUCCESS){
-                   debug("container read failed\n");
-                   return -1;
-                }
-                debug("container read succeeded\n");
-                ptr += remaining;
-                
-                /* read from the next chunk */
-                size_t read = remaining;
-                while (read < count) {
-                    /* get pointer to start of next chunk */
-                    chunk_id++;
 
-                    /* compute size to read from this chunk */
-                    size_t to_read = count - read;
-                    if (to_read > SCRMFS_CHUNK_SIZE) {
-                        to_read = SCRMFS_CHUNK_SIZE;
-                    }
-
-                    /* read data */
-                    ptr = (char*) buf;
-                    memcount = 1;
-                    memsizes = to_read;
-                    filecount = 1;
-                    fileofs = 0;
-                    filesizes = to_read;
-                    transferred = 0;
-                   
-                    ch = meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-                    ret = cs_container_read (ch, memcount, (void**)&ptr, &memsizes, filecount,
-                                   &fileofs, &filesizes, &transferred); 
-                    if (ret != CS_SUCCESS){
-                       debug("container read failed\n");
-                       return -1;
-                    }
-                    debug("container read succeeded\n");
-                    ptr += to_read;
- 
-                    /* update number of bytes read */
-                    read += to_read;
-                }
-            }
+        /* return an IO error if we hit one */
+        if (rc < 0) {
+            errno = EIO;
+            return -1;
         }
     } else {
         MAP_OR_FAIL(read);
@@ -1650,7 +1722,7 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
 /* TODO: find right place to msync spillover mapping */
 ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 {
-    ssize_t ret;
+    ssize_t ret, rc;
 
     /* check file descriptor to determine whether we should pick off this call */
     int intercept;
@@ -1695,63 +1767,16 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
                 /* compute number of additional bytes we need */
                 off_t additional = newpos - maxsize;
                 while (additional > 0) {
-                    /* allocate a new chunk */
-                    SCRMFS_STACK_LOCK();
-                    int id = scrmfs_stack_pop(free_chunk_stack);
-                    SCRMFS_STACK_UNLOCK();
-
-                    /* shmsegment out of space, grab a block from spill-over device */
-                    if (id < 0 && scrmfs_use_spillover) {
-                        debug("getting blocks from spill-over device (%d)\n", id);
-
-                        /* memfs out of chunks, get blocks from spillover dev */
-                        /* add SCRMFS_MAX_CHUNKS to identify chunk location */
-                        id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
-                        if (id < SCRMFS_MAX_CHUNKS) {
-                            debug("spill-over device out of space (%d)\n", id);
-                            errno = ENOSPC;
-                            return -1;
-                        }
-                    }
-                    else if (id < 0 && !scrmfs_use_spillover) {
-                        debug("memfs out of space (%d)\n", id);
+                    /* allocate a nuew chunk */
+                    rc = scrmfs_alloc_chunk(meta, meta->chunks);
+                    if (rc < 0) {
+                        debug("failed to allocate chunk\n");
                         errno = ENOSPC;
                         return -1;
                     }
 
-                    /* add it to the chunk list of this file */
-                    meta->chunk_ids[meta->chunks] = id;
-
-                    if(scrmfs_use_containers){
-                        char prefix[100];
-                        int create = 1;
-                        int created = 0;
-                        size_t size = 1 << SCRMFS_CHUNK_BITS;
-                        meta->chunk_meta[meta->chunks].location = CONTAINER;
-                        cs_container_handle_t *ch = 
-                             &(meta->chunk_meta[meta->chunks].container_data.cs_container_handle);
-                        sprintf(prefix,"fid_%d_chunk_%d", fid, id);
-
-                        int ret = cs_set_container_open(cs_set_handle, prefix, size, 
-                                      create, &created, ch);
-                        if (ret != CS_SUCCESS){
-                           debug("creation of container for %s failed: %d\n",prefix, ret);
-                           return -1;
-                        }
-                        debug("creation of container for %s succeeded\n", prefix);
-                    }
-                    else{
-                        /* set location based on chunk ID obtained */
-                        if (id >= SCRMFS_MAX_CHUNKS) {
-                            meta->chunk_meta[meta->chunks].location = SPILLOVER_DEV;
-                        }
-                        else {
-                            meta->chunk_meta[meta->chunks].location = MEMFS;
-                        }
-                    }
-
+                    /* increase chunk count and subtract bytes from the number we need */
                     meta->chunks++;
-                    /* subtract bytes from the number we need */
                     additional -= SCRMFS_CHUNK_SIZE;
                 }
             }
@@ -1763,148 +1788,42 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
 
         /* determine how many bytes remain in the current chunk */
         size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
-        if (scrmfs_use_memfs){
+        if (count <= remaining) {
+            /* all bytes for this write fit within the current chunk */
+            rc = scrmfs_write_chunk(meta, chunk_id, chunk_offset, buf, count);
+        } else {
+            /* otherwise, fill up the remainder of the current chunk */
+            char* ptr = (char*) buf;
+            rc = scrmfs_write_chunk(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+            ptr += remaining;
 
-            void *chunk_buf = NULL;
-            off_t spill_offset = 0;
+            /* then write the rest of the bytes starting from beginning
+             * of chunks */
+            size_t written = remaining;
+            while (written < count && rc >= 0) {
+                /* get pointer to start of next chunk */
+                chunk_id++;
 
-            if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS) {
-                chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
-            } else {
-                spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
-            }
-
-            if (count <= remaining) {
-                /* all bytes for this write fit within the current chunk */
-                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
-                    memcpy(chunk_buf, buf, count);
-                } else {
-                    __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
+                /* compute size to write to this chunk */
+                size_t nwrite = count - written;
+                if (nwrite > SCRMFS_CHUNK_SIZE) {
+                  nwrite = SCRMFS_CHUNK_SIZE;
                 }
-                 
-//                _intel_fast_memcpy(chunk_buf, buf, count);
-//                scrmfs_memcpy(chunk_buf, buf, count);
-            } else {
-                /* otherwise, fill up the remainder of the current chunk */
-                char* ptr = (char*) buf;
-                if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
-                    memcpy(chunk_buf, ptr, remaining);
-                } else {
-                    __real_pwrite(scrmfs_spilloverblock, buf, remaining, spill_offset);
-                }
-                
-//                _intel_fast_memcpy(chunk_buf, ptr, remaining);
-//                scrmfs_memcpy(chunk_buf, ptr, remaining);
-                ptr += remaining;
    
-                /* then write the rest of the bytes starting from beginning
-                 * of chunks */
-                size_t written = remaining;
-                while (written < count) {
-                    /* get pointer to start of next chunk */
-                    chunk_id++;
+                /* write data */
+                rc = scrmfs_write_chunk(meta, chunk_id, 0, (void*)ptr, nwrite);
+                ptr += nwrite;
 
-                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
-                        chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, 0);
-                    } else {
-                        spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, 0);
-                    }
-                    /* compute size to write to this chunk */
-                    size_t nwrite = count - written;
-                    if (nwrite > SCRMFS_CHUNK_SIZE) {
-                      nwrite = SCRMFS_CHUNK_SIZE;
-                    }
-   
-                    /* write data */
-
-                    if ( meta->chunk_ids[chunk_id] < SCRMFS_MAX_CHUNKS ) {
-                        memcpy(chunk_buf, ptr, nwrite);
-                    } else {
-                        __real_pwrite(scrmfs_spilloverblock, ptr, nwrite, spill_offset);
-                    }
-//                    _intel_fast_memcpy(chunk_buf, ptr, nwrite);
-//                    scrmfs_memcpy(chunk_buf, ptr, nwrite);
-                    ptr += nwrite;
-   
-                    /* update number of bytes written */
-                    written += nwrite;
-                }
+                /* update number of bytes written */
+                written += nwrite;
             }
         }
         
-        else if(scrmfs_use_containers){
-           if (count <= remaining) {
-               size_t memsizes = count;
-               cs_off_t fileofs = chunk_offset;
-               cs_off_t filesizes = count;
-               cs_off_t transferred;
-               cs_container_handle_t ch = 
-                          meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-               /* all bytes for this write fit within the current container */
-               int ret = cs_container_write (ch, 1, &buf, &memsizes, 1, 
-                                  &fileofs, &filesizes, &transferred);
-
-               if (ret != CS_SUCCESS){
-                  debug("container write failed for single container write: %d\n");
-                  return -1;
-               }
-               debug("container write was successful\n");
-           }
-           else {
-               /* otherwise, fill up the remainder of the current container */
-               char* ptr = (char*) buf;
-               //memcpy(chunk_buf, ptr, remaining);
-               size_t memsizes = remaining;
-               cs_off_t fileofs = chunk_offset;
-               cs_off_t filesizes = remaining;
-               cs_off_t transferred;
-               cs_container_handle_t ch = 
-                          meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-               int ret = cs_container_write (ch, 1, (const void**)&ptr, &memsizes, 1, 
-                                  &fileofs, &filesizes, &transferred);
-
-               if (ret != CS_SUCCESS){
-                  debug("container write failed for single container write: %d\n");
-                  return -1;
-               }
-               ptr += remaining;
-               debug("container write was successful\n");
-
-               /* then write the rest of the bytes starting from beginning
-                * of chunks */
-               size_t written = remaining;
-               while (written < count) {
-                   chunk_id++;
-
-                   /* compute size to write to this chunk */
-                   size_t nwrite = count - written;
-                   if (nwrite > SCRMFS_CHUNK_SIZE) {
-                     nwrite = SCRMFS_CHUNK_SIZE;
-                   }
-
-                   /* write data */
-                   //memcpy(chunk_buf, ptr, nwrite);
-                   memsizes = nwrite;
-                   fileofs = 0;
-                   filesizes = nwrite;
-                   ch = meta->chunk_meta[chunk_id].container_data.cs_container_handle;
-                   int ret = cs_container_write (ch, 1, (const void**)&ptr, &memsizes, 1, 
-                                  &fileofs, &filesizes, &transferred);
-    
-                   if (ret != CS_SUCCESS){
-                      debug("container write failed for single container write: %d\n");
-                      return -1;
-                   }
-                   ptr += nwrite;
-                   debug("container write was successful\n");
-
-                   /* update number of bytes written */
-                   written += nwrite;
-
-               }
-           }
+        /* return an IO error if we hit one */
+        if (rc < 0) {
+            errno = EIO;
+            return -1;
         }
-
     } else {
         /* lookup and record address of real function */
         MAP_OR_FAIL(write);

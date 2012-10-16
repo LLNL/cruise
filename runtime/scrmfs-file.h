@@ -26,9 +26,9 @@ typedef struct{
      cs_container_handle_t  cs_container_handle;
 } scrmfs_container_t;
 
-#define MEMFS 0
-#define CONTAINER 1
-#define SPILLOVER_DEV 2
+#define CHUNK_LOCATION_MEMFS 0
+#define CHUNK_LOCATION_CONTAINER 1
+#define CHUNK_LOCATION_SPILLOVER 2
 
 typedef struct{
     int location;
