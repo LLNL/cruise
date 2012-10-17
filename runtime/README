@@ -3,12 +3,24 @@
 (If using containers, run ./prepare && ./configure --prefix=$PWD && make && make install
 inside the "container" directory before proceeding to the next step)
 
+# debug
+use -q ic-11.1.046 
 ./prepare
 ./configure \
   --prefix=`pwd`/install \
   --with-jobid-env=SLURM_JOBID \
   --enable-ld-preload \
   CC=mpiicc CFLAGS="-g -O0"
+
+# optimized
+use -q ic-11.1.046 
+./prepare
+./configure \
+  --prefix=`pwd`/install \
+  --with-jobid-env=SLURM_JOBID \
+  --enable-ld-preload \
+  CC=mpiicc CFLAGS="-O3"
+
 
 --with-mem-align=8
 

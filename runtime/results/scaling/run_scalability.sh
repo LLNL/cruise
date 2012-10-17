@@ -7,7 +7,7 @@
 
 #configuration parameters\
 export PROCS_PER_NODE=16
-export MAX_NUM_NODES=1
+export MAX_NUM_NODES=$SLURM_NNODES
 export TEST_MEMCPY_SRC=$PWD/test_memcpy.c
 export TEST_MOD_RAMDISK_SRC=$PWD/test_ramdisk.c
 export OUTPUT_DIR=$PWD/logs
@@ -58,6 +58,7 @@ do
             echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
             echo "srun -N $i -n $totprocs $PWD/test_$bench $BENCHMARK_PARAMS  > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j"
             srun -N $i -n $totprocs $PWD/test_$bench $BENCHMARK_PARAMS  > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j
+
             #cleanup all nodes
             echo "srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEANUP"
             srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEANUP
