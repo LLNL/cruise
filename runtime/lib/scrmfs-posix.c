@@ -1574,14 +1574,8 @@ int SCRMFS_DECL(creat)(const char* path, mode_t mode)
         } else {
             /* file already exists */
 
-            /* if O_DIRECTORY is set and fid is not a directory, error */
-            if ((flags & O_DIRECTORY) && !scrmfs_is_dir(fid)) {
-                errno = ENOTDIR;
-                return -1;
-            }
-
-            /* if O_DIRECTORY is not set and fid is a directory, error */ 
-            if (!(flags & O_DIRECTORY) && scrmfs_is_dir(fid)) {
+            /* if fid is a directory, error */ 
+            if (scrmfs_is_dir(fid)) {
                 errno = ENOTDIR;
                 return -1;
             }
@@ -2062,7 +2056,8 @@ ssize_t SCRMFS_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
         }
 
         /* return number of bytes read */
-        ret = count;
+        ssize_t ret = (ssize_t) count;
+        return ret;
     } else {
         MAP_OR_FAIL(pread);
         ssize_t ret = __real_pread(fd, buf, count, offset);
@@ -2132,7 +2127,8 @@ ssize_t SCRMFS_DECL(pwrite)(int fd, const void *buf, size_t count, off_t offset)
         }
 
         /* return number of bytes read */
-        ret = count;
+        ssize_t ret = (ssize_t) count;
+        return ret;
     } else {
         MAP_OR_FAIL(pwrite);
         ssize_t ret = __real_pwrite(fd, buf, count, offset);
