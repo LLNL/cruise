@@ -1,22 +1,25 @@
+MPICC = mpiicc
 CC = gcc
 LIBS = -lpthread
 
-#PRE_SCRMFS_FLAGS = -L/g/g23/mohror1/SCR/memFS-git/memfs/runtime/install/lib -lz -Wl,-u,MPI_Wtime,-wrap,access,-wrap,write,-wrap,open,-wrap,creat,-wrap,creat64,-wrap,open64,-wrap,close,-wrap,unlink,-wrap,truncate,-wrap,rename,-wrap,read,-wrap,lseek,-wrap,lseek64,-wrap,pread,-wrap,pwrite,-wrap,readv,-wrap,writev,-wrap,__xstat,-wrap,__lxstat,-wrap,__fxstat,-wrap,__xstat64,-wrap,__lxstat64,-wrap,__fxstat64,-wrap,mmap,-wrap,mmap64,-wrap,fopen,-wrap,fclose,-wrap,fread,-wrap,fwrite,-wrap,fseek,-wrap,fopen64,-wrap,pread64,-wrap,pwrite64,-wrap,fsync,-wrap,fdatasync,-wrap,mkdir,-wrap,rmdir,-wrap,flock,-wrap,posix_fadvise
-PRE_SCRMFS_FLAGS = -L/g/g23/mohror1/SCR/memFS-git/memfs/runtime/install/lib -lz -Wl,-u,MPI_Wtime,-wrap,write,-wrap,open,-wrap,creat,-wrap,creat64,-wrap,open64,-wrap,close,-wrap,unlink,-wrap,truncate,-wrap,rename,-wrap,read,-wrap,lseek,-wrap,lseek64,-wrap,pread,-wrap,pwrite,-wrap,readv,-wrap,writev,-wrap,stat,-wrap,__xstat,-wrap,__lxstat,-wrap,__fxstat,-wrap,__xstat64,-wrap,__lxstat64,-wrap,__fxstat64,-wrap,mmap,-wrap,mmap64,-wrap,fopen,-wrap,fclose,-wrap,fread,-wrap,fwrite,-wrap,fseek,-wrap,fopen64,-wrap,pread64,-wrap,pwrite64,-wrap,fsync,-wrap,fdatasync,-wrap,mkdir,-wrap,rmdir,-wrap,access,-wrap,flock,-wrap,posix_fadvise
-POST_SCRMFS_FLAGS = -L/g/g23/mohror1/SCR/memFS-git/memfs/runtime/install/lib -lscrmfs-posix
+PRE_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --pre-ld-flags`)
+POST_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --post-ld-flags`)
 
-CONTAINER_HOME = /g/g23/mohror1/NoLoss/container
+CONTAINER_HOME = ../container
 CONTAINER_INCS = -I$(CONTAINER_HOME)/include
 CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
 CONTAINER_LIBS = -lcontainer
 
-all: test1 test1_container
+all: test1 test1_container test_writeread
 
 clean: 
-	rm -f *.o test1 test1_container
+	rm -f *.o test1 test1_container test_writeread
 
 test1: test1.c
-	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test1.c -o test1 $(LDFLAGS) $(LIBS) $(POST_SCRMFS_FLAGS) 
+	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test1.c -o test1 $(LDFLAGS) $(LIBS) $(CONTAINER_LDFLAGS) $(CONTAINER_LIBS) $(POST_SCRMFS_FLAGS) 
 
 test1_container: test1.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test1.c -o test1_container $(LDFLAGS) $(LIBS) $(CONTAINER_LDFLAGS) $(CONTAINER_LIBS) $(POST_SCRMFS_FLAGS)
+
+test_writeread: test_writeread.c
+	$(MPICC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test_writeread.c -o test_writeread $(LDFLAGS) $(LIBS) $(CONTAINER_LDFLAGS) $(CONTAINER_LIBS) $(POST_SCRMFS_FLAGS)
