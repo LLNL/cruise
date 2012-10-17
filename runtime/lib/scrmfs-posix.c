@@ -38,6 +38,7 @@ typedef int64_t off64_t;
 
 static int scrmfs_use_memfs = 1;
 static int scrmfs_use_spillover;
+static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
 static char scrmfs_container_info[100];   /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
@@ -84,9 +85,6 @@ static cs_set_handle_t cs_set_handle;     /* the container set handle */
 
 
 extern pthread_mutex_t scrmfs_stack_mutex;
-#define SCRMFS_STACK_LOCK() pthread_mutex_lock(&scrmfs_stack_mutex)
-#define SCRMFS_STACK_UNLOCK() pthread_mutex_unlock(&scrmfs_stack_mutex)
-
 
 /* ---------------------------------------
  * POSIX wrappers: paths
@@ -216,14 +214,15 @@ int scrmfs_mount(const char prefix[], int rank)
     if (env) {
         int val = atoi(env);
         if (val != 0) {
-            scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
-        } else {
-            scrmfs_mount_key = IPC_PRIVATE;
+            scrmfs_use_single_shm = 1;
         }
+    }
+
+    if (scrmfs_use_single_shm) {
+        scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
     } else {
         scrmfs_mount_key = IPC_PRIVATE;
     }
-
 
     return 0;
 }
@@ -465,6 +464,21 @@ static int scrmfs_init()
         scrmfs_mount("/tmp", 0);
     }
 
+    return 0;
+}
+
+static inline int scrmfs_stack_lock()
+{
+    if ( scrmfs_use_single_shm ) {
+        return pthread_mutex_lock(&scrmfs_stack_mutex);
+    }
+    return 0;
+}
+static inline int scrmfs_stack_unlock()
+{
+    if ( scrmfs_use_single_shm ){
+        return pthread_mutex_unlock(&scrmfs_stack_mutex);
+    }
     return 0;
 }
 
@@ -767,10 +781,11 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
     
     /* allocate a chunk and record its location */
     if (scrmfs_use_memfs) {
+
         /* allocate a new chunk from memory */
-        SCRMFS_STACK_LOCK();
+        scrmfs_stack_lock();
         int id = scrmfs_stack_pop(free_chunk_stack);
-        SCRMFS_STACK_UNLOCK();
+        scrmfs_stack_unlock();
 
         /* if we got one return, otherwise try spill over */
         if (id >= 0) {
@@ -783,7 +798,9 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
 
             /* TODO: missing lock calls? */
             /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+            scrmfs_stack_lock();
             id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+            scrmfs_stack_unlock();
             if (id < SCRMFS_MAX_CHUNKS) {
                 debug("spill-over device out of space (%d)\n", id);
                 return SCRMFS_ERR_NOSPC;
@@ -805,7 +822,9 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
 
         /* TODO: missing lock calls? */
         /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+        scrmfs_stack_lock();
         int id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+        scrmfs_stack_unlock();
         if (id < SCRMFS_MAX_CHUNKS) {
             debug("spill-over device out of space (%d)\n", id);
             return SCRMFS_ERR_NOSPC;
@@ -816,9 +835,9 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         chunk_meta->id = id;
     } else if (scrmfs_use_containers) {
         /* allocate a new chunk */
-        SCRMFS_STACK_LOCK();
+        scrmfs_stack_lock();
         int id = scrmfs_stack_pop(free_chunk_stack);
-        SCRMFS_STACK_UNLOCK();
+        scrmfs_stack_unlock();
 
         if (id < 0) {
             /* out of space */
@@ -868,15 +887,15 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
 
     /* determine location of chunk */
     if (chunk_meta->location == CHUNK_LOCATION_MEMFS) {
-        SCRMFS_STACK_LOCK();
+        scrmfs_stack_lock();
         scrmfs_stack_push(free_chunk_stack, id);
-        SCRMFS_STACK_UNLOCK();
+        scrmfs_stack_unlock();
     } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
         /* TODO: free spill over chunk */
     } else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
-        SCRMFS_STACK_LOCK();
+        scrmfs_stack_lock();
         scrmfs_stack_push(free_chunk_stack, id);
-        SCRMFS_STACK_UNLOCK();
+        scrmfs_stack_unlock();
 
         char prefix[100];
         sprintf(prefix,"fid_%d_chunk_%d", fid, id);
@@ -1076,9 +1095,9 @@ static int scrmfs_fid_unlink(int fid)
     scrmfs_filelist[fid].in_use = 0;
 
     /* add this id back to the free stack */
-    SCRMFS_STACK_LOCK();
+    scrmfs_stack_lock();
     scrmfs_stack_push(free_fid_stack, fid);
-    SCRMFS_STACK_UNLOCK();
+    scrmfs_stack_unlock();
 
     return SCRMFS_SUCCESS;
 }
@@ -1186,9 +1205,9 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
  * return the fid or -1 on error */
 static int scrmfs_get_slot_for_new_file()
 {
-    SCRMFS_STACK_LOCK();
+    scrmfs_stack_lock();
     int fid = scrmfs_stack_pop(free_fid_stack);
-    SCRMFS_STACK_UNLOCK();
+    scrmfs_stack_unlock();
     debug("scrmfs_stack_pop() gave %d\n",fid);
     if (fid < 0) {
         /* need to create a new file, but we can't */
