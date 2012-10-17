@@ -5,10 +5,10 @@ inside the "container" directory before proceeding to the next step)
 
 ./prepare
 ./configure \
-  --prefix `pwd`/install \
+  --prefix=`pwd`/install \
   --with-jobid-env=SLURM_JOBID \
   --enable-ld-preload \
-  CC=mpicc CFLAGS="-g -O0"
+  CC=mpiicc CFLAGS="-g -O0"
 
 --with-mem-align=8
 
