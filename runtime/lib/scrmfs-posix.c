@@ -43,7 +43,7 @@ static char scrmfs_container_info[100];   /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle;     /* the container set handle */
 
-#define SCRMFS_DEBUG
+//#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
