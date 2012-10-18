@@ -8,8 +8,6 @@
 #configuration parameters\
 export PROCS_PER_NODE=12
 export MAX_NUM_NODES=$SLURM_NNODES
-export TEST_MEMCPY_SRC=$PWD/test_memcpy.c
-export TEST_MOD_RAMDISK_SRC=$PWD/test_ramdisk.c
 export OUTPUT_DIR=$PWD/logs
 export CC=mpiicc
 export SCRMFS_INSTALL_DIR=../../install
