@@ -7,6 +7,7 @@
 
 #configuration parameters\
 export PROCS_PER_NODE=12
+export MIN_NUM_NODES=1
 export MAX_NUM_NODES=$SLURM_NNODES
 export OUTPUT_DIR=$PWD/logs
 export CC=mpiicc
@@ -50,9 +51,10 @@ mkdir -p $OUTPUT_DIR
 #run benchmarks
 for bench in `echo $RUN_BENCHMARKS`
 do
-    for (( i=1, totprocs=$PROCS_PER_NODE ; i <= $MAX_NUM_NODES; i = i*2, totprocs = i*$PROCS_PER_NODE ))
+    for (( i = $MIN_NUM_NODES; i <= $MAX_NUM_NODES; i = i*2 ))
     do
-        for (( j=0; j<3; j++ ))
+        totprocs=$(($i * $PROCS_PER_NODE))
+        for (( j = 0; j < 3; j++ ))
         do
             echo "Running test_$bench on $i nodes ($totprocs ranks); $PROCS_PER_NODE procs/node"
             echo "srun -N $i -n $totprocs $PWD/test_$bench $BENCHMARK_PARAMS  > $OUTPUT_DIR/$bench-n$totprocs-N$i-iter$j"
