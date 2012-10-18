@@ -416,6 +416,11 @@ static int scrmfs_init()
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
     }
+        /* initialize spillover store */
+        if(scrmfs_use_spillover) {
+            size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size,"/fusion/spill_file");
+    }
 
     return SCRMFS_SUCCESS;
 }
