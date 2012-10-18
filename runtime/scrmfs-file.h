@@ -1,7 +1,9 @@
 #include "uthash.h"
 #include "scrmfs-defs.h"
 
+#ifdef HAVE_CONTAINER_LIB
 #include<container.h>
+#endif /* HAVE_CONTAINER_LIB */
 
 #define SCRMFS_SUCCESS    0
 #define SCRMFS_ERR_NOSPC -1
@@ -26,9 +28,11 @@ typedef struct
 } chunk_list_t;
 
 
+#ifdef HAVE_CONTAINER_LIB
 typedef struct{
      cs_container_handle_t  cs_container_handle;
 } scrmfs_container_t;
+#endif /* HAVE_CONTAINER_LIB */
 
 #define CHUNK_LOCATION_NULL      0
 #define CHUNK_LOCATION_MEMFS     1
@@ -38,7 +42,9 @@ typedef struct{
 typedef struct{
     int location;
     off_t id;
+    #ifdef HAVE_CONTAINER_LIB
     scrmfs_container_t container_data;
+    #endif /* HAVE_CONTAINER_LIB */
 } scrmfs_chunkmeta_t;
 
 typedef struct

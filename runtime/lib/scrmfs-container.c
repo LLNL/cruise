@@ -1,4 +1,6 @@
 
+#ifdef HAVE_CONTAINER_LIB
+
 #include <container.h>
 
 static int scrmfs_container_init(cs_store_handle){
@@ -10,3 +12,5 @@ static int scrmfs_container_init(cs_store_handle){
 static int scrmfs_container_finalize(){
    
 }
+
+#endif /* HAVE_CONTAINER_LIB */

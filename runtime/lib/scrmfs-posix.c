@@ -30,7 +30,9 @@
 #include "scrmfs-file.h"
 #include "utlist.h"
 
+#ifdef HAVE_CONTAINER_LIB
 #include "container/src/container.h"
+#endif /* HAVE_CONTAINER_LIB */
 
 #ifndef HAVE_OFF64_T
 typedef int64_t off64_t;
@@ -40,9 +42,12 @@ static int scrmfs_use_memfs = 1;
 static int scrmfs_use_spillover;
 static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
+
+#ifdef HAVE_CONTAINER_LIB
 static char scrmfs_container_info[100];   /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle;     /* the container set handle */
+#endif /* HAVE_CONTAINER_LIB */
 
 //#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
@@ -423,6 +428,7 @@ static int scrmfs_init()
             return 1;
         }
       
+      #ifdef HAVE_CONTAINER_LIB
         /* initialize the container store */
         if(scrmfs_use_containers) {
            int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
@@ -444,6 +450,7 @@ static int scrmfs_init()
               debug("creation of container set for %s succeeded\n", prefix);
            }
         }
+      #endif /* HAVE_CONTAINER_LIB */
 
         /* initialize spillover store */
         if(scrmfs_use_spillover) {
@@ -781,7 +788,6 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
     
     /* allocate a chunk and record its location */
     if (scrmfs_use_memfs) {
-
         /* allocate a new chunk from memory */
         scrmfs_stack_lock();
         int id = scrmfs_stack_pop(free_chunk_stack);
@@ -833,7 +839,9 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         /* got one from spill over */
         chunk_meta->location = CHUNK_LOCATION_SPILLOVER;
         chunk_meta->id = id;
-    } else if (scrmfs_use_containers) {
+    }
+  #ifdef HAVE_CONTAINER_LIB
+    else if (scrmfs_use_containers) {
         /* allocate a new chunk */
         scrmfs_stack_lock();
         int id = scrmfs_stack_pop(free_chunk_stack);
@@ -867,7 +875,9 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         /* allocate chunk from containers */
         chunk_meta->location = CHUNK_LOCATION_CONTAINER;
         chunk_meta->id = id;
-    } else {
+    }
+  #endif /* HAVE_CONTAINER_LIB */
+    else {
         /* don't know how to allocate chunk */
         chunk_meta->location = CHUNK_LOCATION_NULL;
         return SCRMFS_ERR_IO;
@@ -892,7 +902,9 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         scrmfs_stack_unlock();
     } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
         /* TODO: free spill over chunk */
-    } else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
+    }
+  #ifdef HAVE_CONTAINER_LIB
+    else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
         scrmfs_stack_lock();
         scrmfs_stack_push(free_chunk_stack, id);
         scrmfs_stack_unlock();
@@ -909,7 +921,9 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         } else {
            debug("removal of container for %s succeeded\n", prefix);
         }
-    } else {
+    }
+  #endif /* HAVE_CONTAINER_LIB */
+    else {
         /* unkwown chunk location */
         debug("unknown chunk location %d\n", chunk_meta->location);
         return SCRMFS_ERR_IO;
@@ -938,7 +952,9 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = __real_pread(scrmfs_spilloverblock, buf, count, spill_offset);
         /* TODO: check return code for errors */
-    } else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
+    }
+  #ifdef HAVE_CONTAINER_LIB
+    else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
         /* read chunk from containers */
         cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
 
@@ -957,7 +973,9 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
             return SCRMFS_ERR_IO;
         }
         debug("container read succeeded\n");
-    } else {
+    }
+  #endif /* HAVE_CONTAINER_LIB */
+    else {
         /* unknown chunk type */
         debug("unknown chunk type in read\n");
         return SCRMFS_ERR_IO;
@@ -986,7 +1004,9 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
         /* TODO: check return code for errors */
-    } else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
+    }
+  #ifdef HAVE_CONTAINER_LIB
+    else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
         /* write chunk to containers */
         cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
 
@@ -1003,7 +1023,9 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
             return SCRMFS_ERR_IO;
         }
         debug("container write was successful\n");
-    } else {
+    }
+  #endif /* HAVE_CONTAINER_LIB */
+    else {
         /* unknown chunk type */
         debug("unknown chunk type in read\n");
         return SCRMFS_ERR_IO;
