@@ -6,7 +6,7 @@
 #MSUB -A asccasc
 
 #configuration parameters\
-export PROCS_PER_NODE=16
+export PROCS_PER_NODE=12
 export MAX_NUM_NODES=$SLURM_NNODES
 export TEST_MEMCPY_SRC=$PWD/test_memcpy.c
 export TEST_MOD_RAMDISK_SRC=$PWD/test_ramdisk.c
@@ -47,6 +47,7 @@ done
 
 #cleanup nodes before running
 #srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEAUP
+mkdir -p $OUTPUT_DIR
 
 #run benchmarks
 for bench in `echo $RUN_BENCHMARKS`
@@ -63,5 +64,8 @@ do
             echo "srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEANUP"
             srun -n $MAX_NUM_NODES -N $MAX_NUM_NODES $IPC_CLEANUP
         done
+
+        # insert a newline to make output easier to read
+        echo ""
     done
 done
