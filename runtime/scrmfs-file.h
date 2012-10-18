@@ -6,8 +6,9 @@
 #endif /* HAVE_CONTAINER_LIB */
 
 #define SCRMFS_SUCCESS    0
-#define SCRMFS_ERR_NOSPC -1
-#define SCRMFS_ERR_IO    -2
+#define SCRMFS_FAILURE   -1
+#define SCRMFS_ERR_NOSPC -2
+#define SCRMFS_ERR_IO    -3
 
 enum flock_enum
 {

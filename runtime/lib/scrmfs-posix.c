@@ -191,47 +191,6 @@ static inline void* scrmfs_memcpy(void *restrict b, const void *restrict a, size
 }
 #endif
 
-/* mount memfs at some prefix location */
-int scrmfs_mount(const char prefix[], int rank)
-{
-    scrmfs_mount_prefix = strdup(prefix);
-    scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
-
-    /* add mount point as a new directory in the file list */
-    if (scrmfs_get_fid_from_path(prefix) >= 0) {
-        /* we can't mount this location, because it already exists */
-        errno = EEXIST;
-        return -1;
-    } else {
-        /* claim an entry in our file list */
-        int fid = scrmfs_add_new_directory(prefix);
-        if (fid < 0) {
-            /* if there was an error, return it */
-            return fid;
-        }
-    }
-
-    /* KMM commented out because we're just using a single rank, so use PRIVATE
-     * downside, can't attach to this in another srun (PRIVATE, that is) */
-    //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
-
-    char * env = getenv("SCRMFS_USE_SINGLE_SHM");
-    if (env) {
-        int val = atoi(env);
-        if (val != 0) {
-            scrmfs_use_single_shm = 1;
-        }
-    }
-
-    if (scrmfs_use_single_shm) {
-        scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
-    } else {
-        scrmfs_mount_key = IPC_PRIVATE;
-    }
-
-    return 0;
-}
-
 /* initialize our global pointers into the given superblock */
 static void* scrmfs_init_pointers(void* superblock)
 {
@@ -382,15 +341,16 @@ static int scrmfs_init()
         struct rlimit *r_limit = malloc(sizeof(r_limit));
         if (r_limit == NULL) {
             perror("failed to allocate memory for call to getrlimit");
-            return 1;
+            return SCRMFS_FAILURE;
         }
         if (getrlimit(RLIMIT_NOFILE, r_limit) < 0) {
             perror("rlimit failed");
-            return 1;
+            free(r_limit);
+            return SCRMFS_FAILURE;
         }
         scrmfs_fd_limit = r_limit->rlim_cur;
         free(r_limit);
-        debug("FD limit for system = %ld\n",scrmfs_fd_limit);
+        debug("FD limit for system = %ld\n", scrmfs_fd_limit);
 
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
@@ -425,7 +385,7 @@ static int scrmfs_init()
         scrmfs_superblock = scrmfs_get_shmblock(superblock_size, scrmfs_mount_key);
         if(scrmfs_superblock == NULL) {
             debug("scrmfs_get_shmblock() failed\n");
-            return 1;
+            return SCRMFS_FAILURE;
         }
       
       #ifdef HAVE_CONTAINER_LIB
@@ -434,7 +394,7 @@ static int scrmfs_init()
            int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
            if (ret != CS_SUCCESS) {
               debug("failed to create container store\n");
-              return -1;
+              return SCRMFS_FAILURE;
            }
            debug("successfully created container store\n");
            char prefix[100];
@@ -445,7 +405,7 @@ static int scrmfs_init()
            ret = cs_store_set_create (cs_store_handle, prefix, size, exclusive, &cs_set_handle);
            if (ret != CS_SUCCESS) {
               debug("creation of container set for %s failed: %d\n",prefix, ret);
-              return -1;
+              return SCRMFS_FAILURE;
            } else {
               debug("creation of container set for %s succeeded\n", prefix);
            }
@@ -455,20 +415,60 @@ static int scrmfs_init()
         /* initialize spillover store */
         if(scrmfs_use_spillover) {
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size,"/data/spill_file");
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "/data/spill_file");
 
             if(scrmfs_spilloverblock < 0) {
                 debug("scrmfs_get_spillblock() failed!\n");
-                return -1;
+                return SCRMFS_FAILURE;
             }
         }
 
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
+    }
 
-        /* TODO: read mount point from env var */
-        /* mount at /tmp if not instructed otherwise */
-        scrmfs_mount("/tmp", 0);
+    return SCRMFS_SUCCESS;
+}
+
+/* mount memfs at some prefix location */
+int scrmfs_mount(const char prefix[], size_t size, int rank)
+{
+    scrmfs_mount_prefix = strdup(prefix);
+    scrmfs_mount_prefixlen = strlen(scrmfs_mount_prefix);
+
+    /* KMM commented out because we're just using a single rank, so use PRIVATE
+     * downside, can't attach to this in another srun (PRIVATE, that is) */
+    //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+
+    char * env = getenv("SCRMFS_USE_SINGLE_SHM");
+    if (env) {
+        int val = atoi(env);
+        if (val != 0) {
+            scrmfs_use_single_shm = 1;
+        }
+    }
+
+    if (scrmfs_use_single_shm) {
+        scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+    } else {
+        scrmfs_mount_key = IPC_PRIVATE;
+    }
+
+    /* initialize our library */
+    scrmfs_init();
+
+    /* add mount point as a new directory in the file list */
+    if (scrmfs_get_fid_from_path(prefix) >= 0) {
+        /* we can't mount this location, because it already exists */
+        errno = EEXIST;
+        return -1;
+    } else {
+        /* claim an entry in our file list */
+        int fid = scrmfs_add_new_directory(prefix);
+        if (fid < 0) {
+            /* if there was an error, return it */
+            return fid;
+        }
     }
 
     return 0;
@@ -494,7 +494,8 @@ static inline int scrmfs_intercept_path(const char* path)
 {
     /* initialize our globals if we haven't already */
     if (! scrmfs_initialized) {
-      scrmfs_init();
+      //scrmfs_init();
+      return 0;
     }
 
     /* if the path starts with our mount point, intercept it */
@@ -512,7 +513,8 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 
     /* initialize our globals if we haven't already */
     if (! scrmfs_initialized) {
-        scrmfs_init();
+        //scrmfs_init();
+        return 0;
     }
 
     if (oldfd < scrmfs_fd_limit) {
@@ -2325,7 +2327,7 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
         if (rc != SCRMFS_SUCCESS) {
             /* TODO: need to free memory in this case? */
             errno = ENOMEM;
-            return -1;
+            return MAP_FAILED;
         }
 
         return addr;

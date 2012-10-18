@@ -49,7 +49,7 @@ int reliable_write(int fd, const void* buf, size_t size)
       gethostname(host, sizeof(host));
       printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) returned 0 @ %s:%d\n",
               rank, host, fd, (char*) buf + n, size - n, __FILE__, __LINE__
-             );
+      );
       MPI_Abort(MPI_COMM_WORLD, 0);
     } else { /* (rc < 0) */
       /* got an error, check whether it was serious */
@@ -61,16 +61,16 @@ int reliable_write(int fd, const void* buf, size_t size)
         /* print an error and try again */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) errno=%d %m @ %s:%d\n",
+        printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) errno=%d @ %s:%d\n",
                 rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
-               );
+        );
       } else {
         /* too many failed retries, give up */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Giving up write: write(%d, %p, %ld) errno=%d %m @ %s:%d\n",
+        printf("%d on %s: ERROR: Giving up write: write(%d, %p, %ld) errno=%d @ %s:%d\n",
                 rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
-               );
+        );
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
     }
@@ -200,7 +200,6 @@ int main (int argc, char* argv[])
 
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &ranks);
-
 
   char name[256];
   sprintf(name, "/dev/shm/rank.%d", rank);

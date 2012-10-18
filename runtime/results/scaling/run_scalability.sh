@@ -34,7 +34,7 @@ do
     then
         #compile scrmfs-aware test_ramdisk
         echo "building test_$bench.."
-        $CC $PRE_SCRMFS_FLAGS -L$CONTAINER_DIR/lib -O3 -o test_$bench $BENCHMARK_DIR/test_ramdisk.c $POST_SCRMFS_FLAGS -lcontainer
+        $CC $PRE_SCRMFS_FLAGS -L$CONTAINER_DIR/lib -O3 -o test_$bench $BENCHMARK_DIR/test_$bench.c $POST_SCRMFS_FLAGS -lcontainer
     else
         #compile native benchmarks
         echo "building test_$bench.."

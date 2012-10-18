@@ -166,7 +166,7 @@ double getbw(char* file, char* buf, size_t size, int times)
   return bw;
 }
 
-int main (int argc, char* argv[])
+int main(int argc, char* argv[])
 {
   /* check that we got an appropriate number of arguments */
   if (argc != 1 && argc != 4) {
@@ -193,6 +193,9 @@ int main (int argc, char* argv[])
   filesize = filesize + rank;
   char* buf = (char*) malloc(filesize);
   
+  /* mount the file system */
+  scrmfs_mount("/tmp", filesize * 2, rank);
+
   /* make up some data for the next checkpoint */
   init_buffer(buf, filesize, rank, timestep);
 
