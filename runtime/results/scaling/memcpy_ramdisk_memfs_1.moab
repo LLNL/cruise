@@ -19,16 +19,16 @@ for (( i=0; i<3; i++ )) ; do
 done
 echo ""
 
-echo "srun -n $procs -N $nodes -m block ./test_ramdisk $params"
+echo "srun -n $procs -N $nodes -m block ./test_scrmfs $params"
 for (( i=0; i<3; i++ )) ; do
-  srun -n $procs -N $nodes -m block ./test_ramdisk $params
+  srun -n $procs -N $nodes -m block ./test_scrmfs $params
   srun -n $nodes -N $nodes $ipc_cleanup
 done
 echo ""
 
-echo "srun -n $procs -N $nodes -m block ./test_ramdisk_real $params"
+echo "srun -n $procs -N $nodes -m block ./test_ramdisk $params"
 for (( i=0; i<3; i++ )) ; do
-  srun -n $procs -N $nodes -m block ./test_ramdisk_real $params
+  srun -n $procs -N $nodes -m block ./test_ramdisk $params
 done
 echo ""
 
@@ -42,15 +42,15 @@ for (( i=0; i<3; i++ )) ; do
 done
 echo ""
 
-echo "srun -n $procs -N $nodes -m block ./test_ramdisk $params"
+echo "srun -n $procs -N $nodes -m block ./test_scrmfs $params"
 for (( i=0; i<3; i++ )) ; do
-  srun -n $procs -N $nodes -m block ./test_ramdisk $params
+  srun -n $procs -N $nodes -m block ./test_scrmfs $params
   srun -n $nodes -N $nodes $ipc_cleanup
 done
 echo ""
 
-echo "srun -n $procs -N $nodes -m block ./test_ramdisk_real $params"
+echo "srun -n $procs -N $nodes -m block ./test_ramdisk $params"
 for (( i=0; i<3; i++ )) ; do
-  srun -n $procs -N $nodes -m block ./test_ramdisk_real $params
+  srun -n $procs -N $nodes -m block ./test_ramdisk $params
 done
 echo ""

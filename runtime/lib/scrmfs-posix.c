@@ -168,7 +168,7 @@ static rlim_t scrmfs_fd_limit;
 /* mount point information */
 static char*  scrmfs_mount_prefix = NULL;
 static size_t scrmfs_mount_prefixlen = 0;
-static key_t  scrmfs_mount_key = 0;
+static key_t  scrmfs_mount_shmget_key = 0;
 
 /* mutex to lock stack operations */
 pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -255,7 +255,7 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
 
 /* create superblock of specified size and name, or attach to existing
  * block if available */
-static void* scrmfs_get_shmblock(size_t size, key_t key)
+static void* scrmfs_superblock_shmget(size_t size, key_t key)
 {
     void *scr_shmblock = NULL;
 
@@ -264,7 +264,7 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
     int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
     if (scr_shmblock_shmid < 0) {
         if (errno == EEXIST) {
-            /* Superblock exists. Do not initialize, just get and attach */
+            /* superblock already exists, attach to it */
             scr_shmblock_shmid = shmget(key, size, 0);
             scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
             if(scr_shmblock < 0) {
@@ -280,7 +280,7 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
             return NULL;
         }
     } else {
-        /* valid segment created, attach to proc and init structures */
+        /* brand new superblock created, attach to it */
         scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
         if(scr_shmblock < 0) {
             perror("shmat() failed");
@@ -308,19 +308,18 @@ static void* scrmfs_get_shmblock(size_t size, key_t key)
 
 static int scrmfs_init()
 {
-    /* TODO: expose API as a init call that can be called from SCR_Init */ 
-
     if (! scrmfs_initialized) {
         /* will we use containers or shared memory to store the files? */
         scrmfs_use_containers = 0;
         scrmfs_use_spillover = 0;
 
-        char * env = getenv("SCRMFS_USE_CONTAINERS");
+        char* env = getenv("SCRMFS_USE_CONTAINERS");
         if (env) {
             int val = atoi(env);
             if (val != 0) {
-                scrmfs_use_containers = 1;
                 scrmfs_use_memfs = 0;
+                scrmfs_use_spillover = 0;
+                scrmfs_use_containers = 1;
             }
         }
 
@@ -354,43 +353,45 @@ static int scrmfs_init()
 
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
-        size_t superblock_size;
-        if (scrmfs_use_memfs && !scrmfs_use_spillover) {
-           superblock_size = 
-               scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
-               (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
-               (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
-               scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +          /* free chunk stack */
-               (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
-        } else if (scrmfs_use_memfs && scrmfs_use_spillover) {
-           superblock_size =
-               scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
-               (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
-               (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
-               scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS) +          /* free chunk stack */
-               scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS) +    /* free spill over chunk stack */
-               (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
-            
-        } else {
-           /* don't actually need the chunks if we're not storing in memory */
-           superblock_size =
+        size_t superblock_size =
                scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
                (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
                (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
                scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);           /* free chunk stack */
+        if (scrmfs_use_memfs) {
+           superblock_size +=
+               (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
+        }
+        if (scrmfs_use_spillover) {
+           superblock_size +=
+               scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS);     /* free spill over chunk stack */
+        }
+        if (scrmfs_use_containers) {
+           /* nothing additional */
         }
 
         /* get a superblock of persistent memory and initialize our
          * global variables for this block */
-        scrmfs_superblock = scrmfs_get_shmblock(superblock_size, scrmfs_mount_key);
-        if(scrmfs_superblock == NULL) {
-            debug("scrmfs_get_shmblock() failed\n");
+        scrmfs_superblock = scrmfs_superblock_shmget(superblock_size, scrmfs_mount_shmget_key);
+        if (scrmfs_superblock == NULL) {
+            debug("scrmfs_superblock_shmget() failed\n");
             return SCRMFS_FAILURE;
         }
       
+        /* initialize spillover store */
+        if (scrmfs_use_spillover) {
+            size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "/data/spill_file");
+
+            if(scrmfs_spilloverblock < 0) {
+                debug("scrmfs_get_spillblock() failed!\n");
+                return SCRMFS_FAILURE;
+            }
+        }
+
       #ifdef HAVE_CONTAINER_LIB
         /* initialize the container store */
-        if(scrmfs_use_containers) {
+        if (scrmfs_use_containers) {
            int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
            if (ret != CS_SUCCESS) {
               debug("failed to create container store\n");
@@ -412,17 +413,6 @@ static int scrmfs_init()
         }
       #endif /* HAVE_CONTAINER_LIB */
 
-        /* initialize spillover store */
-        if(scrmfs_use_spillover) {
-            size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "/data/spill_file");
-
-            if(scrmfs_spilloverblock < 0) {
-                debug("scrmfs_get_spillblock() failed!\n");
-                return SCRMFS_FAILURE;
-            }
-        }
-
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
     }
@@ -438,7 +428,7 @@ int scrmfs_mount(const char prefix[], size_t size, int rank)
 
     /* KMM commented out because we're just using a single rank, so use PRIVATE
      * downside, can't attach to this in another srun (PRIVATE, that is) */
-    //scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+    //scrmfs_mount_shmget_key = SCRMFS_SUPERBLOCK_KEY + rank;
 
     char * env = getenv("SCRMFS_USE_SINGLE_SHM");
     if (env) {
@@ -449,9 +439,9 @@ int scrmfs_mount(const char prefix[], size_t size, int rank)
     }
 
     if (scrmfs_use_single_shm) {
-        scrmfs_mount_key = SCRMFS_SUPERBLOCK_KEY + rank;
+        scrmfs_mount_shmget_key = SCRMFS_SUPERBLOCK_KEY + rank;
     } else {
-        scrmfs_mount_key = IPC_PRIVATE;
+        scrmfs_mount_shmget_key = IPC_PRIVATE;
     }
 
     /* initialize our library */
