@@ -3,7 +3,8 @@ CONTAINER_DIR := ../../container
 PRE_SCRMFS_FLAGS := $(shell echo `../../install_bgq/bin/scrmfs-config --pre-ld-flags`)
 POST_SCRMFS_FLAGS := $(shell echo `../../install_bgq/bin/scrmfs-config --post-ld-flags`)
 
-OPT := -g -O0
+#OPT := -g -O0
+OPT := -O3
 
 all: clean
 	$(MPICC) $(OPT) -o test_memcpy test_memcpy.c

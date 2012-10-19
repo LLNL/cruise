@@ -13,12 +13,6 @@
 #include "mpi.h"
 #include <string.h>
 
-#include <time.h>
-#include <sys/time.h>
-struct timeval tv0[1];
-struct timeval tv1[1];
-struct timeval rv[1];
-
 size_t filesize = 100*1024*1024;
 int times = 5;
 int seconds = 0;
