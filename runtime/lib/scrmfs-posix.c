@@ -453,7 +453,7 @@ static int scrmfs_init(int rank)
         /* initialize spillover store */
         if (scrmfs_use_spillover) {
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "/data/spill_file");
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "/fusion/spill_file");
 
             if(scrmfs_spilloverblock < 0) {
                 debug("scrmfs_get_spillblock() failed!\n");
@@ -488,12 +488,6 @@ static int scrmfs_init(int rank)
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;
     }
-        /* initialize spillover store */
-        if(scrmfs_use_spillover) {
-            size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size,"/fusion/spill_file");
-    }
-
     return SCRMFS_SUCCESS;
 }
 

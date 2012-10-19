@@ -16,7 +16,7 @@
 
 #define SCRMFS_SPILLOVER_SIZE   ( 1 * 1024 * 1024 * 1024 )
 
-#define SCRMFS_CHUNK_BITS       ( 24 )
+#define SCRMFS_CHUNK_BITS       ( 26 )
 #define SCRMFS_CHUNK_SIZE       ( 1 << SCRMFS_CHUNK_BITS )
 #define SCRMFS_CHUNK_MASK       ( SCRMFS_CHUNK_SIZE - 1 )
 #define SCRMFS_MAX_CHUNKS       ( SCRMFS_MAX_MEM >> SCRMFS_CHUNK_BITS )
