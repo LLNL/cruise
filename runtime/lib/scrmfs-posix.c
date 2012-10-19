@@ -34,6 +34,15 @@
 #include "container/src/container.h"
 #endif /* HAVE_CONTAINER_LIB */
 
+#ifdef MACHINE_BGQ
+/* BG/Q to get personality and persistent memory */
+#include <sys/mman.h>
+#include <hwi/include/common/uci.h>
+#include <firmware/include/personality.h>
+#include <spi/include/kernel/memory.h>
+#include <mpix.h>
+#endif /* MACHINE_BGQ */
+
 #ifndef HAVE_OFF64_T
 typedef int64_t off64_t;
 #endif
@@ -87,7 +96,6 @@ static cs_set_handle_t cs_set_handle;     /* the container set handle */
 #define MAP_OR_FAIL(func)
 
 #endif
-
 
 extern pthread_mutex_t scrmfs_stack_mutex;
 
@@ -173,7 +181,7 @@ static key_t  scrmfs_mount_shmget_key = 0;
 /* mutex to lock stack operations */
 pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static int scrmfs_init();
+static int scrmfs_init(int rank);
 static int scrmfs_get_fid_from_path(const char* path);
 static int scrmfs_add_new_directory(const char * path);
 static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid);
@@ -230,13 +238,34 @@ static void* scrmfs_init_pointers(void* superblock)
     return ptr;
 }
 
+/* initialize data structures for first use */
+static int scrmfs_init_structures()
+{
+    int i;
+    for (i = 0; i < SCRMFS_MAX_FILES; i++) {
+        scrmfs_filelist[i].in_use = 0;
+    }
+
+    scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
+
+    scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
+
+    if (scrmfs_use_spillover) {
+        scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
+    }
+
+    debug("Meta-stacks initialized!\n");
+
+    return SCRMFS_SUCCESS;
+}
+
 static int scrmfs_get_spillblock(size_t size, const char *path)
 {
     void *scr_spillblock = NULL;
     int spillblock_fd;
 
+    MAP_OR_FAIL(open);
     spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL | S_IRWXU);
-
     if (spillblock_fd < 0) {
         if (errno == EEXIST) {
             /* spillover block exists; attach and return */
@@ -291,22 +320,59 @@ static void* scrmfs_superblock_shmget(size_t size, key_t key)
         scrmfs_init_pointers(scr_shmblock);
 
         /* initialize data structures within block */
-        int i;
-        for (i = 0; i < SCRMFS_MAX_FILES; i++) {
-            scrmfs_filelist[i].in_use = 0;
-        }
-        scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
-        scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
-        if (scrmfs_use_spillover) {
-            scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
-        }
-        debug("Meta-stacks initialized!\n");
+        scrmfs_init_structures();
     }
     
     return scr_shmblock;
 }
 
-static int scrmfs_init()
+static void* scrmfs_superblock_bgq(size_t size, const char* name)
+{
+    /* BGQ allocates in memory in units of 1MB */
+    unsigned long block_size = 1024*1024;
+
+    /* round request up to integer number of blocks */
+    unsigned long num_blocks = (unsigned long)size / block_size;
+    if (block_size * num_blocks < size) {
+        num_blocks++;
+    }
+    unsigned long size_1MB = num_blocks * block_size;
+
+    /* open file in persistent memory */
+    int fd = persist_open((char*)name, O_RDWR, 0600);
+    if (fd < 0) {
+        perror("unable to open persistent memory\n");
+        return NULL;
+    }
+
+    /* truncate file to correct size */
+    if (ftruncate(fd, (off_t)size_1MB)) {
+      perror("ftruncate of persistent memory region failed\n");
+      close(fd);
+      return NULL;
+    }
+
+    /* mmap file */
+    void* shmptr = mmap(NULL, (size_t)size_1MB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (shmptr == MAP_FAILED) {
+        perror("mmap of shared memory region failed\n");
+        close(fd);
+        return NULL;
+    }
+
+    /* close persistent memory file */
+    close(fd);
+
+    /* init our global variables to point to spots in superblock */
+    scrmfs_init_pointers(shmptr);
+
+    /* initialize data structures within block */
+    scrmfs_init_structures();
+
+    return shmptr;
+}
+
+static int scrmfs_init(int rank)
 {
     if (! scrmfs_initialized) {
         /* will we use containers or shared memory to store the files? */
@@ -372,7 +438,13 @@ static int scrmfs_init()
 
         /* get a superblock of persistent memory and initialize our
          * global variables for this block */
+      #ifdef MACHINE_BGQ
+        char bgqname[100];
+        snprintf(bgqname, sizeof(bgqname), "memory_rank_%d", rank);
+        scrmfs_superblock = scrmfs_superblock_bgq(superblock_size, bgqname);
+      #else /* MACHINE_BGQ */
         scrmfs_superblock = scrmfs_superblock_shmget(superblock_size, scrmfs_mount_shmget_key);
+      #endif /* MACHINE_BGQ */
         if (scrmfs_superblock == NULL) {
             debug("scrmfs_superblock_shmget() failed\n");
             return SCRMFS_FAILURE;
@@ -450,7 +522,7 @@ int scrmfs_mount(const char prefix[], size_t size, int rank)
     }
 
     /* initialize our library */
-    scrmfs_init();
+    scrmfs_init(rank);
 
     /* add mount point as a new directory in the file list */
     if (scrmfs_get_fid_from_path(prefix) >= 0) {
@@ -489,7 +561,6 @@ static inline int scrmfs_intercept_path(const char* path)
 {
     /* initialize our globals if we haven't already */
     if (! scrmfs_initialized) {
-      //scrmfs_init();
       return 0;
     }
 
@@ -508,8 +579,8 @@ static inline void scrmfs_intercept_fd(int* fd, int* intercept)
 
     /* initialize our globals if we haven't already */
     if (! scrmfs_initialized) {
-        //scrmfs_init();
-        return 0;
+        *intercept = 0;
+        return;
     }
 
     if (oldfd < scrmfs_fd_limit) {
@@ -946,6 +1017,7 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
         memcpy(buf, chunk_buf, count);
     } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
         /* spill over to a file, so read from file descriptor */
+        MAP_OR_FAIL(pread);
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = __real_pread(scrmfs_spilloverblock, buf, count, spill_offset);
         /* TODO: check return code for errors */
@@ -998,6 +1070,7 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
 //        scrmfs_memcpy(chunk_buf, ptr, remaining);
     } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
         /* spill over to a file, so write to file descriptor */
+        MAP_OR_FAIL(pwrite);
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
         /* TODO: check return code for errors */

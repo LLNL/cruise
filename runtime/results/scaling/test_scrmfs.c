@@ -139,10 +139,12 @@ double getbw(char* file, char* buf, size_t size, int times)
         }
       }
 
+#if 0
       if (rank == 0) {
         printf("Completed checkpoint %d.\n", timestep);
         fflush(stdout);
       }
+#endif
 
       /* increase the timestep counter */
       timestep++;

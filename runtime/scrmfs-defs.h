@@ -7,9 +7,14 @@
 
 #define SCRMFS_MAX_FILENAME     ( 128 )
 
-//#define SCRMFS_MAX_MEM          ( 1 * 1024 * 1024 * 1024 )
-#define SCRMFS_MAX_MEM          ( 256 * 1024 * 1024 )
-#define SCRMFS_SPILLOVER_SIZE          ( 1 * 1024 * 1024 * 1024 )
+#ifdef MACHINE_BGQ
+  #define SCRMFS_MAX_MEM          ( 32 * 1024 * 1024 )
+#else /* MACHINE_BGQ */
+  //#define SCRMFS_MAX_MEM          ( 1 * 1024 * 1024 * 1024 )
+  #define SCRMFS_MAX_MEM          ( 256 * 1024 * 1024 )
+#endif /* MACHINE_BGQ */
+
+#define SCRMFS_SPILLOVER_SIZE   ( 1 * 1024 * 1024 * 1024 )
 
 #define SCRMFS_CHUNK_BITS       ( 24 )
 #define SCRMFS_CHUNK_SIZE       ( 1 << SCRMFS_CHUNK_BITS )

@@ -1,0 +1,10 @@
+salloc -N1 -ppdebug
+
+# BG_PERSISTMEMRESET: flag whether to clear persistent memory before starting job
+# BG_PERSISTMEMSIZE: #MB of persistent memory
+
+setenv BG_PERSISTMEMRESET 1
+setenv BG_PERSISTMEMSIZE 128
+
+srun -n 1 ./test_scrmfs
+totalview srun -a -n1 ./test_scrmfs 1000000 5 0 &
