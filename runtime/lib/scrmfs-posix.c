@@ -277,6 +277,11 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
     } else {
         /* new spillover block created */
         /* TODO: align to SSD block size*/
+    
+        /*temp*/
+        off_t rc = lseek(spillblock_fd, size, SEEK_SET);
+        if (rc < 0)
+            perror("lseek failed");
     }
 
     return spillblock_fd;
@@ -1070,6 +1075,8 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
         MAP_OR_FAIL(pwrite);
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
+        if ( rc < 0 ) 
+            perror("pwrite failed");
         /* TODO: check return code for errors */
     }
   #ifdef HAVE_CONTAINER_LIB
