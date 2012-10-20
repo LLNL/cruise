@@ -456,7 +456,7 @@ static int scrmfs_init(int rank)
         /* initialize spillover store */
         if (scrmfs_use_spillover) {
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "spillfile_prefix");
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, spillfile_prefix);
 
             if(scrmfs_spilloverblock < 0) {
                 debug("scrmfs_get_spillblock() failed!\n");
