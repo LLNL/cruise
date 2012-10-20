@@ -450,10 +450,13 @@ static int scrmfs_init(int rank)
             return SCRMFS_FAILURE;
         }
       
+        char spillfile_prefix[100];
+        sprintf(spillfile_prefix,"/fusion/spill_file_%d", rank);
+
         /* initialize spillover store */
         if (scrmfs_use_spillover) {
             size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "/fusion/spill_file");
+            scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, "spillfile_prefix");
 
             if(scrmfs_spilloverblock < 0) {
                 debug("scrmfs_get_spillblock() failed!\n");
