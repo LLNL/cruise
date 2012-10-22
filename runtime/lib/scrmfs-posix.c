@@ -51,6 +51,7 @@ static int scrmfs_use_memfs = 1;
 static int scrmfs_use_spillover;
 static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
+static size_t scrmfs_page_size = 0;
 
 #ifdef HAVE_CONTAINER_LIB
 static char scrmfs_container_info[100];   /* not sure what this is for */
@@ -228,6 +229,12 @@ static void* scrmfs_init_pointers(void* superblock)
 
     /* Only set this up if we're using memfs */
     if (scrmfs_use_memfs) {
+      /* round ptr up to start of next page */
+      size_t num_pages = (ptr / scrmfs_page_size);
+      if (ptr > num_pages * scrmfs_page_size) {
+        ptr = (num_pages + 1) * scrmfs_page_size;
+      }
+
       /* pointer to start of memory data chunks */
       scrmfs_chunks = ptr;
       ptr += SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
@@ -380,6 +387,9 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
 static int scrmfs_init(int rank)
 {
     if (! scrmfs_initialized) {
+        /* look up page size for buffer alignment */
+        scrmfs_page_size = getpagesize();
+
         /* will we use containers or shared memory to store the files? */
         scrmfs_use_containers = 0;
         scrmfs_use_spillover = 0;
@@ -430,7 +440,7 @@ static int scrmfs_init(int rank)
                (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
                scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);           /* free chunk stack */
         if (scrmfs_use_memfs) {
-           superblock_size +=
+           superblock_size += scrmfs_page_size + 
                (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
         }
         if (scrmfs_use_spillover) {
