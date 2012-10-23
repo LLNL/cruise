@@ -135,6 +135,9 @@ SCRMFS_FORWARD_DECL(pwrite64, ssize_t, (int fd, const void *buf, size_t count, o
 SCRMFS_FORWARD_DECL(posix_fadvise, int, (int fd, off_t offset, off_t len, int advice));
 SCRMFS_FORWARD_DECL(lseek, off_t, (int fd, off_t offset, int whence));
 SCRMFS_FORWARD_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
+SCRMFS_FORWARD_DECL(ftruncate, int, (int fd, off_t length));
+SCRMFS_FORWARD_DECL(fsync, int, (int fd));
+SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
 SCRMFS_FORWARD_DECL(mmap, void*, (void *addr, size_t length, int prot, int flags, int fd, off_t offset));
 SCRMFS_FORWARD_DECL(mmap64, void*, (void *addr, size_t length, int prot, int flags, int fd, off64_t offset));
@@ -154,8 +157,6 @@ SCRMFS_FORWARD_DECL(fclose, int, (FILE *fp));
 SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nmemb, FILE *stream));
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nmemb, FILE *stream));
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
-SCRMFS_FORWARD_DECL(fsync, int, (int fd));
-SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
 
 /* keep track of what we've initialized */
 static int scrmfs_initialized = 0;
@@ -1175,18 +1176,33 @@ static int scrmfs_fid_truncate(int fid, off_t length)
     /* get meta data for this file */
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
-    /* determine the number of chunks to leave after truncating */
-    off_t num_chunks = 0;
-    if (length > 0) {
-        num_chunks = (length >> SCRMFS_CHUNK_BITS) + 1;
+    /* get current size of file */
+    off_t size = meta->size;
+
+    /* drop data if length is less than current size,
+     * allocate new space and zero fill it if bigger */
+    if (length < size) {
+        /* determine the number of chunks to leave after truncating */
+        off_t num_chunks = 0;
+        if (length > 0) {
+            num_chunks = (length >> SCRMFS_CHUNK_BITS) + 1;
+        }
+
+        /* clear off any extra chunks */
+        while (meta->chunks > num_chunks) {
+            meta->chunks--;
+            scrmfs_chunk_free(fid, meta, meta->chunks);
+        }
+    } else if (length > size) {
+        /* if file size is extended, allocate space and zero fill it */
+        int extend_rc = scrmfs_fid_extend(fid, length);
+        if (extend_rc != SCRMFS_SUCCESS) {
+            return SCRMFS_ERR_NOSPC;
+        }
+
+        /* TODO: write zero values to new bytes */
     }
 
-    /* clear off any extra chunks */
-    while (meta->chunks > num_chunks) {
-        meta->chunks--;
-        scrmfs_chunk_free(fid, meta, meta->chunks);
-    }
-    
     /* set the new size */
     meta->size = length;
 
@@ -1525,13 +1541,18 @@ int SCRMFS_DECL(truncate)(const char* path, off_t length)
         int fid = scrmfs_get_fid_from_path(path);
         if (fid < 0) {
             /* ERROR: file does not exist */
-            debug("Couldn't find entry for %s in SCRMFS\n",path);
+            debug("Couldn't find entry for %s in SCRMFS\n", path);
             errno = ENOENT;
             return -1;
         }
 
         /* truncate the file */
-        scrmfs_fid_truncate(fid, length);
+        int rc = scrmfs_fid_truncate(fid, length);
+        if (rc != SCRMFS_SUCCESS) {
+            debug("scrmfs_fid_truncate failed for %s in SCRMFS\n", path);
+            errno = EIO;
+            return -1;
+        }
 
         return 0;
     } else {
@@ -2280,13 +2301,49 @@ ssize_t SCRMFS_DECL(pwrite64)(int fd, const void *buf, size_t count, off64_t off
     }
 }
 
+int SCRMFS_DECL(ftruncate)(int fd, off_t length)
+{
+    /* check whether we should intercept this path */
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept) {
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+        if (fid < 0) {
+            /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return -1;
+        }
+
+        /* truncate the file */
+        int rc = scrmfs_fid_truncate(fid, length);
+        if (rc != SCRMFS_SUCCESS) {
+            errno = EIO;
+            return -1;
+        }
+
+        return 0;
+    } else {
+        MAP_OR_FAIL(ftruncate);
+        ssize_t ret = __real_ftruncate(fd, length);
+        return ret;
+    }
+}
+
 int SCRMFS_DECL(fsync)(int fd)
 {
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
     if (intercept) {
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+        if (fid < 0) {
+            /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return -1;
+        }
 
-        /* TODO: check that fd is actually in use */
+        /* TODO: if using spill over we may have some fsyncing to do */
 
         /* nothing to do in our case */
         return 0;
