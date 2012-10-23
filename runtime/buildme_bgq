@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#. /usr/local/tools/dotkit/init.sh
-#use -q ic-11.1.046 
-
 set -x
 
 ./prepare
@@ -10,7 +7,7 @@ set -x
   --prefix=`pwd`/install_bgq \
   --with-jobid-env=SLURM_JOBID \
   --disable-ld-preload \
-  CC=mpixlc CFLAGS="-O3 -DMACHINE_BGQ" || exit 1
+  CC=mpixlc CFLAGS="-g -O3 -DMACHINE_BGQ" || exit 1
 #  CC=mpixlc CFLAGS="-g -O0 -DMACHINE_BGQ" || exit 1
 
 make clean || exit 1

@@ -51,7 +51,7 @@ static int scrmfs_use_memfs = 1;
 static int scrmfs_use_spillover;
 static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
-static size_t scrmfs_page_size = 0;
+static int scrmfs_page_size = 0;
 
 #ifdef HAVE_CONTAINER_LIB
 static char scrmfs_container_info[100];   /* not sure what this is for */
@@ -230,9 +230,11 @@ static void* scrmfs_init_pointers(void* superblock)
     /* Only set this up if we're using memfs */
     if (scrmfs_use_memfs) {
       /* round ptr up to start of next page */
-      size_t num_pages = (ptr / scrmfs_page_size);
-      if (ptr > num_pages * scrmfs_page_size) {
-        ptr = (num_pages + 1) * scrmfs_page_size;
+      unsigned long long ull_ptr  = (unsigned long long) ptr;
+      unsigned long long ull_page = (unsigned long long) scrmfs_page_size;
+      unsigned long long num_pages = ull_ptr / ull_page;
+      if (ull_ptr > num_pages * ull_page) {
+        ptr = (char*)((num_pages + 1) * ull_page);
       }
 
       /* pointer to start of memory data chunks */
@@ -1078,8 +1080,8 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
         /* just need a memcpy to write data */
         void* chunk_buf = scrmfs_compute_chunk_buf(meta, chunk_id, chunk_offset);
         memcpy(chunk_buf, buf, count);
-//        _intel_fast_memcpy(chunk_buf, ptr, remaining);
-//        scrmfs_memcpy(chunk_buf, ptr, remaining);
+//        _intel_fast_memcpy(chunk_buf, buf, count);
+//        scrmfs_memcpy(chunk_buf, buf, count);
     } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
         /* spill over to a file, so write to file descriptor */
         MAP_OR_FAIL(pwrite);
