@@ -72,7 +72,7 @@ static cs_set_handle_t cs_set_handle;     /* the container set handle */
 #include <stdlib.h>
 
 #define SCRMFS_FORWARD_DECL(name,ret,args) \
-  ret (*__real_ ## name)args = NULL;
+  static ret (*__real_ ## name)args = NULL;
 
 #define SCRMFS_DECL(__name) __name
 
@@ -341,9 +341,10 @@ static void* scrmfs_superblock_shmget(size_t size, key_t key)
     return scr_shmblock;
 }
 
+#ifdef MACHINE_BGQ
 static void* scrmfs_superblock_bgq(size_t size, const char* name)
 {
-    /* BGQ allocates in memory in units of 1MB */
+    /* BGQ allocates memory in units of 1MB */
     unsigned long block_size = 1024*1024;
 
     /* round request up to integer number of blocks */
@@ -356,13 +357,14 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* open file in persistent memory */
     int fd = persist_open((char*)name, O_RDWR, 0600);
     if (fd < 0) {
-        perror("unable to open persistent memory\n");
+        perror("unable to open persistent memory file %s\n", name);
         return NULL;
     }
 
     /* truncate file to correct size */
-    if (ftruncate(fd, (off_t)size_1MB)) {
-      perror("ftruncate of persistent memory region failed\n");
+    int rc = ftruncate(fd, (off_t)size_1MB);
+    if (rc < 0) {
+      perror("ftruncate of persistent memory region failed rc=%d\n", rc);
       close(fd);
       return NULL;
     }
@@ -386,6 +388,7 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
 
     return shmptr;
 }
+#endif /* MACHINE_BGQ */
 
 static int scrmfs_init(int rank)
 {
@@ -1133,6 +1136,50 @@ static off_t scrmfs_fid_size(int fid)
     return meta->size;
 }
 
+/* given a file id, write zero bytes to region of specified offset
+ * an length, assumes space is already reserved */
+static int scrmfs_fid_write_zero(int fid, off_t pos, size_t count)
+{
+    int rc = SCRMFS_SUCCESS;
+
+    /* allocate an aligned chunk of memory */
+    size_t buf_size = 1024 * 1024;
+    void* buf = (void*) malloc(buf_size);
+    if (buf == NULL) {
+        return SCRMFS_ERR_IO;
+    }
+
+    /* set values in this buffer to zero */
+    memset(buf, 0, buf_size);
+
+    /* write zeros to file */
+    size_t written = 0;
+    off_t curpos = pos;
+    while (written < count) {
+        /* compute number of bytes to write on this iteration */
+        size_t num = buf_size;
+        if (count - written < buf_size) {
+            num = count - written;
+        }
+
+        /* write data to file */
+        int write_rc = scrmfs_fid_write(fid, curpos, buf, num);
+        if (write_rc != SCRMFS_SUCCESS) {
+            rc = SCRMFS_ERR_IO;
+            break;
+        }
+
+        /* update the number of bytes written */
+        curpos  += num;
+        written += num;
+    }
+
+    /* free the buffer */
+    free(buf);
+
+    return rc;
+}
+
 /* allocate extra chunks for file and update size as needed */
 static int scrmfs_fid_extend(int fid, off_t length)
 {
@@ -1194,13 +1241,17 @@ static int scrmfs_fid_truncate(int fid, off_t length)
             scrmfs_chunk_free(fid, meta, meta->chunks);
         }
     } else if (length > size) {
-        /* if file size is extended, allocate space and zero fill it */
+        /* file size has been extended, allocate space */
         int extend_rc = scrmfs_fid_extend(fid, length);
         if (extend_rc != SCRMFS_SUCCESS) {
             return SCRMFS_ERR_NOSPC;
         }
 
-        /* TODO: write zero values to new bytes */
+        /* write zero values to new bytes */
+        int zero_rc = scrmfs_fid_write_zero(fid, size, length);
+        if (zero_rc != SCRMFS_SUCCESS) {
+            return SCRMFS_ERR_IO;
+        }
     }
 
     /* set the new size */
@@ -2325,7 +2376,7 @@ int SCRMFS_DECL(ftruncate)(int fd, off_t length)
         return 0;
     } else {
         MAP_OR_FAIL(ftruncate);
-        ssize_t ret = __real_ftruncate(fd, length);
+        int ret = __real_ftruncate(fd, length);
         return ret;
     }
 }
