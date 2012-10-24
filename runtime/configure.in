@@ -150,10 +150,13 @@ CP_WRAPPERS+=",-wrap,close"
 
 CP_WRAPPERS+=",-wrap,fopen"
 CP_WRAPPERS+=",-wrap,fopen64"
-CP_WRAPPERS+=",-wrap,fclose"
 CP_WRAPPERS+=",-wrap,fread"
 CP_WRAPPERS+=",-wrap,fwrite"
 CP_WRAPPERS+=",-wrap,fseek"
+CP_WRAPPERS+=",-wrap,fflush"
+CP_WRAPPERS+=",-wrap,feof"
+CP_WRAPPERS+=",-wrap,ferror"
+CP_WRAPPERS+=",-wrap,fclose"
 
 # ,-u,__wrap___fxstat64,-u,pthread_mutex_lock,-u,pthread_mutex_unlock
 
