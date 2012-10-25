@@ -157,6 +157,7 @@ SCRMFS_FORWARD_DECL(fopen64, FILE*, (const char *path, const char *mode));
 SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
+SCRMFS_FORWARD_DECL(ftell, long, (FILE *stream));
 SCRMFS_FORWARD_DECL(fflush, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(feof, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(ferror, int, (FILE *stream));
@@ -189,6 +190,80 @@ static key_t  scrmfs_mount_shmget_key = 0;
 
 /* mutex to lock stack operations */
 pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* returns 1 if two input parameters will overflow their type when
+ * added together */
+static inline int scrmfs_would_overflow_offt(off_t a, off_t b)
+{
+    /* compute min and max values */
+    off_t bits = sizeof(off_t) * 8;
+    off_t max  =  (1 << (bits-1)) - 1; 
+    off_t min  = -(1 << (bits-1));
+
+    /* if both parameters are positive, they could overflow when
+     * added together */
+    if (a > 0 && b > 0) {
+        /* if the distance between a and max is greater than or equal to
+         * b, then we could add a and b and still not exceed max */
+        if (max - a >= b) {
+            return 0;
+        }
+        return 1;
+    }
+
+    /* if both parameters are negative, they could underflow when
+     * added together */
+    if (a < 0 && b < 0) {
+        /* if the distance between min and a is less than or equal to
+         * b, then we could add a and b and still not exceed min */
+        if (min - a <= b) {
+            return 0;
+        }
+        return 1;
+    }
+
+    /* if a and b are mixed signs or at least one of them is 0,
+     * then adding them together will produce a result closer to 0
+     * or at least no further away than either value already is*/
+    return 0;
+}
+
+/* returns 1 if two input parameters will overflow their type when
+ * added together */
+static inline int scrmfs_would_overflow_long(long a, long b)
+{
+    /* compute min and max values */
+    long bits = sizeof(long) * 8;
+    long max  =  (1 << (bits-1)) - 1; 
+    long min  = -(1 << (bits-1));
+
+    /* if both parameters are positive, they could overflow when
+     * added together */
+    if (a > 0 && b > 0) {
+        /* if the distance between a and max is greater than or equal to
+         * b, then we could add a and b and still not exceed max */
+        if (max - a >= b) {
+            return 0;
+        }
+        return 1;
+    }
+
+    /* if both parameters are negative, they could underflow when
+     * added together */
+    if (a < 0 && b < 0) {
+        /* if the distance between min and a is less than or equal to
+         * b, then we could add a and b and still not exceed min */
+        if (min - a <= b) {
+            return 0;
+        }
+        return 1;
+    }
+
+    /* if a and b are mixed signs or at least one of them is 0,
+     * then adding them together will produce a result closer to 0
+     * or at least no further away than either value already is*/
+    return 0;
+}
 
 #if 0
 /* simple memcpy which compilers should be able to vectorize
@@ -729,6 +804,7 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
 static int scrmfs_err_map_to_errno(int rc)
 {
     switch(rc) {
+    case SCRMFS_SUCCESS:     return 0;
     case SCRMFS_FAILURE:     return EIO;
     case SCRMFS_ERR_NOSPC:   return ENOSPC;
     case SCRMFS_ERR_IO:      return EIO;
@@ -2848,8 +2924,9 @@ static int scrmfs_fopen(const char* path, const char* mode, FILE** outstream)
     /* allocate a file descriptor for this file */
     int fd = fid;
 
-    /* clear the error indicator and remember the file descriptor */
+    /* clear the error and eof indicators and remember the file descriptor */
     s->err = 0;
+    s->eof = 0;
     s->fd  = fd;
 
     /* set the file pointer in the file descriptor */
@@ -2937,6 +3014,7 @@ size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
         if (newpos > filesize) {
             /* trying to read past the end of the file, so
              * adjust new file pointer position and count */
+            s->eof = 1;
             newpos = filesize;
             count = (size_t) (newpos - oldpos);
             nitems_read = count / size;
@@ -3033,12 +3111,98 @@ int SCRMFS_DECL(fseek)(FILE *stream, long offset, int whence)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* TODO */
-        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
-        return -1;
+        /* lookup stream and file descriptor */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        int fd = s->fd;
+
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+        if (fid < 0) {
+            /* couldn't find file id, so assume we're at the end,
+             * feof defines to errors */
+            s->err = 1;
+            errno = EBADF;
+            return -1;
+        }
+
+        /* get current position */
+        off_t current_pos = scrmfs_fds[fd].pos;
+
+        /* update current position based on whence and offset */
+        off_t filesize;
+        switch (whence)
+        {
+            case SEEK_SET:
+                /* seek to offset */
+                current_pos = (off_t) offset;
+                break;
+            case SEEK_CUR:
+                /* seek to current position + offset */
+                if (scrmfs_would_overflow_long((long)current_pos, (long)offset)) {
+                    s->err = 1;
+                    errno  = EOVERFLOW;
+                    return -1;
+                }
+                current_pos += (off_t) offset;
+                break;
+            case SEEK_END:
+                /* seek to EOF + offset */
+                filesize = scrmfs_fid_size(fid);
+                if (scrmfs_would_overflow_long((long)filesize, (long)offset)) {
+                    s->err = 1;
+                    errno  = EOVERFLOW;
+                    return -1;
+                }
+                current_pos = filesize + (off_t) offset;
+                break;
+            default:
+                s->err = 1;
+                errno = EINVAL;
+                return -1;
+        }
+
+        /* TODO: only update file descriptor if most recent call is fflush? */
+        /* save new position */
+        scrmfs_fds[fd].pos = current_pos;
+
+        /* clear end-of-file indicator */
+        s->eof = 0;
+
+        /* TODO: if seek beyond end and write bytes, middle bytes must be set to 0 */
+
+        return 0;
     } else {
         MAP_OR_FAIL(fseek);
         int ret = __real_fseek(stream, offset, whence);
+        return ret;
+    }
+}
+
+long SCRMFS_DECL(ftell)(FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* lookup stream and file descriptor */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        int fd = s->fd;
+
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+        if (fid < 0) {
+            /* couldn't find file id, so assume we're at the end,
+             * feof defines to errors */
+            s->err = 1;
+            errno = EBADF;
+            return (long)-1;
+        }
+
+        /* get current position */
+        off_t current_pos = scrmfs_fds[fd].pos;
+
+        return (long)current_pos;
+    } else {
+        MAP_OR_FAIL(ftell);
+        long ret = __real_ftell(stream);
         return ret;
     }
 }
@@ -3074,25 +3238,11 @@ int SCRMFS_DECL(feof)(FILE *stream)
     if (scrmfs_intercept_stream(stream)) {
         /* lookup stream and file descriptor */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-        int fd = s->fd;
 
-        /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
-        if (fid < 0) {
-            /* couldn't find file id, so assume we're at the end,
-             * feof defines to errors */
-            return 1;
-        }
+        /* TODO: ensure stream is active */
 
-        /* check whether file pointer is at or beyond size of file */
-        off_t size = scrmfs_fid_size(fid);
-        off_t pos  = scrmfs_fds[fd].pos;
-        if (pos >= size) {
-            return 1;
-        }
-          
-        /* not yet to the end of the file */
-        return 0;
+        int ret = s->eof;
+        return ret;
     } else {
         MAP_OR_FAIL(feof);
         int ret = __real_feof(stream);
@@ -3119,19 +3269,50 @@ int SCRMFS_DECL(ferror)(FILE* stream)
 }
 
 /*
+ * http://pubs.opengroup.org/onlinepubs/009695399/
+ * http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
+ * https://github.com/fakechroot/fakechroot/tree/master/src
+ *
  * fdopen
  * freopen
+ *
  * fseeko
- * fgetc
+ * ftello
+ * fsetpos
+ * fgetpos
+ * rewind
+ *
  * getc
- * fputc
  * putc
+ * fgetc
+ * fputc
+ * getw
+ * putw
+ * fgets
+ * fputs
+ * ungetc
+ * ungetwc
+ *
  * fscanf
- * ferror
+ * vfscanf
+ * fprintf
+ * vfprintf
+ *
  * clearerr
+ *
  * setbuf
  * setvbuf
+ *
  * fileno
+ * flockfile
+ * ftrylockfile
+ * funlockfile
+ *
+ * freopen64
+ * fseeko64
+ * fgetpos64
+ * fsetpos64
+ * ftello64
  */
 
 int SCRMFS_DECL(fclose)(FILE *stream)

@@ -30,6 +30,7 @@ typedef struct {
 /* structure to represent FILE* streams */
 typedef struct {
     int err;       /* stream error indicator flag */
+    int eof;       /* stream end-of-file indicator flag */
     int fd;        /* file descriptor associated with stream */
 } scrmfs_stream_t;
 
