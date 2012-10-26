@@ -156,8 +156,10 @@ SCRMFS_FORWARD_DECL(fopen, FILE*, (const char *path, const char *mode));
 SCRMFS_FORWARD_DECL(fopen64, FILE*, (const char *path, const char *mode));
 SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
-SCRMFS_FORWARD_DECL(fseek, int, (FILE *stream, long offset, int whence));
-SCRMFS_FORWARD_DECL(ftell, long, (FILE *stream));
+SCRMFS_FORWARD_DECL(fseek,  int, (FILE *stream, long offset,  int whence));
+SCRMFS_FORWARD_DECL(fseeko, int, (FILE *stream, off_t offset, int whence));
+SCRMFS_FORWARD_DECL(ftell,  long,  (FILE *stream));
+SCRMFS_FORWARD_DECL(ftello, off_t, (FILE *stream));
 SCRMFS_FORWARD_DECL(fflush, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(feof, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(ferror, int, (FILE *stream));
@@ -3003,12 +3005,11 @@ size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
             return 0;
         }
 
-        /* lookup stream and file descriptor */
+        /* lookup stream */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-        int fd = s->fd;
 
         /* get pointer to file descriptor structure */
-        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
         if (filedesc == NULL) {
             /* ERROR: invalid file descriptor */
             s->err = 1;
@@ -3022,7 +3023,7 @@ size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
 
         /* read data from file */
         size_t retcount;
-        int read_rc = scrmfs_fd_read(fd, filedesc->pos, ptr, count, &retcount);
+        int read_rc = scrmfs_fd_read(s->fd, filedesc->pos, ptr, count, &retcount);
         if (read_rc != SCRMFS_SUCCESS) {
             s->err = 1;
             errno = scrmfs_err_map_to_errno(read_rc);
@@ -3058,12 +3059,11 @@ size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
             return 0;
         }
 
-        /* lookup stream and file descriptor */
+        /* lookup stream */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-        int fd = s->fd;
 
         /* get pointer to file descriptor structure */
-        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
         if (filedesc == NULL) {
             /* ERROR: invalid file descriptor */
             s->err = 1;
@@ -3076,7 +3076,7 @@ size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
         size_t count = size * nitems;
 
         /* write data to file */
-        int write_rc = scrmfs_fd_write(fd, filedesc->pos, ptr, count);
+        int write_rc = scrmfs_fd_write(s->fd, filedesc->pos, ptr, count);
         if (write_rc != SCRMFS_SUCCESS) {
             s->err = 1;
             errno = scrmfs_err_map_to_errno(write_rc);
@@ -3095,73 +3095,100 @@ size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
     }
 }
 
+/* both fseek and fseeko delegate to this function */
+int scrmfs_fseek(FILE *stream, off_t offset, int whence)
+{
+    /* lookup stream */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+    /* get pointer to file descriptor structure */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    if (filedesc == NULL) {
+        /* ERROR: invalid file descriptor */
+        s->err = 1;
+        errno = EBADF;
+        return -1;
+    }
+
+    /* get the file id for this file descriptor */
+    int fid = scrmfs_get_fid_from_fd(s->fd);
+    if (fid < 0) {
+        /* couldn't find file id, so assume we're at the end,
+         * feof defines to errors */
+        s->err = 1;
+        errno = EBADF;
+        return -1;
+    }
+
+    /* get current position */
+    off_t current_pos = filedesc->pos;
+
+    /* update current position based on whence and offset */
+    off_t filesize;
+    switch (whence)
+    {
+        case SEEK_SET:
+            /* seek to offset */
+            current_pos = (off_t) offset;
+            break;
+        case SEEK_CUR:
+            /* seek to current position + offset */
+            if (scrmfs_would_overflow_long((long)current_pos, (long)offset)) {
+                s->err = 1;
+                errno  = EOVERFLOW;
+                return -1;
+            }
+            current_pos += (off_t) offset;
+            break;
+        case SEEK_END:
+            /* seek to EOF + offset */
+            filesize = scrmfs_fid_size(fid);
+            if (scrmfs_would_overflow_long((long)filesize, (long)offset)) {
+                s->err = 1;
+                errno  = EOVERFLOW;
+                return -1;
+            }
+            current_pos = filesize + (off_t) offset;
+            break;
+        default:
+            s->err = 1;
+            errno = EINVAL;
+            return -1;
+    }
+
+    /* TODO: only update file descriptor if most recent call is fflush? */
+    /* save new position */
+    filedesc->pos = current_pos;
+
+    /* clear end-of-file indicator */
+    s->eof = 0;
+
+    return 0;
+}
+
 int SCRMFS_DECL(fseek)(FILE *stream, long offset, int whence)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* lookup stream and file descriptor */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-        int fd = s->fd;
-
-        /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
-        if (fid < 0) {
-            /* couldn't find file id, so assume we're at the end,
-             * feof defines to errors */
-            s->err = 1;
-            errno = EBADF;
-            return -1;
-        }
-
-        /* get current position */
-        off_t current_pos = scrmfs_fds[fd].pos;
-
-        /* update current position based on whence and offset */
-        off_t filesize;
-        switch (whence)
-        {
-            case SEEK_SET:
-                /* seek to offset */
-                current_pos = (off_t) offset;
-                break;
-            case SEEK_CUR:
-                /* seek to current position + offset */
-                if (scrmfs_would_overflow_long((long)current_pos, (long)offset)) {
-                    s->err = 1;
-                    errno  = EOVERFLOW;
-                    return -1;
-                }
-                current_pos += (off_t) offset;
-                break;
-            case SEEK_END:
-                /* seek to EOF + offset */
-                filesize = scrmfs_fid_size(fid);
-                if (scrmfs_would_overflow_long((long)filesize, (long)offset)) {
-                    s->err = 1;
-                    errno  = EOVERFLOW;
-                    return -1;
-                }
-                current_pos = filesize + (off_t) offset;
-                break;
-            default:
-                s->err = 1;
-                errno = EINVAL;
-                return -1;
-        }
-
-        /* TODO: only update file descriptor if most recent call is fflush? */
-        /* save new position */
-        scrmfs_fds[fd].pos = current_pos;
-
-        /* clear end-of-file indicator */
-        s->eof = 0;
-
-        /* TODO: if seek beyond end and write bytes, middle bytes must be set to 0 */
-
-        return 0;
+        off_t offset_offt = (off_t) offset;
+        int rc = scrmfs_fseek(stream, offset_offt, whence);
+        return rc;
     } else {
         MAP_OR_FAIL(fseek);
         int ret = __real_fseek(stream, offset, whence);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fseeko)(FILE *stream, off_t offset, int whence)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        int rc = scrmfs_fseek(stream, offset, whence);
+        return rc;
+    } else {
+        MAP_OR_FAIL(fseeko);
+        int ret = __real_fseeko(stream, offset, whence);
         return ret;
     }
 }
@@ -3170,27 +3197,50 @@ long SCRMFS_DECL(ftell)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* lookup stream and file descriptor */
+        /* lookup stream */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-        int fd = s->fd;
 
-        /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
-        if (fid < 0) {
-            /* couldn't find file id, so assume we're at the end,
-             * feof defines to errors */
+        /* get pointer to file descriptor structure */
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        if (filedesc == NULL) {
+            /* ERROR: invalid file descriptor */
             s->err = 1;
             errno = EBADF;
             return (long)-1;
         }
 
         /* get current position */
-        off_t current_pos = scrmfs_fds[fd].pos;
-
+        off_t current_pos = filedesc->pos;
         return (long)current_pos;
     } else {
         MAP_OR_FAIL(ftell);
         long ret = __real_ftell(stream);
+        return ret;
+    }
+}
+
+off_t SCRMFS_DECL(ftello)(FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+        /* get pointer to file descriptor structure */
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        if (filedesc == NULL) {
+            /* ERROR: invalid file descriptor */
+            s->err = 1;
+            errno = EBADF;
+            return (off_t)-1;
+        }
+
+        /* get current position */
+        off_t current_pos = filedesc->pos;
+        return current_pos;
+    } else {
+        MAP_OR_FAIL(ftello);
+        off_t ret = __real_ftello(stream);
         return ret;
     }
 }
@@ -3224,7 +3274,7 @@ int SCRMFS_DECL(feof)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* lookup stream and file descriptor */
+        /* lookup stream */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
 
         /* TODO: ensure stream is active */
@@ -3260,7 +3310,7 @@ void SCRMFS_DECL(clearerr)(FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* lookup stream and file descriptor */
+        /* lookup stream */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
 
         /* TODO: ensure stream is active */
@@ -3281,12 +3331,11 @@ int SCRMFS_DECL(fclose)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* lookup stream and file descriptor */
+        /* lookup stream */
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-        int fd = s->fd;
 
         /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
+        int fid = scrmfs_get_fid_from_fd(s->fd);
         if (fid < 0) {
             errno = EBADF;
             return EOF;
