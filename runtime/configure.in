@@ -157,6 +157,7 @@ CP_WRAPPERS+=",-wrap,ftell"
 CP_WRAPPERS+=",-wrap,fflush"
 CP_WRAPPERS+=",-wrap,feof"
 CP_WRAPPERS+=",-wrap,ferror"
+CP_WRAPPERS+=",-wrap,clearerr"
 CP_WRAPPERS+=",-wrap,fclose"
 
 # ,-u,__wrap___fxstat64,-u,pthread_mutex_lock,-u,pthread_mutex_unlock
