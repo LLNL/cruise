@@ -1,0 +1,169 @@
+rzuseqlac2<28>: srun -n 1 ./test_memcpy 100000000 100 0
+FileIO: Min 7382.68 MB/s        Max 7382.68 MB/s        Avg 7382.68 MB/s        Agg 7382.68 MB/s
+rzuseqlac2<29>: srun -n 2 ./test_memcpy 100000000 100 0
+FileIO: Min 5810.19 MB/s        Max 5810.64 MB/s        Avg 5810.41 MB/s        Agg 11620.83 MB/s
+rzuseqlac2<30>: srun -n 3 ./test_memcpy 100000000 100 0
+FileIO: Min 4212.58 MB/s        Max 4218.77 MB/s        Avg 4216.64 MB/s        Agg 12649.93 MB/s
+rzuseqlac2<31>: srun -n 4 ./test_memcpy 100000000 100 0
+FileIO: Min 3256.32 MB/s        Max 3256.83 MB/s        Avg 3256.56 MB/s        Agg 13026.24 MB/s
+rzuseqlac2<32>: srun -n 5 ./test_memcpy 100000000 100 0
+FileIO: Min 2597.16 MB/s        Max 2597.46 MB/s        Avg 2597.32 MB/s        Agg 12986.59 MB/s
+rzuseqlac2<33>: srun -n 6 ./test_memcpy 100000000 100 0
+FileIO: Min 2185.89 MB/s        Max 2188.96 MB/s        Avg 2186.70 MB/s        Agg 13120.23 MB/s
+rzuseqlac2<34>: srun -n 7 ./test_memcpy 100000000 100 0
+FileIO: Min 1865.40 MB/s        Max 1865.45 MB/s        Avg 1865.41 MB/s        Agg 13057.88 MB/s
+rzuseqlac2<35>: srun -n 8 ./test_memcpy 100000000 100 0
+FileIO: Min 1634.96 MB/s        Max 1635.62 MB/s        Avg 1635.20 MB/s        Agg 13081.57 MB/s
+rzuseqlac2<36>: srun -n 9 ./test_memcpy 100000000 100 0
+FileIO: Min 1459.52 MB/s        Max 1460.18 MB/s        Avg 1459.75 MB/s        Agg 13137.78 MB/s
+rzuseqlac2<37>: srun -n 10 ./test_memcpy 100000000 100 0
+FileIO: Min 1313.16 MB/s        Max 1319.07 MB/s        Avg 1313.87 MB/s        Agg 13138.67 MB/s
+rzuseqlac2<39>: srun -n 11 ./test_memcpy 100000000 100 0
+FileIO: Min 1193.26 MB/s        Max 1196.82 MB/s        Avg 1194.01 MB/s        Agg 13134.14 MB/s
+rzuseqlac2<38>: srun -n 12 ./test_memcpy 100000000 100 0
+FileIO: Min 1087.57 MB/s        Max 1087.67 MB/s        Avg 1087.58 MB/s        Agg 13051.00 MB/s
+rzuseqlac2<40>: srun -n 13 ./test_memcpy 100000000 100 0
+FileIO: Min 1002.18 MB/s        Max 1002.30 MB/s        Avg 1002.28 MB/s        Agg 13029.59 MB/s
+rzuseqlac2<41>: srun -n 14 ./test_memcpy 100000000 100 0
+FileIO: Min  933.34 MB/s        Max  934.02 MB/s        Avg  933.57 MB/s        Agg 13070.02 MB/s
+rzuseqlac2<42>: srun -n 15 ./test_memcpy 100000000 100 0
+FileIO: Min  880.15 MB/s        Max  885.12 MB/s        Avg  881.16 MB/s        Agg 13217.41 MB/s
+rzuseqlac2<43>: srun -n 16 ./test_memcpy 100000000 100 0
+FileIO: Min  826.50 MB/s        Max  830.05 MB/s        Avg  827.24 MB/s        Agg 13235.81 MB/s
+rzuseqlac2<74>: srun -n 20 ./test_memcpy 100000000 100 0
+FileIO: Min  650.30 MB/s        Max  650.36 MB/s        Avg  650.32 MB/s        Agg 13006.48 MB/s
+rzuseqlac2<75>: srun -n 24 ./test_memcpy 100000000 100 0
+FileIO: Min  542.51 MB/s        Max  542.74 MB/s        Avg  542.57 MB/s        Agg 13021.70 MB/s
+rzuseqlac2<76>: srun -n 28 ./test_memcpy 100000000 100 0
+FileIO: Min  465.64 MB/s        Max  465.80 MB/s        Avg  465.70 MB/s        Agg 13039.69 MB/s
+rzuseqlac2<73>: srun -n 32 ./test_memcpy 100000000 100 0
+FileIO: Min  408.01 MB/s        Max  408.28 MB/s        Avg  408.07 MB/s        Agg 13058.34 MB/s
+
+
+offset buffer by 1 byte
+
+rzuseqlac2<46>: srun -n 1 ./test_memcpy 100000000 100 0
+FileIO: Min  435.85 MB/s        Max  435.85 MB/s        Avg  435.85 MB/s        Agg  435.85 MB/s
+rzuseqlac2<47>: srun -n 2 ./test_memcpy 100000000 100 0
+FileIO: Min  435.84 MB/s        Max  435.85 MB/s        Avg  435.84 MB/s        Agg  871.69 MB/s
+rzuseqlac2<48>: srun -n 3 ./test_memcpy 100000000 100 0
+FileIO: Min  435.81 MB/s        Max  435.82 MB/s        Avg  435.81 MB/s        Agg 1307.44 MB/s
+rzuseqlac2<49>: srun -n 4 ./test_memcpy 100000000 100 0
+FileIO: Min  435.77 MB/s        Max  435.83 MB/s        Avg  435.80 MB/s        Agg 1743.19 MB/s
+rzuseqlac2<50>: srun -n 5 ./test_memcpy 100000000 100 0
+FileIO: Min  435.80 MB/s        Max  435.81 MB/s        Avg  435.80 MB/s        Agg 2179.02 MB/s
+rzuseqlac2<51>: srun -n 6 ./test_memcpy 100000000 100 0
+FileIO: Min  435.70 MB/s        Max  435.71 MB/s        Avg  435.70 MB/s        Agg 2614.21 MB/s
+rzuseqlac2<52>: srun -n 7 ./test_memcpy 100000000 100 0
+FileIO: Min  435.69 MB/s        Max  435.72 MB/s        Avg  435.70 MB/s        Agg 3049.88 MB/s
+rzuseqlac2<53>: srun -n 8 ./test_memcpy 100000000 100 0
+FileIO: Min  435.73 MB/s        Max  435.81 MB/s        Avg  435.77 MB/s        Agg 3486.16 MB/s
+rzuseqlac2<54>: srun -n 9 ./test_memcpy 100000000 100 0
+FileIO: Min  435.69 MB/s        Max  435.72 MB/s        Avg  435.70 MB/s        Agg 3921.30 MB/s
+rzuseqlac2<55>: srun -n 10 ./test_memcpy 100000000 100 0
+FileIO: Min  435.67 MB/s        Max  435.70 MB/s        Avg  435.68 MB/s        Agg 4356.81 MB/s
+rzuseqlac2<56>: srun -n 11 ./test_memcpy 100000000 100 0
+FileIO: Min  435.63 MB/s        Max  435.67 MB/s        Avg  435.64 MB/s        Agg 4792.07 MB/s
+rzuseqlac2<57>: srun -n 12 ./test_memcpy 100000000 100 0
+FileIO: Min  435.53 MB/s        Max  435.61 MB/s        Avg  435.54 MB/s        Agg 5226.48 MB/s
+rzuseqlac2<58>: srun -n 13 ./test_memcpy 100000000 100 0
+FileIO: Min  435.53 MB/s        Max  435.60 MB/s        Avg  435.55 MB/s        Agg 5662.12 MB/s
+rzuseqlac2<59>: srun -n 14 ./test_memcpy 100000000 100 0
+FileIO: Min  435.48 MB/s        Max  435.58 MB/s        Avg  435.52 MB/s        Agg 6097.27 MB/s
+rzuseqlac2<60>: srun -n 15 ./test_memcpy 100000000 100 0
+FileIO: Min  435.48 MB/s        Max  435.57 MB/s        Avg  435.53 MB/s        Agg 6532.96 MB/s
+rzuseqlac2<61>: srun -n 16 ./test_memcpy 100000000 100 0
+FileIO: Min  435.47 MB/s        Max  435.56 MB/s        Avg  435.51 MB/s        Agg 6968.24 MB/s
+rzuseqlac2<62>: srun -n 17 ./test_memcpy 100000000 100 0
+FileIO: Min  402.99 MB/s        Max  435.41 MB/s        Avg  404.94 MB/s        Agg 6883.99 MB/s
+rzuseqlac2<66>: srun -n 20 ./test_memcpy 100000000 100 0
+FileIO: Min  402.91 MB/s        Max  403.05 MB/s        Avg  402.99 MB/s        Agg 8059.73 MB/s
+rzuseqlac2<65>: srun -n 24 ./test_memcpy 100000000 100 0
+FileIO: Min  402.48 MB/s        Max  402.60 MB/s        Avg  402.54 MB/s        Agg 9660.96 MB/s
+rzuseqlac2<67>: srun -n 28 ./test_memcpy 100000000 100 0
+FileIO: Min  400.49 MB/s        Max  400.64 MB/s        Avg  400.57 MB/s        Agg 11216.06 MB/s
+rzuseqlac2<63>: srun -n 32 ./test_memcpy 100000000 100 0
+FileIO: Min  394.84 MB/s        Max  395.02 MB/s        Avg  394.95 MB/s        Agg 12638.41 MB/s
+rzuseqlac2<69>: srun -n 36 ./test_memcpy 100000000 100 0
+2012-10-26 16:27:52.213 (WARN ) [0x40000a18ab0] 558254:ibm.runjob.client.Job: terminated by signal 11
+2012-10-26 16:27:52.214 (WARN ) [0x40000a18ab0] 558254:ibm.runjob.client.Job: abnormal termination by signal 11 from rank 0
+rzuseqlac2<68>: srun -n 48 ./test_memcpy 100000000 100 0
+2012-10-26 16:27:39.108 (WARN ) [0x40000a18ab0] 558248:ibm.runjob.client.Job: terminated by signal 11
+2012-10-26 16:27:39.108 (WARN ) [0x40000a18ab0] 558248:ibm.runjob.client.Job: abnormal termination by signal 11 from rank 0
+rzuseqlac2<64>: srun -n 64 ./test_memcpy 100000000 100 0
+2012-10-26 16:25:13.311 (WARN ) [0x40000a18ab0] 558229:ibm.runjob.client.Job: terminated by signal 11
+2012-10-26 16:25:13.311 (WARN ) [0x40000a18ab0] 558229:ibm.runjob.client.Job: abnormal termination by signal 11 from rank 0
+
+
+
+rzuseqlac2<83>: srun -n 1 ./test_ramdisk 100000000 100 0
+FileIO: Min  536.06 MB/s        Max  536.06 MB/s        Avg  536.06 MB/s        Agg  536.06 MB/s
+rzuseqlac2<84>: srun -n 2 ./test_ramdisk 100000000 100 0
+FileIO: Min  258.86 MB/s        Max  258.86 MB/s        Avg  258.86 MB/s        Agg  517.72 MB/s
+rzuseqlac2<85>: srun -n 3 ./test_ramdisk 100000000 100 0
+FileIO: Min  172.76 MB/s        Max  175.65 MB/s        Avg  174.10 MB/s        Agg  522.29 MB/s
+rzuseqlac2<86>: srun -n 4 ./test_ramdisk 100000000 100 0
+FileIO: Min  129.95 MB/s        Max  135.65 MB/s        Avg  132.50 MB/s        Agg  530.01 MB/s
+rzuseqlac2<87>: srun -n 5 ./test_ramdisk 100000000 100 0
+FileIO: Min  104.18 MB/s        Max  111.96 MB/s        Avg  107.08 MB/s        Agg  535.40 MB/s
+rzuseqlac2<88>: srun -n 6 ./test_ramdisk 100000000 100 0
+FileIO: Min   86.72 MB/s        Max   92.26 MB/s        Avg   87.99 MB/s        Agg  527.92 MB/s
+rzuseqlac2<25>: srun -n 7 ./test_ramdisk 100000000 100 0
+FileIO: Min   74.32 MB/s        Max   76.94 MB/s        Avg   75.41 MB/s        Agg  527.84 MB/s
+rzuseqlac2<26>: srun -n 8 ./test_ramdisk 100000000 100 0
+FileIO: Min   65.05 MB/s        Max   69.20 MB/s        Avg   66.51 MB/s        Agg  532.07 MB/s
+
+
+setenv BG_PERSISTMEMRESET 1
+setenv BG_PERSISTMEMSIZE 4200
+
+rzuseqlac2<64>: srun -n 1 ./test_scrmfs 100000000 100 0 &
+FileIO: Min  447.59 MB/s        Max  447.59 MB/s        Avg  447.59 MB/s        Agg  447.59 MB/s
+rzuseqlac2<65>: srun -n 2 ./test_scrmfs 100000000 100 0 
+FileIO: Min  447.72 MB/s        Max  447.72 MB/s        Avg  447.72 MB/s        Agg  895.44 MB/s
+rzuseqlac2<66>: srun -n 3 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.00 MB/s        Max  447.04 MB/s        Avg  447.02 MB/s        Agg 1341.05 MB/s
+rzuseqlac2<67>: srun -n 4 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.70 MB/s        Max  447.74 MB/s        Avg  447.72 MB/s        Agg 1790.88 MB/s
+rzuseqlac2<68>: srun -n 5 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.30 MB/s        Max  447.37 MB/s        Avg  447.35 MB/s        Agg 2236.74 MB/s
+rzuseqlac2<69>: srun -n 6 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.10 MB/s        Max  447.17 MB/s        Avg  447.14 MB/s        Agg 2682.83 MB/s
+rzuseqlac2<70>: srun -n 7 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.23 MB/s        Max  447.31 MB/s        Avg  447.27 MB/s        Agg 3130.87 MB/s
+rzuseqlac2<74>: srun -n 8 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.53 MB/s        Max  447.60 MB/s        Avg  447.57 MB/s        Agg 3580.54 MB/s
+rzuseqlac2<75>: srun -n 9 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.13 MB/s        Max  447.31 MB/s        Avg  447.26 MB/s        Agg 4025.30 MB/s
+rzuseqlac2<76>: srun -n 10 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.17 MB/s        Max  447.25 MB/s        Avg  447.21 MB/s        Agg 4472.11 MB/s
+rzuseqlac2<77>: srun -n 11 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.10 MB/s        Max  447.22 MB/s        Avg  447.17 MB/s        Agg 4918.91 MB/s
+rzuseqlac2<78>: srun -n 12 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.16 MB/s        Max  447.21 MB/s        Avg  447.19 MB/s        Agg 5366.23 MB/s
+rzuseqlac2<79>: srun -n 13 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.17 MB/s        Max  447.18 MB/s        Avg  447.18 MB/s        Agg 5813.29 MB/s
+rzuseqlac2<80>: srun -n 14 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.05 MB/s        Max  447.18 MB/s        Avg  447.14 MB/s        Agg 6259.90 MB/s
+rzuseqlac2<81>: srun -n 15 ./test_scrmfs 100000000 100 0
+FileIO: Min  447.10 MB/s        Max  447.16 MB/s        Avg  447.14 MB/s        Agg 6707.15 MB/s
+rzuseqlac2<84>: srun -n 16 ./test_scrmfs 100000000 100 0
+FileIO: Min  446.96 MB/s        Max  447.14 MB/s        Avg  447.11 MB/s        Agg 7153.74 MB/s
+rzuseqlac2<86>: srun -n 17 ./test_scrmfs 100000000 100 0
+FileIO: Min  401.68 MB/s        Max  446.86 MB/s        Avg  404.47 MB/s        Agg 6876.06 MB/s
+rzuseqlac2<85>: srun -n 20 ./test_scrmfs 100000000 100 0
+FileIO: Min  401.39 MB/s        Max  401.64 MB/s        Avg  401.54 MB/s        Agg 8030.84 MB/s
+rzuseqlac2<87>: srun -n 24 ./test_scrmfs 100000000 100 0
+FileIO: Min  400.98 MB/s        Max  401.17 MB/s        Avg  401.07 MB/s        Agg 9625.76 MB/s
+rzuseqlac2<88>: srun -n 28 ./test_scrmfs 100000000 100 0
+FileIO: Min  400.51 MB/s        Max  400.69 MB/s        Avg  400.60 MB/s        Agg 11216.89 MB/s
+rzuseqlac2<91>: srun -n 32 ./test_scrmfs 100000000 100 0
+FileIO: Min  396.71 MB/s        Max  396.91 MB/s        Avg  396.83 MB/s        Agg 12698.61 MB/s
+
+rzuseqlac2<25>: srun -n 64 -N 2 ./test_scrmfs 100000000 100 0
+FileIO: Min  396.92 MB/s        Max  397.31 MB/s        Avg  397.14 MB/s        Agg 25416.97 MB/s
+rzuseqlac2<26>: srun -n 128 -N 4 ./test_scrmfs 100000000 100 0
+FileIO: Min  396.63 MB/s        Max  397.41 MB/s        Avg  396.98 MB/s        Agg 50813.27 MB/s
+rzuseqlac2<27>: srun -n 256 -N 8 ./test_scrmfs 100000000 100 0
+FileIO: Min  396.58 MB/s        Max  397.25 MB/s        Avg  396.90 MB/s        Agg 101607.19 MB/s
+

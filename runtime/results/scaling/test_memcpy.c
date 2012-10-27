@@ -202,7 +202,8 @@ int main (int argc, char* argv[])
   filesize = filesize + rank;
   char* buf = (char*) malloc(filesize);
   
-  memcpy_tmp = (char *) malloc(filesize);
+  char* buf_tmp = (char *) malloc(filesize+1);
+  memcpy_tmp = buf_tmp + 0; /* force misalignment */
 
   /* make up some data for the next checkpoint */
   init_buffer(buf, filesize, rank, timestep);
@@ -233,7 +234,7 @@ int main (int argc, char* argv[])
     buf = NULL;
   }
 
-  free(memcpy_tmp);
+  free(buf_tmp);
 
   MPI_Finalize();
 

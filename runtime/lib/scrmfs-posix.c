@@ -199,9 +199,9 @@ pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 static inline int scrmfs_would_overflow_offt(off_t a, off_t b)
 {
     /* compute min and max values */
-    off_t bits = sizeof(off_t) * 8;
-    off_t max  =  (1 << (bits-1)) - 1; 
-    off_t min  = -(1 << (bits-1));
+    unsigned long long bits = sizeof(off_t) * 8;
+    off_t max = (off_t) ( (1ULL << (bits-1ULL)) - 1ULL);
+    off_t min = (off_t) (-(1ULL << (bits-1ULL))       );
 
     /* if both parameters are positive, they could overflow when
      * added together */
@@ -236,9 +236,9 @@ static inline int scrmfs_would_overflow_offt(off_t a, off_t b)
 static inline int scrmfs_would_overflow_long(long a, long b)
 {
     /* compute min and max values */
-    long bits = sizeof(long) * 8;
-    long max  =  (1 << (bits-1)) - 1; 
-    long min  = -(1 << (bits-1));
+    unsigned long long bits = sizeof(long) * 8;
+    long max = (long) ( (1ULL << (bits-1ULL)) - 1ULL);
+    long min = (long) (-(1ULL << (bits-1ULL))       );
 
     /* if both parameters are positive, they could overflow when
      * added together */
@@ -1480,14 +1480,14 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* open file in persistent memory */
     int fd = persist_open((char*)name, O_RDWR, 0600);
     if (fd < 0) {
-        perror("unable to open persistent memory file %s\n", name);
+        perror("unable to open persistent memory file\n");
         return NULL;
     }
 
     /* truncate file to correct size */
     int rc = ftruncate(fd, (off_t)size_1MB);
     if (rc < 0) {
-      perror("ftruncate of persistent memory region failed rc=%d\n", rc);
+      perror("ftruncate of persistent memory region failed\n");
       close(fd);
       return NULL;
     }
@@ -2693,14 +2693,14 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
     }
 }
 
-int munmap(void *addr, size_t length)
+int SCRMFS_DECL(munmap)(void *addr, size_t length)
 {
     fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
     errno = ENOSYS;
     return ENODEV;
 }
 
-int msync(void *addr, size_t length, int flags)
+int SCRMFS_DECL(msync)(void *addr, size_t length, int flags)
 {
     /* TODO: need to keep track of all the mmaps that are linked to
      * a given file before this function can be implemented*/
