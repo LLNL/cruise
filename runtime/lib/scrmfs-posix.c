@@ -1260,7 +1260,7 @@ static int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid
         } else {
             /* ERROR: trying to open a file that does not exist without O_CREATE */
             debug("Couldn't find entry for %s in SCRMFS\n", path);
-            return SCRMFS_ERR_NOSPC;
+            return SCRMFS_ERR_NOENT;
         }
     } else {
         /* file already exists */
