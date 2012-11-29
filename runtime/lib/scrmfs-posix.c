@@ -1,8 +1,3 @@
-/*
- *  (C) 2009 by Argonne National Laboratory.
- *      See COPYRIGHT in top-level directory.
- */
-
 #include "scrmfs-runtime-config.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -22,6 +17,11 @@
 #include <libgen.h>
 #define __USE_GNU
 #include <pthread.h>
+
+#define ENABLE_NUMA_POLICY
+#ifdef ENABLE_NUMA_POLICY
+#include <numa.h>
+#endif
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -54,13 +54,17 @@ static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
 static int scrmfs_page_size = 0;
 
+#ifdef ENABLE_NUMA_POLICY
+static char scrmfs_numa_policy[10];
+#endif
+
 #ifdef HAVE_CONTAINER_LIB
 static char scrmfs_container_info[100];   /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle;     /* the container set handle */
 #endif /* HAVE_CONTAINER_LIB */
 
-//#define SCRMFS_DEBUG
+#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
@@ -1458,8 +1462,29 @@ static void* scrmfs_superblock_shmget(size_t size, key_t key)
         if(scr_shmblock < 0) {
             perror("shmat() failed");
         }
-        debug("Superblock created at %p\n!",scr_shmblock);
+        debug("Superblock created at %p!\n",scr_shmblock);
 
+#ifdef ENABLE_NUMA_POLICY
+        numa_exit_on_error = 1;
+        /* check to see if NUMA control capability is available */
+        if (numa_available() < 0 ) {
+            debug("NUMA support unavailable!\n");
+        } else {
+            /* if support available, set NUMA policy for scr_shmblock */
+            // if ( scrmfs_use_single_shm ) {
+            if ( strcmp(scrmfs_numa_policy,"interleaved") == 0) {
+                /* interleave the shared-memory segment
+                 * across all memory banks when all process share 1-superblock */
+                debug("Interleaving superblock across all memory banks\n");
+                numa_interleave_memory(scr_shmblock, size, numa_all_nodes_ptr);
+            } else if( strcmp(scrmfs_numa_policy,"local") == 0) {
+               /* each process has its own superblock, let it be allocated from
+                * the closest memory bank */
+                debug("Assigning memory from closest bank\n");
+                numa_setlocal_memory(scr_shmblock, size);
+            }
+        }
+#endif
         /* init our global variables to point to spots in superblock */
         scrmfs_init_pointers(scr_shmblock);
 
@@ -1549,6 +1574,16 @@ static int scrmfs_init(int rank)
 
         debug("are we using containers? %d\n", scrmfs_use_containers);
         debug("are we using spillover? %d\n", scrmfs_use_spillover);
+
+#ifdef ENABLE_NUMA_POLICY
+        env = getenv("SCRMFS_NUMA_POLICY");
+        if ( env ) {
+            sprintf(scrmfs_numa_policy, env);
+            debug("NUMA policy used: %s\n", scrmfs_numa_policy);
+        } else {
+            sprintf(scrmfs_numa_policy, "default");
+        }
+#endif
 
         /* record the max fd for the system */
         /* RLIMIT_NOFILE specifies a value one greater than the maximum
