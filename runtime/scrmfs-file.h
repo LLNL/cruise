@@ -16,9 +16,9 @@
 #define SCRMFS_ERR_NFILE  -8
 #define SCRMFS_ERR_INVAL  -9
 #define SCRMFS_ERR_OVERFLOW -10
-#define SCRMFS_ERR_FBIG -11
-#define SCRMFS_ERR_BADF -12
-#define SCRMFS_ERR_ISDIR -13
+#define SCRMFS_ERR_FBIG   -11
+#define SCRMFS_ERR_BADF   -12
+#define SCRMFS_ERR_ISDIR  -13
 
 enum flock_enum {
     UNLOCKED,

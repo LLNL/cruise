@@ -190,6 +190,7 @@ int main (int argc, char* argv[])
 
   char name[256];
   sprintf(name, "/tmp/rank.%d", rank);
+  sprintf(name, "/dev/persist/rank.%d", rank);
 
   /* allocate space for the checkpoint data (make filesize a function of rank for some variation) */
   filesize = filesize + rank;
