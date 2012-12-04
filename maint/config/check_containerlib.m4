@@ -34,6 +34,8 @@ AC_ARG_WITH(container-lib,
   if test -d "$withval"
   then
     CONTAINER_LIB_HOME="$withval"
+    AC_DEFINE([HAVE_CONTAINER_LIB], [1], [Define if libcontainer is available])
+
   else
     AC_MSG_WARN([Sorry, $withval does not exist, checking usual places])
   fi
