@@ -9,6 +9,9 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `container' library (-lcontainer). */
+#undef HAVE_LIBCONTAINER
+
 /* Define to 1 if you have the `z' library (-lz). */
 #undef HAVE_LIBZ
 

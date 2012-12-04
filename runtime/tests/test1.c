@@ -46,7 +46,7 @@ int test1();
 
 int main(int argc, char ** argv){
   int rc;
-
+  scrmfs_mount("/tmp", 4096 * 4096, 0);
   CHECK(rc = test_open()); 
   CHECK(rc = test_close());
   CHECK(rc = test_unlink());
@@ -72,6 +72,7 @@ int test_open(){
    /* open a file that does not exist without create flag
     * should fail */
    TESTFAILERR(fd,open(afile, O_WRONLY), ENOENT);
+   //TESTFAILERR(fd,open(afile, O_WRONLY), -1);
 
    /* open a file that does not exist with create flag
     * should succeed */

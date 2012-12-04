@@ -20,6 +20,11 @@ CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
 CONTAINER_LIBS = #-lcontainer
 #CONTAINER_LIBNAME = $(CONTAINER_HOME)/lib/libcontainer.a
 
+NUMA_HOME = ./numactl
+NUMA_INCS = -I$(NUMA_HOME)
+NUMA_LIBS = -lnuma
+
+
 DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
 SCRMFS_LOG_FORMAT = $(srcdir)/../scrmfs-log-format.h
 
@@ -29,11 +34,11 @@ endif
 
 VPATH = $(srcdir)
 
-CFLAGS = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE 
+CFLAGS = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ $(NUMA_INCS) @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE 
 
-CFLAGS_SHARED = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DSCRMFS_PRELOAD
+CFLAGS_SHARED = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ $(NUMA_INCS) @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DSCRMFS_PRELOAD
 
-LIBS = -lz @LIBBZ2@
+LIBS = -lz @LIBBZ2@ $(NUMA_LIBS)
 
 lib::
 	@mkdir -p $@
