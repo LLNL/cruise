@@ -316,12 +316,16 @@ int test_read(){
    /* try to read from an existent file with 0 bytes
     * should succeed, should read 0 bytes */
    fd = open(afile, O_CREAT);
+   ret = read(fd, buf, count);
+   printf("ret is %d, errno %d\n", ret, errno);
    TESTSUCC(ret, read(fd, buf, count));
    TESTSUCC(ret, 0==ret? 1:-1);
  
    /* test reading from a file with bytes
     * should succeed */
-   write(fd, buf, count);
+   TESTSUCC(ret, write(fd, buf, count));
+   /* should write count bytes */
+   TESTSUCC(ret, ret == count? 1: -1);
    TESTSUCC(ret, read(fd, buf, count));
    /* should read 0 bytes since at the end of the file */
    TESTSUCC(ret, 0==ret? 1:-1);

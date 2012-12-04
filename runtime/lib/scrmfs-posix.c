@@ -2055,10 +2055,15 @@ static int scrmfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* re
     if (filesize < newpos) {
         /* adjust count so we don't read past end of file */
         count = (size_t) (filesize - pos);
+        newpos = pos + (off_t) count;
     }
 
     /* record number of bytes that we'll actually read */
     *retcount = count;
+    /* if we don't read any bytes, return success */
+    if (count == 0){
+        return SCRMFS_SUCCESS;
+    }
 
     /* read data from file */
     int read_rc = scrmfs_fid_read(fid, pos, buf, count);
