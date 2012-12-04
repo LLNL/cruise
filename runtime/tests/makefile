@@ -1,5 +1,6 @@
 MPICC = mpiicc
-CC = gcc
+CC = icc
+CFLAGS = -g -O0
 LIBS = -lpthread
 
 PRE_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --pre-ld-flags`)
