@@ -637,22 +637,12 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
 
         /* create new container to hold this chunk */
         cs_container_handle_t* ch = &(chunk_meta->container_data.cs_container_handle);
-
-        char prefix[100];
-        sprintf(prefix,"fid_%d_chunk_%d", fid, id);
-
-        int create = 1;
-        int created = 0;
-        size_t size = 1 << SCRMFS_CHUNK_BITS;
-
-        int ret = cs_set_container_open(cs_set_handle, prefix, size, 
-                      create, &created, ch
-        );
+        int ret = scrmfs_container_open(&cs_set_handle, &ch, fid, id);
         if (ret != CS_SUCCESS) {
-           debug("creation of container for %s failed: %d\n",prefix, ret);
+           debug("creation of container failed: %d\n", ret);
            return SCRMFS_ERR_IO;
         }
-        debug("creation of container for %s succeeded\n", prefix);
+        debug("creation of container succeeded\n");
 
         /* allocate chunk from containers */
         chunk_meta->location = CHUNK_LOCATION_CONTAINER;
