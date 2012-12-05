@@ -33,6 +33,7 @@
 
 #ifdef HAVE_CONTAINER_LIB
 #include "container/src/container.h"
+#include "scrmfs-container.h"
 #endif /* HAVE_CONTAINER_LIB */
 
 #ifdef MACHINE_BGQ
@@ -1652,23 +1653,25 @@ static int scrmfs_init(int rank)
       #ifdef HAVE_CONTAINER_LIB
         /* initialize the container store */
         if (scrmfs_use_containers) {
-           int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
+           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle);
+           //int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
            if (ret != CS_SUCCESS) {
               debug("failed to create container store\n");
               return SCRMFS_FAILURE;
            }
            debug("successfully created container store\n");
-           char prefix[100];
-           int exclusive = 0;
-           size_t size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-           sprintf(prefix,"cs_set1");
-
-           ret = cs_store_set_create (cs_store_handle, prefix, size, exclusive, &cs_set_handle);
+           ret = scrmfs_container_create(&cs_store_handle, &cs_set_handle);
+           //char prefix[100];
+           //int exclusive = 0;
+           //size_t size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+           //sprintf(prefix,"cs_set1");
+//
+           //ret = cs_store_set_create (cs_store_handle, prefix, size, exclusive, &cs_set_handle);
            if (ret != CS_SUCCESS) {
-              debug("creation of container set for %s failed: %d\n",prefix, ret);
+              debug("creation of container set failed: %d\n", ret);
               return SCRMFS_FAILURE;
            } else {
-              debug("creation of container set for %s succeeded\n", prefix);
+              debug("creation of container set succeeded\n");
            }
         }
       #endif /* HAVE_CONTAINER_LIB */

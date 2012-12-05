@@ -9,7 +9,7 @@ POST_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --post-ld-flags`
 CONTAINER_HOME = ../container
 CONTAINER_INCS = -I$(CONTAINER_HOME)/include
 CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
-CONTAINER_LIBS = -lcontainer
+CONTAINER_LIBS = -lcontainer 
 
 NUMA_HOME = ../numactl
 NUMA_INCS = -I$(NUMA_HOME)
