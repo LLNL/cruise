@@ -163,8 +163,8 @@ SCRMFS_FORWARD_DECL(fgetc, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(fputc, int, (int c, FILE *stream));
 SCRMFS_FORWARD_DECL(getc, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(putc, int, (int c, FILE *stream));
-SCRMFS_FORWARD_DECL(fgets, char*, (char *restrict s, int n, FILE *restrict stream));
-SCRMFS_FORWARD_DECL(fputs, int, (const char *restrict s, FILE *restrict stream));
+SCRMFS_FORWARD_DECL(fgets, char*, (char* s, int n, FILE* stream));
+SCRMFS_FORWARD_DECL(fputs, int, (const char* s, FILE* stream));
 SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fseek,  int, (FILE *stream, long offset,  int whence));
@@ -386,7 +386,7 @@ static int scrmfs_get_fid_from_path(const char* path)
            strcmp((void *)&scrmfs_filelist[i].filename, path) == 0)
         {
             debug("File found: scrmfs_filelist[%d].filename = %s\n",
-                  i, (void *)&scrmfs_filelist[i].filename
+                  i, (char*)&scrmfs_filelist[i].filename
             );
             return i;
         }
@@ -881,7 +881,7 @@ static int scrmfs_fid_is_dir_empty(const char * path)
            char * strptr = strstr(path, scrmfs_filelist[i].filename);
            if (strptr == scrmfs_filelist[i].filename && strcmp(path,scrmfs_filelist[i].filename)) {
               debug("File found: scrmfs_filelist[%d].filename = %s\n",
-                    i, (void *)&scrmfs_filelist[i].filename
+                    i, (char*)&scrmfs_filelist[i].filename
               );
               return 0;
            }
@@ -1851,7 +1851,7 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
             }
 
             /* finally overwrite the old name with the new name */
-            debug("Changing %s to %s\n",(void *)&scrmfs_filelist[fid].filename, newpath);
+            debug("Changing %s to %s\n",(char*)&scrmfs_filelist[fid].filename, newpath);
             strcpy((void *)&scrmfs_filelist[fid].filename, newpath);
         } else {
             /* ERROR: new name already exists */
@@ -3207,7 +3207,7 @@ int SCRMFS_DECL(putc)(int c, FILE *stream)
     }
 }
 
-char* SCRMFS_DECL(fgets)(char *restrict s, int n, FILE *restrict sream)
+char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -3254,7 +3254,7 @@ char* SCRMFS_DECL(fgets)(char *restrict s, int n, FILE *restrict sream)
     }
 }
 
-int SCRMFS_DECL(fputs)(const char *restrict s, FILE *restrict stream)
+int SCRMFS_DECL(fputs)(const char* s, FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
