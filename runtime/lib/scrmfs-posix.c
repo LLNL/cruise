@@ -3240,7 +3240,7 @@ char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
         return s;
     } else {
         MAP_OR_FAIL(fgets);
-        char* ret = __real_gets(s, n, stream);
+        char* ret = __real_fgets(s, n, stream);
         return ret;
     }
 }
@@ -3265,7 +3265,7 @@ int SCRMFS_DECL(fputs)(const char* s, FILE* stream)
         return 0;
     } else {
         MAP_OR_FAIL(fputs);
-        int ret = __real_puts(s, stream);
+        int ret = __real_fputs(s, stream);
         return ret;
     }
 }
