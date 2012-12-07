@@ -33,6 +33,7 @@
 
 #ifdef HAVE_CONTAINER_LIB
 #include "container/src/container.h"
+#include "scrmfs-container.h"
 #endif /* HAVE_CONTAINER_LIB */
 
 #ifdef MACHINE_BGQ
@@ -639,22 +640,12 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
 
         /* create new container to hold this chunk */
         cs_container_handle_t* ch = &(chunk_meta->container_data.cs_container_handle);
-
-        char prefix[100];
-        sprintf(prefix,"fid_%d_chunk_%d", fid, id);
-
-        int create = 1;
-        int created = 0;
-        size_t size = 1 << SCRMFS_CHUNK_BITS;
-
-        int ret = cs_set_container_open(cs_set_handle, prefix, size, 
-                      create, &created, ch
-        );
+        int ret = scrmfs_container_open(&cs_set_handle, &ch, fid, id);
         if (ret != CS_SUCCESS) {
-           debug("creation of container for %s failed: %d\n",prefix, ret);
+           debug("creation of container failed: %d\n", ret);
            return SCRMFS_ERR_IO;
         }
-        debug("creation of container for %s succeeded\n", prefix);
+        debug("creation of container succeeded\n");
 
         /* allocate chunk from containers */
         chunk_meta->location = CHUNK_LOCATION_CONTAINER;
@@ -1267,7 +1258,7 @@ static int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid
         } else {
             /* ERROR: trying to open a file that does not exist without O_CREATE */
             debug("Couldn't find entry for %s in SCRMFS\n", path);
-            return SCRMFS_ERR_NOSPC;
+            return SCRMFS_ERR_NOENT;
         }
     } else {
         /* file already exists */
@@ -1655,23 +1646,18 @@ static int scrmfs_init(int rank)
       #ifdef HAVE_CONTAINER_LIB
         /* initialize the container store */
         if (scrmfs_use_containers) {
-           int ret = cs_store_init(scrmfs_container_info, &cs_store_handle); 
+           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle);
            if (ret != CS_SUCCESS) {
               debug("failed to create container store\n");
               return SCRMFS_FAILURE;
            }
            debug("successfully created container store\n");
-           char prefix[100];
-           int exclusive = 0;
-           size_t size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
-           sprintf(prefix,"cs_set1");
-
-           ret = cs_store_set_create (cs_store_handle, prefix, size, exclusive, &cs_set_handle);
+           ret = scrmfs_container_create(&cs_store_handle, &cs_set_handle);
            if (ret != CS_SUCCESS) {
-              debug("creation of container set for %s failed: %d\n",prefix, ret);
+              debug("creation of container set failed: %d\n", ret);
               return SCRMFS_FAILURE;
            } else {
-              debug("creation of container set for %s succeeded\n", prefix);
+              debug("creation of container set succeeded\n");
            }
         }
       #endif /* HAVE_CONTAINER_LIB */
@@ -2058,10 +2044,15 @@ static int scrmfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* re
     if (filesize < newpos) {
         /* adjust count so we don't read past end of file */
         count = (size_t) (filesize - pos);
+        newpos = pos + (off_t) count;
     }
 
     /* record number of bytes that we'll actually read */
     *retcount = count;
+    /* if we don't read any bytes, return success */
+    if (count == 0){
+        return SCRMFS_SUCCESS;
+    }
 
     /* read data from file */
     int read_rc = scrmfs_fid_read(fid, pos, buf, count);

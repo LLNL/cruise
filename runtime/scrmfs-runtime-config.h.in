@@ -6,8 +6,14 @@
 /* Name of the environment variable that stores the jobid */
 #undef CP_JOBID
 
+/* Define if libcontainer is available */
+#undef HAVE_CONTAINER_LIB
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `container' library (-lcontainer). */
+#undef HAVE_LIBCONTAINER
 
 /* Define to 1 if you have the `z' library (-lz). */
 #undef HAVE_LIBZ

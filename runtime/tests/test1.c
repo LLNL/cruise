@@ -46,7 +46,7 @@ int test1();
 
 int main(int argc, char ** argv){
   int rc;
-
+  scrmfs_mount("/tmp", 4096 * 4096, 0);
   CHECK(rc = test_open()); 
   CHECK(rc = test_close());
   CHECK(rc = test_unlink());
@@ -72,6 +72,7 @@ int test_open(){
    /* open a file that does not exist without create flag
     * should fail */
    TESTFAILERR(fd,open(afile, O_WRONLY), ENOENT);
+   //TESTFAILERR(fd,open(afile, O_WRONLY), -1);
 
    /* open a file that does not exist with create flag
     * should succeed */
@@ -315,12 +316,16 @@ int test_read(){
    /* try to read from an existent file with 0 bytes
     * should succeed, should read 0 bytes */
    fd = open(afile, O_CREAT);
+   ret = read(fd, buf, count);
+   printf("ret is %d, errno %d\n", ret, errno);
    TESTSUCC(ret, read(fd, buf, count));
    TESTSUCC(ret, 0==ret? 1:-1);
  
    /* test reading from a file with bytes
     * should succeed */
-   write(fd, buf, count);
+   TESTSUCC(ret, write(fd, buf, count));
+   /* should write count bytes */
+   TESTSUCC(ret, ret == count? 1: -1);
    TESTSUCC(ret, read(fd, buf, count));
    /* should read 0 bytes since at the end of the file */
    TESTSUCC(ret, 0==ret? 1:-1);
@@ -337,4 +342,6 @@ int test_read(){
 
    close(fd);
    rmdir(adir);
+
+   return 1;
 }
