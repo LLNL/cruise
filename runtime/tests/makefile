@@ -1,5 +1,7 @@
 MPICC = mpiicc
 CC = icc
+#MPICC = mpicc
+#CC = gcc
 CFLAGS = -g -O0
 LIBS = -lpthread
 
@@ -20,10 +22,10 @@ LIBS = -lpthread $(NUMA_LIBS) $(CONTAINER_LIBS)
 LDFLAGS = $(NUMA_LDFLAGS) $(CONTAINER_LDFLAGS)
 
 
-all: test1 test_writeread
+all: test1 test_writeread 
 
 clean: 
-	rm -f *.o test1 test1_container test_writeread
+	rm -f *.o test1 test1_container test_writeread 
 
 test1: test1.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test1.c -o test1 $(LDFLAGS) $(LIBS) $(LDFLAGS) $(POST_SCRMFS_FLAGS) 
