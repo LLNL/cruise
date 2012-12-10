@@ -114,6 +114,7 @@ SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
 SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
 SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
+/* TODO: remove */
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
 SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
@@ -163,6 +164,8 @@ SCRMFS_FORWARD_DECL(fgetc, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(fputc, int, (int c, FILE *stream));
 SCRMFS_FORWARD_DECL(getc, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(putc, int, (int c, FILE *stream));
+SCRMFS_FORWARD_DECL(fgets, char*, (char* s, int n, FILE* stream));
+SCRMFS_FORWARD_DECL(fputs, int, (const char* s, FILE* stream));
 SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fseek,  int, (FILE *stream, long offset,  int whence));
@@ -384,7 +387,7 @@ static int scrmfs_get_fid_from_path(const char* path)
            strcmp((void *)&scrmfs_filelist[i].filename, path) == 0)
         {
             debug("File found: scrmfs_filelist[%d].filename = %s\n",
-                  i, (void *)&scrmfs_filelist[i].filename
+                  i, (char*)&scrmfs_filelist[i].filename
             );
             return i;
         }
@@ -869,7 +872,7 @@ static int scrmfs_fid_is_dir_empty(const char * path)
            char * strptr = strstr(path, scrmfs_filelist[i].filename);
            if (strptr == scrmfs_filelist[i].filename && strcmp(path,scrmfs_filelist[i].filename)) {
               debug("File found: scrmfs_filelist[%d].filename = %s\n",
-                    i, (void *)&scrmfs_filelist[i].filename
+                    i, (char*)&scrmfs_filelist[i].filename
               );
               return 0;
            }
@@ -1834,7 +1837,7 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
             }
 
             /* finally overwrite the old name with the new name */
-            debug("Changing %s to %s\n",(void *)&scrmfs_filelist[fid].filename, newpath);
+            debug("Changing %s to %s\n",(char*)&scrmfs_filelist[fid].filename, newpath);
             strcpy((void *)&scrmfs_filelist[fid].filename, newpath);
         } else {
             /* ERROR: new name already exists */
@@ -3114,7 +3117,7 @@ int SCRMFS_DECL(fgetc)(FILE *stream)
         size_t count = 1;
         size_t retcount;
         int read_rc = scrmfs_stream_read(stream, &charbuf, count, &retcount);
-        if (read_rc != SCRMFS_SUCCESS) {
+        if (read_rc != SCRMFS_SUCCESS || retcount == 0) {
             /* stream read sets error indicator, EOF indicator, and errno for us */
             return EOF;
         }
@@ -3159,7 +3162,7 @@ int SCRMFS_DECL(getc)(FILE *stream)
         size_t count = 1;
         size_t retcount;
         int read_rc = scrmfs_stream_read(stream, &charbuf, count, &retcount);
-        if (read_rc != SCRMFS_SUCCESS) {
+        if (read_rc != SCRMFS_SUCCESS || retcount == 0) {
             /* stream read sets error indicator, EOF indicator, and errno for us */
             return EOF;
         }
@@ -3195,6 +3198,78 @@ int SCRMFS_DECL(putc)(int c, FILE *stream)
     }
 }
 
+char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* TODO: this isn't the most efficient algorithm, but it works,
+         * would be faster to read a large block of characters then
+         * scan for newline */
+
+        /* read one character at a time until we hit a newline, read
+         * n-1 characters or hit the end of the file (or a read error) */
+        int limit = 0;
+        while (limit < n-1) {
+            /* read the next character from the file */
+            char charbuf;
+            size_t retcount;
+            int read_rc = scrmfs_stream_read(stream, &charbuf, 1, &retcount);
+            if (read_rc != SCRMFS_SUCCESS) {
+                /* stream read sets error indicator, EOF indicator,
+                 * and errno for us */
+                return NULL;
+            }
+
+            /* if we hit the end of the file, terminate the string
+             * and return NULL */
+            if (retcount < 1) {
+                s[limit] = '\0';
+                return NULL;
+            }
+
+            /* copy character to buffer */
+            s[limit] = charbuf;
+            limit++;
+
+            /* if we hit a newline, break early */
+            if (charbuf == '\n') {
+                break;
+            }
+        }
+
+        return s;
+    } else {
+        MAP_OR_FAIL(fgets);
+        char* ret = __real_fgets(s, n, stream);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fputs)(const char* s, FILE* stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* TODO: check that s is not NULL */
+
+        /* get length of string, less the NUL-terminating byte */
+        size_t count = strlen(s);
+
+        /* write data to file */
+        int write_rc = scrmfs_stream_write(stream, (const void*)s, count);
+        if (write_rc != SCRMFS_SUCCESS) {
+            /* stream write sets error indicator, EOF indicator, and errno for us */
+            return EOF;
+        }
+
+        /* return success */
+        return 0;
+    } else {
+        MAP_OR_FAIL(fputs);
+        int ret = __real_fputs(s, stream);
+        return ret;
+    }
+}
+
 size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
 {
     /* check whether we should intercept this stream */
@@ -3216,14 +3291,14 @@ size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
             return 0;
         }
 
-        /* adjust return value if we read less data than requested */
-        size_t nitems_read = nitems;
-        if (retcount < count) {
-            nitems_read = retcount / size;
-        }
-
         /* return number of items read */
-        return nitems_read;
+        if (retcount < count) {
+            /* adjust return value if we read less data than requested */
+            size_t nitems_read = retcount / size;
+            return nitems_read;
+        } else {
+            return nitems;
+        }
     } else {
         MAP_OR_FAIL(fread);
         size_t ret = __real_fread(ptr, size, nitems, stream);
@@ -3583,12 +3658,16 @@ int SCRMFS_DECL(fclose)(FILE *stream)
  * fputc
  * getc
  * putc
+ * fgets
+ * fputs
  * -- ungetc
+ * -- fgetwc
+ * -- fputwc
+ * -- getwc*
+ * -- putwc*
+ * -- fgetws
+ * -- fputws
  * -- ungetwc
- * -- getw
- * -- putw
- * -- fgets
- * -- fputs
  * fread
  * fwrite
  *

@@ -226,6 +226,11 @@ void checkdata(char* file, size_t size, int times)
       if (fd_me > 0) {
         valid = 1;
 
+        rc = ftruncate(fd_me, size);
+        if (rc < 0) {
+          valid = 0;
+        }
+
         /* write the checkpoint data */
         rc = write_checkpoint(fd_me, rank, i, buf, size);
         if (rc < 0) {
@@ -298,6 +303,11 @@ void checkdata(char* file, size_t size, int times)
         sleep(seconds);
       }
 
+      rc = truncate(file, 0);
+      if (rc < 0) {
+        valid = 0;
+      }
+
       unlink(file);
     }
   }
@@ -332,13 +342,13 @@ int main (int argc, char* argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &ranks);
 
-  scrmfs_mount("/tmp",1024,0);
-
   char name[256];
   sprintf(name, "/tmp/rank.%d", rank);
 
   /* allocate space for the checkpoint data (make filesize a function of rank for some variation) */
   filesize = filesize + rank;
+
+  scrmfs_mount("/tmp", filesize, rank);
 
   /* verify data integrity in file */
   checkdata(name, filesize, times);

@@ -342,4 +342,6 @@ int test_read(){
 
    close(fd);
    rmdir(adir);
+
+   return 1;
 }
