@@ -65,7 +65,7 @@ static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle;     /* the container set handle */
 #endif /* HAVE_CONTAINER_LIB */
 
-#define SCRMFS_DEBUG
+//#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
@@ -1148,9 +1148,6 @@ static int scrmfs_fid_extend(int fid, off_t length)
     /* if we write past the end of the file, we need to update the
      * file size, and we may need to allocate more chunks */
     if (length > meta->size) {
-        /* update file size */
-        meta->size = length;
-
         /* TODO: check that we don't overrun the max number of chunks for a file */
 
         /* determine whether we need to allocate more chunks */
@@ -1171,6 +1168,9 @@ static int scrmfs_fid_extend(int fid, off_t length)
                 additional -= SCRMFS_CHUNK_SIZE;
             }
         }
+
+        /* we have storage to extend file so update its size */
+        meta->size = length;
     }
 
     return SCRMFS_SUCCESS;
@@ -1505,14 +1505,14 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* open file in persistent memory */
     int fd = persist_open((char*)name, O_RDWR, 0600);
     if (fd < 0) {
-        perror("unable to open persistent memory file\n");
+        perror("unable to open persistent memory file");
         return NULL;
     }
 
     /* truncate file to correct size */
     int rc = ftruncate(fd, (off_t)size_1MB);
     if (rc < 0) {
-      perror("ftruncate of persistent memory region failed\n");
+      perror("ftruncate of persistent memory region failed");
       close(fd);
       return NULL;
     }
@@ -1520,7 +1520,7 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* mmap file */
     void* shmptr = mmap(NULL, (size_t)size_1MB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (shmptr == MAP_FAILED) {
-        perror("mmap of shared memory region failed\n");
+        perror("mmap of shared memory region failed");
         close(fd);
         return NULL;
     }
@@ -2039,16 +2039,16 @@ static int scrmfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* re
     }
 
     /* check that we don't try to read past the end of the file */
-    off_t newpos = pos + (off_t) count;
+    off_t lastread = pos + (off_t) count;
     off_t filesize = scrmfs_fid_size(fid);
-    if (filesize < newpos) {
+    if (filesize < lastread) {
         /* adjust count so we don't read past end of file */
         count = (size_t) (filesize - pos);
-        newpos = pos + (off_t) count;
     }
 
     /* record number of bytes that we'll actually read */
     *retcount = count;
+
     /* if we don't read any bytes, return success */
     if (count == 0){
         return SCRMFS_SUCCESS;
