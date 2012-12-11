@@ -1,5 +1,7 @@
 MPICC = mpiicc
 CC = icc
+#MPICC = mpicc
+#CC = gcc
 CFLAGS = -g -O0
 LIBS = -lpthread
 
