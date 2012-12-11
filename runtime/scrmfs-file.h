@@ -57,9 +57,6 @@ typedef struct {
 typedef struct {
     int location;
     off_t id;
-    #ifdef HAVE_CONTAINER_LIB
-    scrmfs_container_t container_data;
-    #endif /* HAVE_CONTAINER_LIB */
 } scrmfs_chunkmeta_t;
 
 typedef struct {
@@ -69,6 +66,9 @@ typedef struct {
     int is_dir;  /* is this file a directory */
     pthread_spinlock_t fspinlock;
     enum flock_enum flock_status;
+    #ifdef HAVE_CONTAINER_LIB
+    scrmfs_container_t container_data;
+    #endif /* HAVE_CONTAINER_LIB */
 } scrmfs_filemeta_t;
 
 /* path to fid lookup struct */

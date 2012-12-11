@@ -13,7 +13,8 @@
 #include <string.h>
 #include "mpi.h"
 
-size_t filesize = 100*1024*1024;
+//size_t filesize = 100*1024*1024;
+size_t filesize = 1024*1024;
 int times = 5;
 int seconds = 0;
 int rank  = -1;

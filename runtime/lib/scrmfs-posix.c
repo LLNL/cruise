@@ -637,15 +637,22 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
             debug("failed to allocate chunk (%d)\n", id);
             return SCRMFS_ERR_NOSPC;
         }
-
+        //TODO extend container not implemented yet. always returns out of space
+        scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
+        cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle );
+        int ret = scrmfs_container_extend(cs_set_handle, ch);
+        if (ret != SCRMFS_SUCCESS){
+           return ret;
+        }
+      
         /* create new container to hold this chunk */
-        cs_container_handle_t* ch = &(chunk_meta->container_data.cs_container_handle);
+        /*cs_container_handle_t* ch = &(chunk_meta->container_data.cs_container_handle );
         int ret = scrmfs_container_open(&cs_set_handle, &ch, fid, id);
         if (ret != CS_SUCCESS) {
            debug("creation of container failed: %d\n", ret);
            return SCRMFS_ERR_IO;
         }
-        debug("creation of container succeeded\n");
+        debug("creation of container succeeded\n"); */
 
         /* allocate chunk from containers */
         chunk_meta->location = CHUNK_LOCATION_CONTAINER;
@@ -731,8 +738,9 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
     }
   #ifdef HAVE_CONTAINER_LIB
     else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
+   //TODO fix me KMM
         /* read chunk from containers */
-        cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
+        /*cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
 
         size_t memcount = 1;
         size_t memsizes = count;
@@ -748,7 +756,7 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
             debug("container read failed\n");
             return SCRMFS_ERR_IO;
         }
-        debug("container read succeeded\n");
+        debug("container read succeeded\n");*/
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -787,7 +795,8 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
   #ifdef HAVE_CONTAINER_LIB
     else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
         /* write chunk to containers */
-        cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
+        //TODO fix me KMM
+        /*cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
 
         size_t memsizes = count;
         cs_off_t fileofs = chunk_offset;
@@ -801,7 +810,7 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
             debug("container write failed for single container write: %d\n");
             return SCRMFS_ERR_IO;
         }
-        debug("container write was successful\n");
+        debug("container write was successful\n"); */
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -1255,6 +1264,17 @@ static int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid
                debug("Failed to create new file %s\n", path);
                return SCRMFS_ERR_NFILE;
             }
+#ifdef HAVE_CONTAINER_LIB
+            scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
+            cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle );
+            size_t size = SCRMFS_CHUNK_SIZE;
+            int ret = scrmfs_container_open(&cs_set_handle, &ch, fid, size, path);
+            if (ret != CS_SUCCESS) {
+              debug("creation of container failed: %d\n", ret);
+              return SCRMFS_ERR_IO;
+            }
+            debug("creation of container succeeded\n");
+#endif  //have containers
         } else {
             /* ERROR: trying to open a file that does not exist without O_CREATE */
             debug("Couldn't find entry for %s in SCRMFS\n", path);
@@ -1296,6 +1316,7 @@ static int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid
     *outfid = fid;
     *outpos = pos;
     debug("SCRMFS_open generated fd %d for file %s\n", fid, path);    
+
 
     /* don't conflict with active system fds that range from 0 - (fd_limit) */
     return SCRMFS_SUCCESS;
@@ -1646,19 +1667,19 @@ static int scrmfs_init(int rank)
       #ifdef HAVE_CONTAINER_LIB
         /* initialize the container store */
         if (scrmfs_use_containers) {
-           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle);
+           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle, & cs_set_handle, SCRMFS_CHUNK_SIZE * SCRMFS_MAX_CHUNKS);
            if (ret != CS_SUCCESS) {
               debug("failed to create container store\n");
               return SCRMFS_FAILURE;
            }
            debug("successfully created container store\n");
-           ret = scrmfs_container_create(&cs_store_handle, &cs_set_handle);
+           /*ret = scrmfs_container_create(&cs_store_handle, &cs_set_handle);
            if (ret != CS_SUCCESS) {
               debug("creation of container set failed: %d\n", ret);
               return SCRMFS_FAILURE;
            } else {
               debug("creation of container set succeeded\n");
-           }
+           } */
         }
       #endif /* HAVE_CONTAINER_LIB */
 
