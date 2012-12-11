@@ -65,7 +65,7 @@ typedef struct {
 typedef struct {
     off_t size;   /* current file size */
     off_t chunks; /* number of chunks currently allocated to file */
-    scrmfs_chunkmeta_t chunk_meta[SCRMFS_MAX_CHUNKS]; /* meta data for chunks */
+    scrmfs_chunkmeta_t* chunk_meta; /* meta data for chunks */
     int is_dir;  /* is this file a directory */
     pthread_spinlock_t fspinlock;
     enum flock_enum flock_status;
@@ -76,9 +76,3 @@ typedef struct {
     int in_use;
     const char filename[SCRMFS_MAX_FILENAME];
 } scrmfs_filename_t;
-
-typedef struct {
-    char buf[SCRMFS_CHUNK_SIZE];
-    /* location: memory or file */
-    /* compression type / size */
-} chunk_t;
