@@ -55,6 +55,16 @@ static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
 static int scrmfs_page_size = 0;
 
+static int    scrmfs_max_files;  /* maximum number of files to store */
+static size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
+static int    scrmfs_chunk_bits; /* we set chunk size = 2^scrmfs_chunk_bits */
+static off_t  scrmfs_chunk_size; /* chunk size in bytes */
+static off_t  scrmfs_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
+static int    scrmfs_max_chunks; /* maximum number of chunks that fit in memory */
+
+static size_t scrmfs_spillover_size;  /* number of bytes in spillover to be used for chunk storage */
+static int    scrmfs_spillover_max_chunks; /* maximum number of chunks that fit in spillover storage */
+
 #ifdef ENABLE_NUMA_POLICY
 static char scrmfs_numa_policy[10];
 #endif
@@ -65,7 +75,7 @@ static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle;     /* the container set handle */
 #endif /* HAVE_CONTAINER_LIB */
 
-#define SCRMFS_DEBUG
+//#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
@@ -188,8 +198,9 @@ static void* scrmfs_superblock = NULL;
 static void* free_fid_stack = NULL;
 static void* free_chunk_stack = NULL;
 static void* free_spillchunk_stack = NULL;
-static scrmfs_filename_t* scrmfs_filelist = NULL;
-static scrmfs_filemeta_t* scrmfs_filemetas = NULL;
+static scrmfs_filename_t* scrmfs_filelist    = NULL;
+static scrmfs_filemeta_t* scrmfs_filemetas   = NULL;
+static scrmfs_chunkmeta_t* scrmfs_chunkmetas = NULL;
 static char* scrmfs_chunks = NULL;
 static int scrmfs_spilloverblock = 0;
 
@@ -381,7 +392,7 @@ static inline int scrmfs_intercept_stream(FILE* stream)
 static int scrmfs_get_fid_from_path(const char* path)
 {
     int i = 0;
-    while (i < SCRMFS_MAX_FILES)
+    while (i < scrmfs_max_files)
     {
         if(scrmfs_filelist[i].in_use &&
            strcmp((void *)&scrmfs_filelist[i].filename, path) == 0)
@@ -426,7 +437,7 @@ static inline scrmfs_fd_t* scrmfs_get_filedesc_from_fd(int fd)
 static inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
 {
     /* check that the file id is within range of our array */
-    if (fid >= 0 && fid < SCRMFS_MAX_FILES) {
+    if (fid >= 0 && fid < scrmfs_max_files) {
         /* get a pointer to the file meta data structure */
         scrmfs_filemeta_t* meta = &scrmfs_filemetas[fid];
         return meta;
@@ -440,7 +451,7 @@ static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid)
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
     if (meta != NULL) {
         /* now lookup chunk meta data for specified chunk id */
-        if (cid >= 0 && cid < SCRMFS_MAX_CHUNKS) {
+        if (cid >= 0 && cid < scrmfs_max_chunks) {
            scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[cid]);
            return chunk_meta;
         }
@@ -527,8 +538,8 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
 
     /* compute the start of the chunk */
     char *start = NULL;
-    if (physical_id < SCRMFS_MAX_CHUNKS) {
-        start = scrmfs_chunks + (physical_id << SCRMFS_CHUNK_BITS);
+    if (physical_id < scrmfs_max_chunks) {
+        start = scrmfs_chunks + (physical_id << scrmfs_chunk_bits);
     } else {
         /* chunk is in spill over */
         debug("wrong chunk ID\n");
@@ -552,14 +563,14 @@ static inline off_t scrmfs_compute_spill_offset(const scrmfs_filemeta_t* meta, i
 
     /* compute start of chunk in spill over device */
     off_t start = 0;
-    if (physical_id < SCRMFS_MAX_CHUNKS) {
+    if (physical_id < scrmfs_max_chunks) {
         debug("wrong spill-chunk ID\n");
         return -1;
     } else {
         /* compute buffer loc within spillover device chunk */
-        /* account for the SCRMFS_MAX_CHUNKS added to identify location when
+        /* account for the scrmfs_max_chunks added to identify location when
          * grabbing this chunk */
-        start = ((physical_id - SCRMFS_MAX_CHUNKS) << SCRMFS_CHUNK_BITS);
+        start = ((physical_id - scrmfs_max_chunks) << scrmfs_chunk_bits);
     }
     off_t buf = start + logical_offset;
     return buf;
@@ -588,11 +599,11 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
             debug("getting blocks from spill-over device\n");
 
             /* TODO: missing lock calls? */
-            /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+            /* add scrmfs_max_chunks to identify chunk location */
             scrmfs_stack_lock();
-            id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+            id = scrmfs_stack_pop(free_spillchunk_stack) + scrmfs_max_chunks;
             scrmfs_stack_unlock();
-            if (id < SCRMFS_MAX_CHUNKS) {
+            if (id < scrmfs_max_chunks) {
                 debug("spill-over device out of space (%d)\n", id);
                 return SCRMFS_ERR_NOSPC;
             }
@@ -612,11 +623,11 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         debug("getting blocks from spill-over device \n");
 
         /* TODO: missing lock calls? */
-        /* add SCRMFS_MAX_CHUNKS to identify chunk location */
+        /* add scrmfs_max_chunks to identify chunk location */
         scrmfs_stack_lock();
-        int id = scrmfs_stack_pop(free_spillchunk_stack) + SCRMFS_MAX_CHUNKS;
+        int id = scrmfs_stack_pop(free_spillchunk_stack) + scrmfs_max_chunks;
         scrmfs_stack_unlock();
-        if (id < SCRMFS_MAX_CHUNKS) {
+        if (id < scrmfs_max_chunks) {
             debug("spill-over device out of space (%d)\n", id);
             return SCRMFS_ERR_NOSPC;
         }
@@ -874,7 +885,7 @@ static int scrmfs_fid_is_dir(int fid)
 static int scrmfs_fid_is_dir_empty(const char * path)
 {
     int i = 0;
-    while (i < SCRMFS_MAX_FILES) {
+    while (i < scrmfs_max_files) {
        if(scrmfs_filelist[i].in_use) {
            /* if the file starts with the path, it is inside of that directory 
             * also check to make sure that it's not the directory entry itself */
@@ -1013,11 +1024,11 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
     /* get pointer to position within first chunk */
-    int chunk_id = pos >> SCRMFS_CHUNK_BITS;
-    off_t chunk_offset = pos & SCRMFS_CHUNK_MASK;
+    int chunk_id = pos >> scrmfs_chunk_bits;
+    off_t chunk_offset = pos & scrmfs_chunk_mask;
 
     /* determine how many bytes remain in the current chunk */
-    size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
+    size_t remaining = scrmfs_chunk_size - chunk_offset;
     if (count <= remaining) {
         /* all bytes for this read fit within the current chunk */
         rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, buf, count);
@@ -1035,8 +1046,8 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
 
             /* compute size to read from this chunk */
             size_t num = count - processed;
-            if (num > SCRMFS_CHUNK_SIZE) {
-                num = SCRMFS_CHUNK_SIZE;
+            if (num > scrmfs_chunk_size) {
+                num = scrmfs_chunk_size;
             }
    
             /* read data */
@@ -1062,11 +1073,11 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
     /* get pointer to position within first chunk */
-    int chunk_id = pos >> SCRMFS_CHUNK_BITS;
-    off_t chunk_offset = pos & SCRMFS_CHUNK_MASK;
+    int chunk_id = pos >> scrmfs_chunk_bits;
+    off_t chunk_offset = pos & scrmfs_chunk_mask;
 
     /* determine how many bytes remain in the current chunk */
-    size_t remaining = SCRMFS_CHUNK_SIZE - chunk_offset;
+    size_t remaining = scrmfs_chunk_size - chunk_offset;
     if (count <= remaining) {
         /* all bytes for this write fit within the current chunk */
         rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, buf, count);
@@ -1085,8 +1096,8 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
 
             /* compute size to write to this chunk */
             size_t num = count - processed;
-            if (num > SCRMFS_CHUNK_SIZE) {
-              num = SCRMFS_CHUNK_SIZE;
+            if (num > scrmfs_chunk_size) {
+              num = scrmfs_chunk_size;
             }
    
             /* write data */
@@ -1157,13 +1168,10 @@ static int scrmfs_fid_extend(int fid, off_t length)
     /* if we write past the end of the file, we need to update the
      * file size, and we may need to allocate more chunks */
     if (length > meta->size) {
-        /* update file size */
-        meta->size = length;
-
         /* TODO: check that we don't overrun the max number of chunks for a file */
 
         /* determine whether we need to allocate more chunks */
-        off_t maxsize = meta->chunks << SCRMFS_CHUNK_BITS;
+        off_t maxsize = meta->chunks << scrmfs_chunk_bits;
         if (length > maxsize) {
             /* compute number of additional bytes we need */
             off_t additional = length - maxsize;
@@ -1177,9 +1185,12 @@ static int scrmfs_fid_extend(int fid, off_t length)
 
                 /* increase chunk count and subtract bytes from the number we need */
                 meta->chunks++;
-                additional -= SCRMFS_CHUNK_SIZE;
+                additional -= scrmfs_chunk_size;
             }
         }
+
+        /* we have storage to extend file so update its size */
+        meta->size = length;
     }
 
     return SCRMFS_SUCCESS;
@@ -1202,7 +1213,7 @@ static int scrmfs_fid_truncate(int fid, off_t length)
         /* determine the number of chunks to leave after truncating */
         off_t num_chunks = 0;
         if (length > 0) {
-            num_chunks = (length >> SCRMFS_CHUNK_BITS) + 1;
+            num_chunks = (length >> scrmfs_chunk_bits) + 1;
         }
 
         /* clear off any extra chunks */
@@ -1356,24 +1367,28 @@ static void* scrmfs_init_pointers(void* superblock)
 
     /* stack to manage free file ids */
     free_fid_stack = ptr;
-    ptr += scrmfs_stack_bytes(SCRMFS_MAX_FILES);
+    ptr += scrmfs_stack_bytes(scrmfs_max_files);
 
     /* record list of file names */
     scrmfs_filelist = (scrmfs_filename_t*) ptr;
-    ptr += SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t);
+    ptr += scrmfs_max_files * sizeof(scrmfs_filename_t);
 
     /* array of file meta data structures */
     scrmfs_filemetas = (scrmfs_filemeta_t*) ptr;
-    ptr += SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t);
+    ptr += scrmfs_max_files * sizeof(scrmfs_filemeta_t);
+
+    /* array of chunk meta data strucutres for each file */
+    scrmfs_chunkmetas = (scrmfs_chunkmeta_t*) ptr;
+    ptr += scrmfs_max_files * scrmfs_max_chunks * sizeof(scrmfs_chunkmeta_t);
 
     /* stack to manage free memory data chunks */
     free_chunk_stack = ptr;
-    ptr += scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);
+    ptr += scrmfs_stack_bytes(scrmfs_max_chunks);
 
     if (scrmfs_use_spillover) {
         /* stack to manage free spill-over data chunks */
         free_spillchunk_stack = ptr;
-        ptr += scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS);
+        ptr += scrmfs_stack_bytes(scrmfs_spillover_max_chunks);
     }
 
     /* Only set this up if we're using memfs */
@@ -1388,7 +1403,7 @@ static void* scrmfs_init_pointers(void* superblock)
 
       /* pointer to start of memory data chunks */
       scrmfs_chunks = ptr;
-      ptr += SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+      ptr += scrmfs_max_chunks * scrmfs_chunk_size;
     } else{
       scrmfs_chunks = NULL;
     }
@@ -1400,16 +1415,22 @@ static void* scrmfs_init_pointers(void* superblock)
 static int scrmfs_init_structures()
 {
     int i;
-    for (i = 0; i < SCRMFS_MAX_FILES; i++) {
+    for (i = 0; i < scrmfs_max_files; i++) {
+        /* indicate that file id is not in use by setting flag to 0 */
         scrmfs_filelist[i].in_use = 0;
+
+        /* set pointer to array of chunkmeta data structures */
+        scrmfs_filemeta_t* filemeta = &scrmfs_filemetas[i];
+        scrmfs_chunkmeta_t* chunkmetas = &(scrmfs_chunkmetas[scrmfs_max_chunks * i]);
+        filemeta->chunk_meta = chunkmetas;
     }
 
-    scrmfs_stack_init(free_fid_stack, SCRMFS_MAX_FILES);
+    scrmfs_stack_init(free_fid_stack, scrmfs_max_files);
 
-    scrmfs_stack_init(free_chunk_stack, SCRMFS_MAX_CHUNKS);
+    scrmfs_stack_init(free_chunk_stack, scrmfs_max_chunks);
 
     if (scrmfs_use_spillover) {
-        scrmfs_stack_init(free_spillchunk_stack, SCRMFS_MAX_SPILL_CHUNKS);
+        scrmfs_stack_init(free_spillchunk_stack, scrmfs_spillover_max_chunks);
     }
 
     debug("Meta-stacks initialized!\n");
@@ -1526,14 +1547,14 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* open file in persistent memory */
     int fd = persist_open((char*)name, O_RDWR, 0600);
     if (fd < 0) {
-        perror("unable to open persistent memory file\n");
+        perror("unable to open persistent memory file");
         return NULL;
     }
 
     /* truncate file to correct size */
     int rc = ftruncate(fd, (off_t)size_1MB);
     if (rc < 0) {
-      perror("ftruncate of persistent memory region failed\n");
+      perror("ftruncate of persistent memory region failed");
       close(fd);
       return NULL;
     }
@@ -1541,7 +1562,7 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* mmap file */
     void* shmptr = mmap(NULL, (size_t)size_1MB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (shmptr == MAP_FAILED) {
-        perror("mmap of shared memory region failed\n");
+        perror("mmap of shared memory region failed");
         close(fd);
         return NULL;
     }
@@ -1559,9 +1580,95 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
 }
 #endif /* MACHINE_BGQ */
 
+/* converts string like 10mb to unsigned long long integer value of 10*1024*1024 */
+static int scrmfs_abtoull(char* str, unsigned long long* val)
+{
+  /* check that we have a string */
+  if (str == NULL) {
+    debug("scr_abtoull: Can't convert NULL string to bytes @ %s:%d",
+            __FILE__, __LINE__
+    );
+    return SCRMFS_FAILURE;
+  }
+
+  /* check that we have a value to write to */
+  if (val == NULL) {
+    debug("scr_abtoull: NULL address to store value @ %s:%d",
+            __FILE__, __LINE__
+    );
+    return SCRMFS_FAILURE;
+  }
+
+  /* pull the floating point portion of our byte string off */
+  errno = 0;
+  char* next = NULL;
+  double num = strtod(str, &next);
+  if (errno != 0) {
+    debug("scr_abtoull: Invalid double: %s @ %s:%d",
+            str, __FILE__, __LINE__
+    );
+    return SCRMFS_FAILURE;
+  }
+
+  /* now extract any units, e.g. KB MB GB, etc */
+  unsigned long long units = 1;
+  if (*next != '\0') {
+    switch(*next) {
+    case 'k':
+    case 'K':
+      units = 1024;
+      break;
+    case 'm':
+    case 'M':
+      units = 1024*1024;
+      break;
+    case 'g':
+    case 'G':
+      units = 1024*1024*1024;
+      break;
+    default:
+      debug("scr_abtoull: Unexpected byte string %s @ %s:%d",
+              str, __FILE__, __LINE__
+      );
+      return SCRMFS_FAILURE;
+    }
+
+    next++;
+
+    /* handle optional b or B character, e.g. in 10KB */
+    if (*next == 'b' || *next == 'B') {
+      next++;
+    }
+
+    /* check that we've hit the end of the string */
+    if (*next != 0) {
+      debug("scr_abtoull: Unexpected byte string: %s @ %s:%d",
+              str, __FILE__, __LINE__
+      );
+      return SCRMFS_FAILURE;
+    }
+  }
+
+  /* check that we got a positive value */
+  if (num < 0) {
+    debug("scr_abtoull: Byte string must be positive: %s @ %s:%d",
+            str, __FILE__, __LINE__
+    );
+    return SCRMFS_FAILURE;
+  }
+
+  /* multiply by our units and set out return value */
+  *val = (unsigned long long) (num * (double) units);
+
+  return SCRMFS_SUCCESS;
+}
+
 static int scrmfs_init(int rank)
 {
     if (! scrmfs_initialized) {
+        char* env;
+        unsigned long long bytes;
+
         /* look up page size for buffer alignment */
         scrmfs_page_size = getpagesize();
 
@@ -1569,7 +1676,7 @@ static int scrmfs_init(int rank)
         scrmfs_use_containers = 0;
         scrmfs_use_spillover = 0;
 
-        char* env = getenv("SCRMFS_USE_CONTAINERS");
+        env = getenv("SCRMFS_USE_CONTAINERS");
         if (env) {
             int val = atoi(env);
             if (val != 0) {
@@ -1589,6 +1696,46 @@ static int scrmfs_init(int rank)
 
         debug("are we using containers? %d\n", scrmfs_use_containers);
         debug("are we using spillover? %d\n", scrmfs_use_spillover);
+
+        /* determine max number of files to store in file system */
+        scrmfs_max_files = SCRMFS_MAX_FILES;
+        env = getenv("SCRMFS_MAX_FILES");
+        if (env) {
+            int val = atoi(env);
+            scrmfs_max_files = val;
+        }
+
+        /* determine number of bits for chunk size */
+        scrmfs_chunk_bits = SCRMFS_CHUNK_BITS;
+        env = getenv("SCRMFS_CHUNK_BITS");
+        if (env) {
+            int val = atoi(env);
+            scrmfs_chunk_bits = val;
+        }
+
+        /* determine maximum number of bytes of memory to use for chunk storage */
+        scrmfs_chunk_mem = SCRMFS_CHUNK_MEM;
+        env = getenv("SCRMFS_CHUNK_MEM");
+        if (env) {
+            scrmfs_abtoull(env, &bytes);
+            scrmfs_chunk_mem = (size_t) bytes;
+        }
+
+        /* set chunk size, set chunk offset mask, and set total number of chunks */
+        scrmfs_chunk_size = 1 << scrmfs_chunk_bits;
+        scrmfs_chunk_mask = scrmfs_chunk_size - 1;
+        scrmfs_max_chunks = scrmfs_chunk_mem >> scrmfs_chunk_bits;
+
+        /* determine maximum number of bytes of spillover to use for chunk storage */
+        scrmfs_spillover_size = SCRMFS_SPILLOVER_SIZE;
+        env = getenv("SCRMFS_SPILLOVER_SIZE");
+        if (env) {
+            scrmfs_abtoull(env, &bytes);
+            scrmfs_spillover_size = (size_t) bytes;
+        }
+
+        /* set number of chunks in spillover device */
+        scrmfs_spillover_max_chunks = scrmfs_spillover_size >> scrmfs_chunk_bits;
 
 #ifdef ENABLE_NUMA_POLICY
         env = getenv("SCRMFS_NUMA_POLICY");
@@ -1619,18 +1766,20 @@ static int scrmfs_init(int rank)
 
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
-        size_t superblock_size =
-               scrmfs_stack_bytes(SCRMFS_MAX_FILES) +           /* free file id stack */
-               (SCRMFS_MAX_FILES * sizeof(scrmfs_filename_t)) + /* file name struct array */
-               (SCRMFS_MAX_FILES * sizeof(scrmfs_filemeta_t)) + /* file meta data struct array */
-               scrmfs_stack_bytes(SCRMFS_MAX_CHUNKS);           /* free chunk stack */
+        size_t superblock_size = 0;
+        superblock_size += scrmfs_stack_bytes(scrmfs_max_files);         /* free file id stack */
+        superblock_size += scrmfs_max_files * sizeof(scrmfs_filename_t); /* file name struct array */
+        superblock_size += scrmfs_max_files * sizeof(scrmfs_filemeta_t); /* file meta data struct array */
+        superblock_size += scrmfs_max_files * scrmfs_max_chunks * sizeof(scrmfs_chunkmeta_t);
+                                                                         /* chunk meta data struct array for each file */
+        superblock_size += scrmfs_stack_bytes(scrmfs_max_chunks);        /* free chunk stack */
         if (scrmfs_use_memfs) {
            superblock_size += scrmfs_page_size + 
-               (SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE);         /* memory chunks */
+               (scrmfs_max_chunks * scrmfs_chunk_size);         /* memory chunks */
         }
         if (scrmfs_use_spillover) {
            superblock_size +=
-               scrmfs_stack_bytes(SCRMFS_MAX_SPILL_CHUNKS);     /* free spill over chunk stack */
+               scrmfs_stack_bytes(scrmfs_spillover_max_chunks);     /* free spill over chunk stack */
         }
         if (scrmfs_use_containers) {
            /* nothing additional */
@@ -1655,7 +1804,7 @@ static int scrmfs_init(int rank)
 
         /* initialize spillover store */
         if (scrmfs_use_spillover) {
-            size_t spillover_size = SCRMFS_MAX_CHUNKS * SCRMFS_CHUNK_SIZE;
+            size_t spillover_size = scrmfs_max_chunks * scrmfs_chunk_size;
             scrmfs_spilloverblock = scrmfs_get_spillblock(spillover_size, spillfile_prefix);
 
             if(scrmfs_spilloverblock < 0) {
@@ -2060,16 +2209,16 @@ static int scrmfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* re
     }
 
     /* check that we don't try to read past the end of the file */
-    off_t newpos = pos + (off_t) count;
+    off_t lastread = pos + (off_t) count;
     off_t filesize = scrmfs_fid_size(fid);
-    if (filesize < newpos) {
+    if (filesize < lastread) {
         /* adjust count so we don't read past end of file */
         count = (size_t) (filesize - pos);
-        newpos = pos + (off_t) count;
     }
 
     /* record number of bytes that we'll actually read */
     *retcount = count;
+
     /* if we don't read any bytes, return success */
     if (count == 0){
         return SCRMFS_SUCCESS;
