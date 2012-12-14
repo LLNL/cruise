@@ -45,7 +45,8 @@ typedef struct {
 
 #ifdef HAVE_CONTAINER_LIB
 typedef struct {
-     cs_container_handle_t  cs_container_handle;
+     cs_container_handle_t*  cs_container_handle;
+     off_t container_size;
 } scrmfs_container_t;
 #endif /* HAVE_CONTAINER_LIB */
 
@@ -68,6 +69,7 @@ typedef struct {
     enum flock_enum flock_status;
     #ifdef HAVE_CONTAINER_LIB
     scrmfs_container_t container_data;
+    char * filename;
     #endif /* HAVE_CONTAINER_LIB */
 } scrmfs_filemeta_t;
 

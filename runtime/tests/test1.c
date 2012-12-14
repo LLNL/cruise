@@ -268,7 +268,7 @@ int test_access(){
 
 
 int test_write(){
-   char afile[20] = "/tmp/afile";
+   char afile[20] = "/tmp/writefile";
    char adir[20] = "/tmp/somewhere";
    char buf[1000];
    int count = 1000;
@@ -317,7 +317,6 @@ int test_read(){
     * should succeed, should read 0 bytes */
    fd = open(afile, O_CREAT);
    ret = read(fd, buf, count);
-   printf("ret is %d, errno %d\n", ret, errno);
    TESTSUCC(ret, read(fd, buf, count));
    TESTSUCC(ret, 0==ret? 1:-1);
  

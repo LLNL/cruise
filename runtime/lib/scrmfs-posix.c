@@ -73,6 +73,7 @@ static char scrmfs_numa_policy[10];
 static char scrmfs_container_info[100];   /* not sure what this is for */
 static cs_store_handle_t cs_store_handle; /* the container store handle */
 static cs_set_handle_t cs_set_handle;     /* the container set handle */
+static initial_container_size;
 #endif /* HAVE_CONTAINER_LIB */
 
 //#define SCRMFS_DEBUG
@@ -638,33 +639,29 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
     }
   #ifdef HAVE_CONTAINER_LIB
     else if (scrmfs_use_containers) {
-        /* allocate a new chunk */
+        /* I'm using the same infrastructure as memfs (chunks) because
+           it just makes life easier, and I think cleaner. If the size of the container
+           is not big enough, we extend it by the size of a chunk */
         scrmfs_stack_lock();
         int id = scrmfs_stack_pop(free_chunk_stack);
         scrmfs_stack_unlock();
 
         if (id < 0) {
             /* out of space */
-            debug("failed to allocate chunk (%d)\n", id);
+            fprintf(stderr, "Failed to allocate chunk (%d)\n", id);
             return SCRMFS_ERR_NOSPC;
         }
-        //TODO extend container not implemented yet. always returns out of space
         scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
-        cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle );
-        int ret = scrmfs_container_extend(cs_set_handle, ch);
-        if (ret != SCRMFS_SUCCESS){
-           return ret;
+        if(file_meta->container_data.container_size < scrmfs_chunk_size + file_meta->size){
+           //TODO extend container not implemented yet. always returns out of space
+           cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle );
+           int ret = scrmfs_container_extend(cs_set_handle, ch, scrmfs_chunk_size);
+           if (ret != SCRMFS_SUCCESS){
+              return ret;
+           }
+           file_meta->container_data.container_size += scrmfs_chunk_size;
         }
       
-        /* create new container to hold this chunk */
-        /*cs_container_handle_t* ch = &(chunk_meta->container_data.cs_container_handle );
-        int ret = scrmfs_container_open(&cs_set_handle, &ch, fid, id);
-        if (ret != CS_SUCCESS) {
-           debug("creation of container failed: %d\n", ret);
-           return SCRMFS_ERR_IO;
-        }
-        debug("creation of container succeeded\n"); */
-
         /* allocate chunk from containers */
         chunk_meta->location = CHUNK_LOCATION_CONTAINER;
         chunk_meta->id = id;
@@ -701,19 +698,6 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         scrmfs_stack_lock();
         scrmfs_stack_push(free_chunk_stack, id);
         scrmfs_stack_unlock();
-
-        char prefix[100];
-        sprintf(prefix,"fid_%d_chunk_%d", fid, id);
-
-        int ret = cs_set_container_remove(cs_set_handle, prefix);
-        if (ret != CS_SUCCESS) {
-           debug("removal of container for %s failed: %d\n",prefix, ret);
-           /* removal of containers is not implemented in the container library, so 
-            * this will always fail */
-           //return -1;
-        } else {
-           debug("removal of container for %s succeeded\n", prefix);
-        }
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -749,25 +733,14 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
     }
   #ifdef HAVE_CONTAINER_LIB
     else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
-   //TODO fix me KMM
         /* read chunk from containers */
-        /*cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
+        cs_container_handle_t ch = meta->container_data.cs_container_handle;
 
-        size_t memcount = 1;
-        size_t memsizes = count;
-        size_t filecount = 1;
-        cs_off_t fileofs = chunk_offset;
-        cs_off_t filesizes = count;
-        cs_off_t transferred = 0;
-               
-        int ret = cs_container_read (ch, memcount, &buf, &memsizes, filecount,
-                       &fileofs, &filesizes, &transferred
-        ); 
-        if (ret != CS_SUCCESS){
-            debug("container read failed\n");
-            return SCRMFS_ERR_IO;
+        int ret = scrmfs_container_read(ch, buf, count, chunk_offset);
+        if (ret != SCRMFS_SUCCESS){
+            fprintf(stderr, "Container read failed\n");
+            return ret;
         }
-        debug("container read succeeded\n");*/
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -806,22 +779,13 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
   #ifdef HAVE_CONTAINER_LIB
     else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
         /* write chunk to containers */
-        //TODO fix me KMM
-        /*cs_container_handle_t ch = chunk_meta->container_data.cs_container_handle;
+        cs_container_handle_t ch = meta->container_data.cs_container_handle;
 
-        size_t memsizes = count;
-        cs_off_t fileofs = chunk_offset;
-        cs_off_t filesizes = count;
-        cs_off_t transferred;
-
-        int ret = cs_container_write (ch, 1, &buf, &memsizes, 1, 
-                          &fileofs, &filesizes, &transferred
-        );
-        if (ret != CS_SUCCESS){
-            debug("container write failed for single container write: %d\n");
-            return SCRMFS_ERR_IO;
+        int ret = scrmfs_container_write(ch, buf, count, chunk_offset);
+        if (ret != SCRMFS_SUCCESS){
+            fprintf(stderr, "container write failed for single container write: %d\n");
+            return ret;
         }
-        debug("container write was successful\n"); */
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -1031,11 +995,37 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
     size_t remaining = scrmfs_chunk_size - chunk_offset;
     if (count <= remaining) {
         /* all bytes for this read fit within the current chunk */
+  #ifdef HAVE_CONTAINER_LIB
+        if(scrmfs_use_containers){
+           rc = scrmfs_chunk_read(meta, chunk_id, pos, buf, count);
+           if(rc != SCRMFS_SUCCESS){
+              fprintf(stderr, "container read failed with code %d at position %d\n", rc, pos);
+              return rc;
+           }
+        }
+        else
+           rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, buf, count);
+  #else
         rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, buf, count);
+  #endif
     } else {
         /* read what's left of current chunk */
         char* ptr = (char*) buf;
+  #ifdef HAVE_CONTAINER_LIB
+        off_t currpos = pos;
+        if(scrmfs_use_containers){
+           rc = scrmfs_chunk_read(meta, chunk_id, currpos, (void*)ptr, remaining);
+           if(rc != SCRMFS_SUCCESS){
+              fprintf(stderr, "container read failed with code %d at position %d\n", rc, currpos);
+              return rc;
+           }
+           currpos += remaining;
+        }
+        else 
+           rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+  #else
         rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+  #endif
         ptr += remaining;
    
         /* read from the next chunk */
@@ -1051,7 +1041,20 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
             }
    
             /* read data */
+   #ifdef HAVE_CONTAINER_LIB
+            if(scrmfs_use_containers){
+              rc = scrmfs_chunk_read(meta, chunk_id, currpos, (void*)ptr, num);
+              if(rc != SCRMFS_SUCCESS){
+                 fprintf(stderr, "container read failed with code %d at position %d\n", rc, currpos);
+                 return rc;
+              }
+              currpos += num;
+            }
+            else
+               rc = scrmfs_chunk_read(meta, chunk_id, 0, (void*)ptr, num);
+   #else
             rc = scrmfs_chunk_read(meta, chunk_id, 0, (void*)ptr, num);
+   #endif
             ptr += num;
 
             /* update number of bytes written */
@@ -1080,11 +1083,38 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
     size_t remaining = scrmfs_chunk_size - chunk_offset;
     if (count <= remaining) {
         /* all bytes for this write fit within the current chunk */
+  #ifdef HAVE_CONTAINER_LIB
+        if(scrmfs_use_containers){
+           rc = scrmfs_chunk_write(meta, chunk_id, pos, buf, count);
+           if(rc != SCRMFS_SUCCESS){
+              fprintf(stderr, "container write failed with code %d to position %d\n", rc, pos);
+              return rc;
+           }
+        }
+        else{
+          rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, buf, count);
+        }
+  #else
         rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, buf, count);
+  #endif /* HAVE_CONTAINER_LIB */
     } else {
         /* otherwise, fill up the remainder of the current chunk */
         char* ptr = (char*) buf;
+#ifdef HAVE_CONTAINER_LIB
+        off_t currpos = pos;
+        if(scrmfs_use_containers){
+           rc = scrmfs_chunk_write(meta, chunk_id, currpos, (void*)ptr, remaining);
+           if(rc != SCRMFS_SUCCESS){
+              fprintf(stderr, "container write failed with code %d to position %d\n", rc, currpos);
+              return rc;
+           }
+           currpos += remaining;
+        }
+        else
+           rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+#else
         rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+#endif
         ptr += remaining;
 
         /* then write the rest of the bytes starting from beginning
@@ -1101,13 +1131,27 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
             }
    
             /* write data */
+  #ifdef HAVE_CONTAINER_LIB
+            if(scrmfs_use_containers){
+              rc = scrmfs_chunk_write(meta, chunk_id, currpos, (void*)ptr, num);
+              if(rc != SCRMFS_SUCCESS){
+                 fprintf(stderr, "container write failed with code %d to position %d\n", rc, currpos);
+                 return rc;
+              }
+              currpos += num;
+            }
+            else
+               rc = scrmfs_chunk_write(meta, chunk_id, 0, (void*)ptr, num);
+  #else
             rc = scrmfs_chunk_write(meta, chunk_id, 0, (void*)ptr, num);
+  #endif
             ptr += num;
 
             /* update number of bytes processed */
             processed += num;
         }
     }
+
         
     return rc;
 }
@@ -1276,15 +1320,23 @@ static int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid
                return SCRMFS_ERR_NFILE;
             }
 #ifdef HAVE_CONTAINER_LIB
-            scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
-            cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle );
-            size_t size = SCRMFS_CHUNK_SIZE;
-            int ret = scrmfs_container_open(&cs_set_handle, &ch, fid, size, path);
-            if (ret != CS_SUCCESS) {
-              debug("creation of container failed: %d\n", ret);
-              return SCRMFS_ERR_IO;
+            if(scrmfs_use_containers){
+              scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
+              cs_container_handle_t ch;
+              size_t size = scrmfs_chunk_size;
+              //size_t size = 10000;
+              int ret = scrmfs_container_open(cs_set_handle, &ch, fid, size, path);
+              file_meta->container_data.cs_container_handle = ch;
+              if (ret != CS_SUCCESS) {
+                fprintf(stderr, "creation of container failed: %d\n", ret);
+                return SCRMFS_ERR_IO;
+              }
+              file_meta->container_data.container_size = initial_container_size;
+              file_meta->filename = (char*)malloc(strlen(path)+1);
+              strcpy(file_meta->filename, path);
+
+              debug("creation of container succeeded size: %d\n", size);
             }
-            debug("creation of container succeeded\n");
 #endif  //have containers
         } else {
             /* ERROR: trying to open a file that does not exist without O_CREATE */
@@ -1349,6 +1401,19 @@ static int scrmfs_fid_unlink(int fid)
 
     /* set this file id as not in use */
     scrmfs_filelist[fid].in_use = 0;
+
+#ifdef HAVE_CONTAINER_LIB
+    if(scrmfs_use_containers){
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+        int ret = cs_set_container_remove(cs_set_handle, meta->filename);
+        free(meta->filename);
+        meta->filename = NULL;
+        // removal of containers will always fail because it's not implemented yet
+        if(ret != CS_SUCCESS){
+          //debug("Container remove failed\n");
+        }
+    }
+#endif
 
     /* add this id back to the free stack */
     scrmfs_fid_free(fid);
@@ -1676,6 +1741,7 @@ static int scrmfs_init(int rank)
         scrmfs_use_containers = 0;
         scrmfs_use_spillover = 0;
 
+#ifdef HAVE_CONTAINER_LIB
         env = getenv("SCRMFS_USE_CONTAINERS");
         if (env) {
             int val = atoi(env);
@@ -1685,6 +1751,7 @@ static int scrmfs_init(int rank)
                 scrmfs_use_containers = 1;
             }
         }
+#endif
 
         env = getenv("SCRMFS_USE_SPILLOVER");
         if (env) {
@@ -1816,19 +1883,13 @@ static int scrmfs_init(int rank)
       #ifdef HAVE_CONTAINER_LIB
         /* initialize the container store */
         if (scrmfs_use_containers) {
-           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle, & cs_set_handle, SCRMFS_CHUNK_SIZE * SCRMFS_MAX_CHUNKS);
-           if (ret != CS_SUCCESS) {
-              debug("failed to create container store\n");
+           initial_container_size = scrmfs_chunk_size * scrmfs_max_chunks; 
+           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle, & cs_set_handle, initial_container_size, "cset1");
+           if (ret != SCRMFS_SUCCESS) {
+              fprintf(stderr, "failed to create container store\n");
               return SCRMFS_FAILURE;
            }
-           debug("successfully created container store\n");
-           /*ret = scrmfs_container_create(&cs_store_handle, &cs_set_handle);
-           if (ret != CS_SUCCESS) {
-              debug("creation of container set failed: %d\n", ret);
-              return SCRMFS_FAILURE;
-           } else {
-              debug("creation of container set succeeded\n");
-           } */
+           debug("successfully created container store with size %d\n", initial_container_size);
         }
       #endif /* HAVE_CONTAINER_LIB */
 
@@ -2270,8 +2331,10 @@ static int scrmfs_fd_write(int fd, off_t pos, const void* buf, size_t count)
         }
     }
 
+    debug("request to write %d bytes to position %d\n", count, pos);
     /* finally write specified data to file */
     int write_rc = scrmfs_fid_write(fid, pos, buf, count);
+    
     return write_rc;
 }
 
