@@ -140,22 +140,25 @@ int check_buffer(char* buf, size_t size, int rank, int ckpt)
 int read_checkpoint(int fd, int* rank, int* ckpt, char* buf, size_t size)
 {
   unsigned long n;
-  char rank_buf[6];
-  char ckpt_buf[6];
+  char rank_buf[7];
+  char ckpt_buf[7];
+  size_t field_size = 6;
 
   /* read the rank id */
-  n = reliable_read(fd, rank_buf, sizeof(rank_buf));
-  if (n != sizeof(rank_buf)) {
+  n = reliable_read(fd, rank_buf, field_size);
+  if (n != field_size) {
     printf("Failed to read rank\n");
     return 0;
   }
+  rank_buf[6] = '\0';
 
   /* read the checkpoint id */
-  n = reliable_read(fd, ckpt_buf, sizeof(ckpt_buf));
-  if (n != sizeof(ckpt_buf)) {
+  n = reliable_read(fd, ckpt_buf, field_size);
+  if (n != field_size) {
     printf("Failed to read timestep\n");
     return 0;
   }
+  ckpt_buf[6] = '\0';
 
   /* read the checkpoint data, and check the file size */
   n = reliable_read(fd, buf, size+1);
@@ -165,8 +168,8 @@ int read_checkpoint(int fd, int* rank, int* ckpt, char* buf, size_t size)
   }
 
   /* if the file looks good, set the timestep and return */
-  (*rank) = atoi(rank_buf);
-  (*ckpt) = atoi(ckpt_buf);
+  sscanf(rank_buf, "%6d", rank);
+  sscanf(ckpt_buf, "%6d", ckpt);
 
   return 0;
 }
@@ -176,19 +179,20 @@ int write_checkpoint(int fd, int rank, int ckpt, char* buf, size_t size)
 {
   int rc;
   int valid = 0;
+  char rank_buf[7];
+  char ckpt_buf[7];
+  size_t field_size = 6;
 
   /* write the rank id */
-  char rank_buf[6];
   sprintf(rank_buf, "%06d", rank);
-  rc = reliable_write(fd, rank_buf, sizeof(rank_buf));
+  rc = reliable_write(fd, rank_buf, field_size);
   if (rc < 0) {
     valid = 0;
   }
 
   /* write the checkpoint id (application timestep) */
-  char ckpt_buf[6];
   sprintf(ckpt_buf, "%06d", ckpt);
-  rc = reliable_write(fd, ckpt_buf, sizeof(ckpt_buf));
+  rc = reliable_write(fd, ckpt_buf, field_size);
   if (rc < 0) {
     valid = 0;
   }

@@ -86,9 +86,9 @@ int write_checkpoint(int fd, int ckpt, char* buf, size_t size)
   int valid = 0;
 
   /* write the checkpoint id (application timestep) */
-  char ckpt_buf[6];
+  char ckpt_buf[7];
   sprintf(ckpt_buf, "%06d", ckpt);
-  rc = reliable_write(fd, ckpt_buf, sizeof(ckpt_buf));
+  rc = reliable_write(fd, ckpt_buf, sizeof(ckpt_buf)-1);
   if (rc < 0) { valid = 0; }
 
   /* write the checkpoint data */

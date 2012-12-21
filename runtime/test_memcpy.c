@@ -13,17 +13,7 @@
 #include "mpi.h"
 #include <string.h>
 
-#include <time.h>
-#include <sys/time.h>
-struct timeval tv0[1];
-struct timeval tv1[1];
-struct timeval rv[1];
-
-//size_t filesize = 500*1024*1024;
-//size_t filesize = 100*1024*1024;
-size_t filesize =  50*1024*1024;
-//size_t filesize =  10*1024*1024;
-//size_t filesize = 512*1024;
+size_t filesize = 100*1024*1024;
 int times = 5;
 int seconds = 0;
 int rank  = -1;
@@ -53,7 +43,7 @@ int reliable_write(int fd, const void* buf, size_t size)
       gethostname(host, sizeof(host));
       printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) returned 0 @ %s:%d\n",
               rank, host, fd, (char*) buf + n, size - n, __FILE__, __LINE__
-             );
+      );
       MPI_Abort(MPI_COMM_WORLD, 0);
     } else { /* (rc < 0) */
       /* got an error, check whether it was serious */
@@ -65,16 +55,16 @@ int reliable_write(int fd, const void* buf, size_t size)
         /* print an error and try again */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) errno=%d %m @ %s:%d\n",
-                rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
-               );
+        printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) errno=%d %s @ %s:%d\n",
+                rank, host, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
+        );
       } else {
         /* too many failed retries, give up */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Giving up write: write(%d, %p, %ld) errno=%d %m @ %s:%d\n",
-                rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
-               );
+        printf("%d on %s: ERROR: Giving up write: write(%d, %p, %ld) errno=%d %s @ %s:%d\n",
+                rank, host, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
+        );
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
     }
@@ -101,9 +91,9 @@ int write_checkpoint(int fd, int ckpt, char* buf, size_t size)
   int valid = 0;
 
   /* write the checkpoint id (application timestep) */
-  char ckpt_buf[6];
+  char ckpt_buf[7];
   sprintf(ckpt_buf, "%06d", ckpt);
-  rc = reliable_write(fd, ckpt_buf, sizeof(ckpt_buf));
+  rc = reliable_write(fd, ckpt_buf, sizeof(ckpt_buf)-1);
   if (rc < 0) { valid = 0; }
 
   /* write the checkpoint data */
