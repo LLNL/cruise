@@ -44,18 +44,13 @@ make clean
 make
 make install
 
-3. Run ./install/bin/scrmfs-mk-log-dirs.pl
-	
-	So that the darshan-specific folder structure is created.
-	I will strip all this stuff out once I get back to school.
-
-4. Run "./install/bin/scrmfs-config --pre-ld-flags"
+3. Run "./install/bin/scrmfs-config --pre-ld-flags"
    and "./install/bin/scrmfs-config --post-ld-flags"
 
 	Copy the output of each of these commands to a separate variable,'
 	say $(PRE_SCRMFS_FLAGS) and $(POST_SCRMFS_FLAGS)
 
-5. Compile the test program
+4. Compile the test program
 
 	If you're compiling test_ramdisk.c for instance, you would do
 	something like this in your makefile:
@@ -75,4 +70,3 @@ mpicc $PRE_SCRMFS_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
    Use "ipcrm -M key" to delete it after a run.
 
 ./ipc_cleanup
-
