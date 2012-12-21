@@ -243,8 +243,5 @@ AC_SUBST(__CP_LOG_PATH)
 AC_SUBST(CP_WRAPPERS)
 AC_SUBST(DISABLE_LDPRELOAD)
 AC_OUTPUT(Makefile
-scrmfs-gen-cc.pl
-scrmfs-gen-cxx.pl
-scrmfs-gen-fortran.pl
 scrmfs-config
 )

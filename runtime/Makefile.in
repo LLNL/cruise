@@ -108,14 +108,11 @@ ifndef DISABLE_LDPRELOAD
 	install -m 755 lib/libscrmfs.so $(libdir)
 endif
 	install -d $(bindir)
-	install -m 755 scrmfs-gen-cc.pl $(bindir)
-	install -m 755 scrmfs-gen-cxx.pl $(bindir)
-	install -m 755 scrmfs-gen-fortran.pl $(bindir)
 	install -m 755 scrmfs-config $(bindir)
 
 clean::
 	rm -f *.o *.po *.a lib/*.o lib/*.po lib/*.a lib/*.so 
 
 distclean:: clean
-	rm -f scrmfs-runtime-config.h scrmfs-gen-cxx.pl scrmfs-gen-fortran.pl scrmfs-gen-cc.pl scrmfs-mk-log-dirs.pl aclocal.m4 autom4te.cache/* config.status config.log Makefile 
+	rm -f scrmfs-runtime-config.h aclocal.m4 autom4te.cache/* config.status config.log Makefile 
 	rm -rf autom4te.cache
