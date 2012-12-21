@@ -61,10 +61,10 @@ lib/scrmfs-container.o: lib/scrmfs-container.c
 lib/scrmfs-container.po: lib/scrmfs-container.c
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
 
-lib/scrmfs-posix.o: lib/scrmfs-posix.c lib/scrmfs-container.h scrmfs.h scrmfs-file.h $(SCRMFS_LOG_FORMAT)
+lib/scrmfs-posix.o: lib/scrmfs-posix.c lib/scrmfs-container.h scrmfs-file.h
 	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c lib/scrmfs-posix.c -o $@
 
-lib/scrmfs-posix.po: lib/scrmfs-posix.c scrmfs.h scrmfs-file.h lib/scrmfs-container.c $(SCRMFS_LOG_FORMAT)
+lib/scrmfs-posix.po: lib/scrmfs-posix.c lib/scrmfs-container.c scrmfs-file.h
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-posix.c -o $@
 
 lib/lookup3.o: lib/lookup3.c

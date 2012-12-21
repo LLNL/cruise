@@ -26,7 +26,6 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#include "scrmfs.h"
 #include "scrmfs-file.h"
 #include "scrmfs-stack.h"
 #include "utlist.h"
