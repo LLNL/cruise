@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+use strict;
+
+my %data = ();
+foreach my $file (@ARGV) {
+#  print "$file";
+  if ($file =~ /(\w+)-n(\d+)-N(\d+)/) {
+    my ($bench, $procs, $nodes) = ($1, $2, $3);
+    my $ppn = $procs / $nodes;
+#    print "  test=$bench, procs=$procs, nodes=$nodes\n";
+    open(IN, $file) or die "Failed to open file $file\n";
+    while (my $line = <IN>) {
+      chomp $line;
+#      print "  $line\n";
+      if ($line =~ /Min\s+(\d+\.\d+)\s+MB\/s\s+Max\s+(\d+\.\d+)\s+MB\/s\s+Avg\s+(\d+\.\d+)\s+MB\/s\s+Agg\s+(\d+\.\d+)/) {
+        my ($min, $max, $avg, $agg) = ($1, $2, $3, $4);
+#        print "    $min $max $avg $agg\n";
+        $data{$bench}{$ppn}{$nodes}{min} = $min;
+        $data{$bench}{$ppn}{$nodes}{max} = $max;
+        $data{$bench}{$ppn}{$nodes}{avg} = $avg;
+        $data{$bench}{$ppn}{$nodes}{agg} = $agg;
+      } else {
+        print "Failed to parse line in $file\n";
+      }
+    }
+    close(IN);
+  }
+}
+
+print "Test PPN Nodes MinMBps MaxMBps AvgMBps AggGBps\n";
+foreach my $bench (keys %data) {
+  foreach my $ppn (sort {$a <=> $b} keys %{$data{$bench}}) {
+    foreach my $nodes (sort {$a <=> $b} keys %{$data{$bench}{$ppn}}) {
+      my $min = $data{$bench}{$ppn}{$nodes}{min};
+      my $max = $data{$bench}{$ppn}{$nodes}{max};
+      my $avg = $data{$bench}{$ppn}{$nodes}{avg};
+      my $agg = $data{$bench}{$ppn}{$nodes}{agg} / 1024.0;
+      print "$bench $ppn $nodes $min $max $avg $agg\n";
+    }
+  }
+}
+
+exit 0;

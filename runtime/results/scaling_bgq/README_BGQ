@@ -1,0 +1,21 @@
+salloc -N1 -ppdebug
+
+# BG_PERSISTMEMRESET: flag whether to clear persistent memory before starting job
+# BG_PERSISTMEMSIZE: #MB of persistent memory
+
+setenv BG_PERSISTMEMRESET 1
+setenv BG_PERSISTMEMSIZE 128
+
+srun -n 1 ./test_scrmfs
+totalview srun -a -n1 ./test_scrmfs 1000000 5 0 &
+
+# https://lc.llnl.gov/confluence/display/BGQ/Memory+constraints
+setenv BG_MAPCOMMONHEAP 1
+setenv BG_MAPALIGN16 1
+setenv BG_PERSISTMEMRESET 1
+setenv BG_PERSISTMEMSIZE 8192
+setenv SCRMFS_MAX_FILES 128
+setenv SCRMFS_CHUNK_BITS 22
+setenv SCRMFS_CHUNK_MEM 200MB
+setenv SCRMFS_SPILLOVER_SIZE 1GB
+srun -n 1 -O ./test_scrmfs 100000000 5 0
