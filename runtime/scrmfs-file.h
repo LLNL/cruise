@@ -39,7 +39,10 @@ typedef struct {
 } scrmfs_stream_t;
 
 typedef struct {
-    int chunk_id;
+    off_t chunk_id;
+    int location;
+    void *chunk_mr;
+    off_t spillover_offset;
     struct chunk_list_t *next;
 } chunk_list_t;
 
