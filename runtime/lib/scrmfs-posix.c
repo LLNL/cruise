@@ -3829,17 +3829,17 @@ size_t scrmfs_get_data_region(void **ptr)
 }
 
 /* get a list of chunks for a given file (useful for RDMA, etc.) */
-chunk_list_t* scrmfs_get_chunk_list(int fd)
+chunk_list_t* scrmfs_get_chunk_list(char* path)
 {
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    if (scrmfs_intercept_path(path)) {
         int i = 0;
         chunk_list_t *chunk_list = NULL;
         chunk_list_t *chunk_list_elem;
     
         /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
+        /* Rag: We decided to use the path instead.. Can add flexibility to support both */
+        //int fid = scrmfs_get_fid_from_fd(fd);
+        int fid = scrmfs_get_fid_from_path(path);
 
         /* get meta data for this file */
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
@@ -3874,19 +3874,19 @@ chunk_list_t* scrmfs_get_chunk_list(int fd)
         return chunk_list;
     } else {
         /* file not managed by SCRMFS */
-        errno = EBADF;
+        errno = EACCES;
         return NULL;
     }
 }
 
 /* debug function to print list of chunks constituting a file
  * and to test above function*/
-void scrmfs_print_chunk_list(int fd)
+void scrmfs_print_chunk_list(char* path)
 {
     chunk_list_t *chunk_list;
     chunk_list_t *chunk_element;
 
-    chunk_list = scrmfs_get_chunk_list(fd);
+    chunk_list = scrmfs_get_chunk_list(path);
 
     fprintf(stdout,"-------------------------------------\n");
     LL_FOREACH(chunk_list,chunk_element) {
