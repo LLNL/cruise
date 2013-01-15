@@ -465,28 +465,6 @@ static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid)
  * Operations on file chunks
  * --------------------------------------- */
 
-#if 0
-/* debug function to print list of chunks constituting a file
- * and to test above function*/
-void scrmfs_print_chunk_list(int fd)
-{
-    chunk_list_t *chunk_list;
-    chunk_list_t *chunk_element;
-
-    chunk_list = scrmfs_get_chunk_list(fd);
-
-    LL_FOREACH(chunk_list,chunk_element) {
-        printf("%d,",chunk_element->chunk_id);
-    }
-
-    LL_FOREACH(chunk_list,chunk_element) {
-        free(chunk_element);
-    }
-    fprintf(stdout,"\n");
-    
-}
-#endif
-
 /* given a logical chunk id and an offset within that chunk, return the pointer
  * to the memory location corresponding to that location */
 static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int logical_id, off_t logical_offset)
@@ -756,58 +734,6 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
 
     /* assume read was successful if we get to here */
     return SCRMFS_SUCCESS;
-}
-
-/* get a list of chunks for a given file (useful for RDMA, etc.);
- * to be exposed as API */
-chunk_list_t* scrmfs_get_chunk_list(int fd)
-{
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
-        int i = 0;
-        chunk_list_t *chunk_list = NULL;
-        chunk_list_t *chunk_list_elem;
-    
-        /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(fd);
-
-        /* get meta data for this file */
-        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-        
-        while ( i < meta->chunks ) {
-            chunk_list_elem = (chunk_list_t*)malloc(sizeof(chunk_list_t));
-
-            /* get the chunk id for the i-th chunk and
-             * add it to the chunk_list */
-            scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[i]);
-            chunk_list_elem->chunk_id = chunk_meta->id;
-            chunk_list_elem->location = chunk_meta->location;
-
-            if ( chunk_meta->location == CHUNK_LOCATION_MEMFS ) {
-                /* update the list_elem with the memory address of this chunk */
-                chunk_list_elem->chunk_mr = scrmfs_compute_chunk_buf( meta, chunk_meta->id, 0);
-                chunk_list_elem->spillover_offset = 0;
-            } else if ( chunk_meta->location == CHUNK_LOCATION_SPILLOVER ) {
-                /* update the list_elem with the offset of this chunk in the spillover file*/
-                chunk_list_elem->spillover_offset = scrmfs_compute_spill_offset( meta, chunk_meta->id, 0);
-                chunk_list_elem->chunk_mr = NULL;
-            } else {
-                /*TODO: Handle the container case.*/
-            }
-
-            /* currently using macros from utlist.h to
-             * handle link-list operations */
-            LL_APPEND( chunk_list, chunk_list_elem);
-            i++;
-        }
-
-        return chunk_list;
-    } else {
-        /* file not managed by SCRMFS */
-        errno = EBADF;
-        return NULL;
-    }
 }
 
 /* ---------------------------------------
@@ -1879,7 +1805,7 @@ static int scrmfs_init(int rank)
         }
       
         char spillfile_prefix[100];
-        sprintf(spillfile_prefix,"/fusion/spill_file_%d", rank);
+        sprintf(spillfile_prefix,"/tmp/spill_file_%d", rank);
 
         /* initialize spillover store */
         if (scrmfs_use_spillover) {
@@ -3888,6 +3814,94 @@ int SCRMFS_DECL(fclose)(FILE *stream)
         int ret = __real_fclose(stream);
         return ret;
     }
+}
+
+/* ---------------------------------------
+ * APIs exposed to external libraries
+ * --------------------------------------- */
+
+/* get information about the chunk data region
+ * for external async libraries to register during their init */
+size_t scrmfs_get_data_region(void **ptr)
+{
+    *ptr = scrmfs_chunks;
+    return scrmfs_chunk_mem;
+}
+
+/* get a list of chunks for a given file (useful for RDMA, etc.) */
+chunk_list_t* scrmfs_get_chunk_list(int fd)
+{
+    int intercept;
+    scrmfs_intercept_fd(&fd, &intercept);
+    if (intercept) {
+        int i = 0;
+        chunk_list_t *chunk_list = NULL;
+        chunk_list_t *chunk_list_elem;
+    
+        /* get the file id for this file descriptor */
+        int fid = scrmfs_get_fid_from_fd(fd);
+
+        /* get meta data for this file */
+        scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+        
+        while ( i < meta->chunks ) {
+            chunk_list_elem = (chunk_list_t*)malloc(sizeof(chunk_list_t));
+
+            /* get the chunk id for the i-th chunk and
+             * add it to the chunk_list */
+            scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[i]);
+            chunk_list_elem->chunk_id = chunk_meta->id;
+            chunk_list_elem->location = chunk_meta->location;
+
+            if ( chunk_meta->location == CHUNK_LOCATION_MEMFS ) {
+                /* update the list_elem with the memory address of this chunk */
+                chunk_list_elem->chunk_mr = scrmfs_compute_chunk_buf( meta, chunk_meta->id, 0);
+                chunk_list_elem->spillover_offset = 0;
+            } else if ( chunk_meta->location == CHUNK_LOCATION_SPILLOVER ) {
+                /* update the list_elem with the offset of this chunk in the spillover file*/
+                chunk_list_elem->spillover_offset = scrmfs_compute_spill_offset( meta, chunk_meta->id, 0);
+                chunk_list_elem->chunk_mr = NULL;
+            } else {
+                /*TODO: Handle the container case.*/
+            }
+
+            /* currently using macros from utlist.h to
+             * handle link-list operations */
+            LL_APPEND( chunk_list, chunk_list_elem);
+            i++;
+        }
+
+        return chunk_list;
+    } else {
+        /* file not managed by SCRMFS */
+        errno = EBADF;
+        return NULL;
+    }
+}
+
+/* debug function to print list of chunks constituting a file
+ * and to test above function*/
+void scrmfs_print_chunk_list(int fd)
+{
+    chunk_list_t *chunk_list;
+    chunk_list_t *chunk_element;
+
+    chunk_list = scrmfs_get_chunk_list(fd);
+
+    fprintf(stdout,"-------------------------------------\n");
+    LL_FOREACH(chunk_list,chunk_element) {
+        printf("%d,%d,%p,%ld\n",chunk_element->chunk_id,
+                                chunk_element->location,
+                                chunk_element->chunk_mr,
+                                chunk_element->spillover_offset);
+    }
+
+    LL_FOREACH(chunk_list,chunk_element) {
+        free(chunk_element);
+    }
+    fprintf(stdout,"\n");
+    fprintf(stdout,"-------------------------------------\n");
+    
 }
 
 /*

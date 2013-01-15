@@ -38,6 +38,8 @@ typedef struct {
     int fd;        /* file descriptor associated with stream */
 } scrmfs_stream_t;
 
+/* linked list of chunk information given to an external library wanting
+ * to RDMA out a file from SCRMFS */
 typedef struct {
     off_t chunk_id;
     int location;
