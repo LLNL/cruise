@@ -1,0 +1,59 @@
+[rajachan@ri intranode]$ mpirun_rsh -np 1 -hostfile ./hfile MV2_CPU_MAPPING=1 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1576.86 MB/s    Max 1576.86 MB/s    Avg 1576.86 MB/s    Agg 1576.86 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 2 -hostfile ./hfile MV2_CPU_MAPPING=1:2 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1279.82 MB/s    Max 1297.78 MB/s    Avg 1288.80 MB/s    Agg 2577.60 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 3 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1233.91 MB/s    Max 1255.09 MB/s    Avg 1246.48 MB/s    Agg 3739.43 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 4 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1061.48 MB/s    Max 1075.02 MB/s    Avg 1071.02 MB/s    Agg 4284.07 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 5 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1029.46 MB/s    Max 1266.19 MB/s    Avg 1087.56 MB/s    Agg 5437.82 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 6 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1006.41 MB/s    Max 1124.67 MB/s    Avg 1051.58 MB/s    Agg 6309.50 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 7 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6:7 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min  766.80 MB/s    Max  905.93 MB/s    Avg  797.72 MB/s    Agg 5584.07 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 8 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6:7:4 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min  821.35 MB/s    Max  954.49 MB/s    Avg  881.37 MB/s    Agg 7051.00 MB/s
+
+
+
+
+[rajachan@ri intranode]$ mpirun_rsh -np 1 -hostfile ./hfile MV2_CPU_MAPPING=1 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 3697.65 MB/s    Max 3697.65 MB/s    Avg 3697.65 MB/s    Agg 3697.65 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 2 -hostfile ./hfile MV2_CPU_MAPPING=1:2 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 2227.72 MB/s    Max 2269.95 MB/s    Avg 2248.83 MB/s    Agg 4497.66 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 3 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1735.07 MB/s    Max 1751.92 MB/s    Avg 1745.73 MB/s    Agg 5237.19 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 4 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1751.24 MB/s    Max 1755.14 MB/s    Avg 1753.00 MB/s    Agg 7012.01 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 5 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1532.38 MB/s    Max 2617.19 MB/s    Avg 1853.93 MB/s    Agg 9269.67 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 6 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1492.98 MB/s    Max 2017.44 MB/s    Avg 1669.76 MB/s    Agg 10018.55 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 7 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6:7 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1379.63 MB/s    Max 1578.78 MB/s    Avg 1529.38 MB/s    Agg 10705.69 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 8 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6:7:4 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_memcpy 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1278.55 MB/s    Max 1511.55 MB/s    Avg 1380.12 MB/s    Agg 11041.00 MB/s
+
+
+
+
+
+
+[rajachan@ri intranode]$ mpirun_rsh -np 1 -hostfile ./hfile MV2_CPU_MAPPING=1 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 3092.26 MB/s    Max 3092.26 MB/s    Avg 3092.26 MB/s    Agg 3092.26 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 2 -hostfile ./hfile MV2_CPU_MAPPING=1:2 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 2450.34 MB/s    Max 2459.05 MB/s    Avg 2454.70 MB/s    Agg 4909.39 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 3 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1680.65 MB/s    Max 1713.51 MB/s    Avg 1700.74 MB/s    Agg 5102.23 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 4 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1832.07 MB/s    Max 1842.97 MB/s    Avg 1839.06 MB/s    Agg 7356.25 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 5 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1340.36 MB/s    Max 2731.19 MB/s    Avg 1831.30 MB/s    Agg 9156.51 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 6 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1311.02 MB/s    Max 2428.46 MB/s    Avg 1765.85 MB/s    Agg 10595.07 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 7 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6:7 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1297.45 MB/s    Max 1849.19 MB/s    Avg 1579.46 MB/s    Agg 11056.25 MB/s
+[rajachan@ri intranode]$ mpirun_rsh -np 8 -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0:5:6:7:4 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=256MB ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup
+FileIO: Min 1534.81 MB/s    Max 1549.06 MB/s    Avg 1543.19 MB/s    Agg 12345.48 MB/s
+
