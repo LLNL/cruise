@@ -9,8 +9,9 @@ OPT := -O3
 
 all: clean
 	$(MPICC) $(OPT) -o test_memcpy test_memcpy.c
+	$(MPICC) $(OPT) -o test_memcpy_1 test_memcpy_1.c
 	$(MPICC) $(OPT) -o test_ramdisk test_ramdisk.c
 	$(MPICC) $(PRE_SCRMFS_FLAGS) $(OPT) -o test_scrmfs test_scrmfs.c $(POST_SCRMFS_FLAGS) -L/usr/local/tools/zlib-1.2.6/lib -lz
 
 clean:
-	rm -f test_memcpy test_ramdisk test_ramdisk *.o
+	rm -f test_memcpy test_memcpy_1 test_ramdisk test_ramdisk *.o
