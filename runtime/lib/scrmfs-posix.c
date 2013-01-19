@@ -66,6 +66,7 @@ static int    scrmfs_spillover_max_chunks; /* maximum number of chunks that fit 
 
 #ifdef ENABLE_NUMA_POLICY
 static char scrmfs_numa_policy[10];
+static int scrmfs_numa_bank = -1;
 #endif
 
 #ifdef HAVE_CONTAINER_LIB
@@ -1510,8 +1511,10 @@ static void* scrmfs_superblock_shmget(size_t size, key_t key)
             debug("NUMA support unavailable!\n");
         } else {
             /* if support available, set NUMA policy for scr_shmblock */
-            // if ( scrmfs_use_single_shm ) {
-            if ( strcmp(scrmfs_numa_policy,"interleaved") == 0) {
+            if ( scrmfs_numa_bank >= 0 ) {
+                /* specifically allocate pages from user-set bank */
+                numa_tonode_memory(scr_shmblock, size, scrmfs_numa_bank);
+            } else if ( strcmp(scrmfs_numa_policy,"interleaved") == 0) {
                 /* interleave the shared-memory segment
                  * across all memory banks when all process share 1-superblock */
                 debug("Interleaving superblock across all memory banks\n");
@@ -1750,6 +1753,18 @@ static int scrmfs_init(int rank)
         } else {
             sprintf(scrmfs_numa_policy, "default");
         }
+
+        env = getenv("SCRMFS_USE_NUMA_BANK");
+        if (env) {
+            int val = atoi(env);
+            if (val >= 0) {
+                scrmfs_numa_bank = val;
+            } else {
+                fprintf(stderr,"Incorrect NUMA bank specified in SCRMFS_USE_NUMA_BANK."
+                                "Proceeding with default allocation policy!\n");
+            }
+        }
+
 #endif
 
         /* record the max fd for the system */
@@ -3840,38 +3855,45 @@ chunk_list_t* scrmfs_get_chunk_list(char* path)
         /* Rag: We decided to use the path instead.. Can add flexibility to support both */
         //int fid = scrmfs_get_fid_from_fd(fd);
         int fid = scrmfs_get_fid_from_path(path);
+        if ( fid < 0 ) {
+            errno = EACCES;
+            return NULL;
+        }
 
         /* get meta data for this file */
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+        if (meta) {
         
-        while ( i < meta->chunks ) {
-            chunk_list_elem = (chunk_list_t*)malloc(sizeof(chunk_list_t));
+            while ( i < meta->chunks ) {
+                chunk_list_elem = (chunk_list_t*)malloc(sizeof(chunk_list_t));
 
-            /* get the chunk id for the i-th chunk and
-             * add it to the chunk_list */
-            scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[i]);
-            chunk_list_elem->chunk_id = chunk_meta->id;
-            chunk_list_elem->location = chunk_meta->location;
+                /* get the chunk id for the i-th chunk and
+                 * add it to the chunk_list */
+                scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[i]);
+                chunk_list_elem->chunk_id = chunk_meta->id;
+                chunk_list_elem->location = chunk_meta->location;
 
-            if ( chunk_meta->location == CHUNK_LOCATION_MEMFS ) {
-                /* update the list_elem with the memory address of this chunk */
-                chunk_list_elem->chunk_mr = scrmfs_compute_chunk_buf( meta, chunk_meta->id, 0);
-                chunk_list_elem->spillover_offset = 0;
-            } else if ( chunk_meta->location == CHUNK_LOCATION_SPILLOVER ) {
-                /* update the list_elem with the offset of this chunk in the spillover file*/
-                chunk_list_elem->spillover_offset = scrmfs_compute_spill_offset( meta, chunk_meta->id, 0);
-                chunk_list_elem->chunk_mr = NULL;
-            } else {
-                /*TODO: Handle the container case.*/
+                if ( chunk_meta->location == CHUNK_LOCATION_MEMFS ) {
+                    /* update the list_elem with the memory address of this chunk */
+                    chunk_list_elem->chunk_offset = scrmfs_compute_chunk_buf( meta, chunk_meta->id, 0);
+                    chunk_list_elem->spillover_offset = 0;
+                } else if ( chunk_meta->location == CHUNK_LOCATION_SPILLOVER ) {
+                    /* update the list_elem with the offset of this chunk in the spillover file*/
+                    chunk_list_elem->spillover_offset = scrmfs_compute_spill_offset( meta, chunk_meta->id, 0);
+                    chunk_list_elem->chunk_offset = NULL;
+                } else {
+                    /*TODO: Handle the container case.*/
+                }
+
+                /* currently using macros from utlist.h to
+                 * handle link-list operations */
+                LL_APPEND( chunk_list, chunk_list_elem);
+                i++;
             }
-
-            /* currently using macros from utlist.h to
-             * handle link-list operations */
-            LL_APPEND( chunk_list, chunk_list_elem);
-            i++;
+            return chunk_list;
+        } else {
+            return NULL;
         }
-
-        return chunk_list;
     } else {
         /* file not managed by SCRMFS */
         errno = EACCES;
@@ -3892,7 +3914,7 @@ void scrmfs_print_chunk_list(char* path)
     LL_FOREACH(chunk_list,chunk_element) {
         printf("%d,%d,%p,%ld\n",chunk_element->chunk_id,
                                 chunk_element->location,
-                                chunk_element->chunk_mr,
+                                chunk_element->chunk_offset,
                                 chunk_element->spillover_offset);
     }
 

@@ -1,0 +1,27 @@
+[rajachan@ri intranode]$ for i in `seq 1 8`; do mpirun_rsh -np $i -hostfile ./hfile SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=local SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB MV2_ENABLE_AFFINITY=0 ./test_memcpy 134217728 5 0  && ../../ipc_cleanup; done
+FileIO: Min 3693.80 MB/s    Max 3693.80 MB/s    Avg 3693.80 MB/s    Agg 3693.80 MB/s
+FileIO: Min 3553.11 MB/s    Max 3641.19 MB/s    Avg 3597.15 MB/s    Agg 7194.29 MB/s
+FileIO: Min 2881.48 MB/s    Max 3576.28 MB/s    Avg 3144.66 MB/s    Agg 9433.98 MB/s
+FileIO: Min 2358.43 MB/s    Max 2770.19 MB/s    Avg 2560.69 MB/s    Agg 10242.77 MB/s
+FileIO: Min 1795.10 MB/s    Max 2865.18 MB/s    Avg 2226.72 MB/s    Agg 11133.60 MB/s
+FileIO: Min 1512.51 MB/s    Max 1931.31 MB/s    Avg 1721.26 MB/s    Agg 10327.54 MB/s
+FileIO: Min 1355.97 MB/s    Max 1499.58 MB/s    Avg 1437.37 MB/s    Agg 10061.59 MB/s
+FileIO: Min 1217.70 MB/s    Max 1576.14 MB/s    Avg 1397.49 MB/s    Agg 11179.95 MB/s
+[rajachan@ri intranode]$ for i in `seq 1 8`; do mpirun_rsh -np $i -hostfile ./hfile SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=local SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB MV2_ENABLE_AFFINITY=0 ./test_ramdisk 134217728 5 0  && ../../ipc_cleanup; done
+FileIO: Min 1645.27 MB/s    Max 1645.27 MB/s    Avg 1645.27 MB/s    Agg 1645.27 MB/s
+FileIO: Min 1575.02 MB/s    Max 1622.71 MB/s    Avg 1598.87 MB/s    Agg 3197.73 MB/s
+FileIO: Min 1406.63 MB/s    Max 1600.60 MB/s    Avg 1474.31 MB/s    Agg 4422.93 MB/s
+FileIO: Min 1302.46 MB/s    Max 1331.46 MB/s    Avg 1319.42 MB/s    Agg 5277.66 MB/s
+FileIO: Min 1234.36 MB/s    Max 1349.60 MB/s    Avg 1288.66 MB/s    Agg 6443.31 MB/s
+FileIO: Min 1141.71 MB/s    Max 1232.67 MB/s    Avg 1186.11 MB/s    Agg 7116.63 MB/s
+FileIO: Min 1001.92 MB/s    Max 1104.10 MB/s    Avg 1061.18 MB/s    Agg 7428.25 MB/s
+FileIO: Min  916.59 MB/s    Max  986.54 MB/s    Avg  951.68 MB/s    Agg 7613.40 MB/s
+[rajachan@ri intranode]$ for i in `seq 1 8`; do mpirun_rsh -np $i -hostfile ./hfile SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=local SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB MV2_ENABLE_AFFINITY=0 ./test_scrmfs 134217728 5 0  && ../../ipc_cleanup; done
+FileIO: Min 3720.11 MB/s    Max 3720.11 MB/s    Avg 3720.11 MB/s    Agg 3720.11 MB/s
+FileIO: Min 3589.04 MB/s    Max 3693.42 MB/s    Avg 3641.23 MB/s    Agg 7282.46 MB/s
+FileIO: Min 2324.61 MB/s    Max 3265.44 MB/s    Avg 2714.12 MB/s    Agg 8142.35 MB/s
+FileIO: Min 1853.60 MB/s    Max 2672.59 MB/s    Avg 2264.23 MB/s    Agg 9056.90 MB/s
+FileIO: Min 1721.84 MB/s    Max 2197.23 MB/s    Avg 1929.48 MB/s    Agg 9647.41 MB/s
+FileIO: Min 1504.81 MB/s    Max 1750.25 MB/s    Avg 1615.07 MB/s    Agg 9690.44 MB/s
+FileIO: Min 1242.53 MB/s    Max 1697.71 MB/s    Avg 1454.89 MB/s    Agg 10184.24 MB/s
+FileIO: Min 1122.03 MB/s    Max 1378.14 MB/s    Avg 1278.14 MB/s    Agg 10225.15 MB/s
