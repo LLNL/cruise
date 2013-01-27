@@ -125,7 +125,7 @@ SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
 SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
 SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
-/* TODO: remove */
+/* TODO: remove() */
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
 SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
@@ -468,7 +468,10 @@ static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid)
 
 /* given a logical chunk id and an offset within that chunk, return the pointer
  * to the memory location corresponding to that location */
-static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int logical_id, off_t logical_offset)
+static inline void* scrmfs_compute_chunk_buf(
+  const scrmfs_filemeta_t* meta,
+  int logical_id,
+  off_t logical_offset)
 {
     /* get pointer to chunk meta */
     const scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[logical_id]);
@@ -493,7 +496,10 @@ static inline void* scrmfs_compute_chunk_buf(const scrmfs_filemeta_t* meta, int 
 
 /* given a chunk id and an offset within that chunk, return the offset
  * in the spillover file corresponding to that location */
-static inline off_t scrmfs_compute_spill_offset(const scrmfs_filemeta_t* meta, int logical_id, off_t logical_offset)
+static inline off_t scrmfs_compute_spill_offset(
+  const scrmfs_filemeta_t* meta,
+  int logical_id,
+  off_t logical_offset)
 {
     /* get pointer to chunk meta */
     const scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[logical_id]);
@@ -653,7 +659,12 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
 
 /* read data from specified chunk id, chunk offset, and count into user buffer,
  * count should fit within chunk starting from specified offset */
-static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_offset, void* buf, size_t count)
+static int scrmfs_chunk_read(
+  scrmfs_filemeta_t* meta, /* pointer to file meta data */
+  int chunk_id,            /* logical chunk id to read data from */
+  off_t chunk_offset,      /* logical offset within chunk to read from */
+  void* buf,               /* buffer to store data to */
+  size_t count)            /* number of bytes to read */
 {
     /* get chunk meta data */
     scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[chunk_id]);
@@ -694,7 +705,12 @@ static int scrmfs_chunk_read(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_
 
 /* read data from specified chunk id, chunk offset, and count into user buffer,
  * count should fit within chunk starting from specified offset */
-static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk_offset, const void* buf, size_t count)
+static int scrmfs_chunk_write(
+  scrmfs_filemeta_t* meta, /* pointer to file meta data */
+  int chunk_id,            /* logical chunk id to write to */
+  off_t chunk_offset,      /* logical offset within chunk to write to */
+  const void* buf,         /* buffer holding data to be written */
+  size_t count)            /* number of bytes to write */
 {
     /* get chunk meta data */
     scrmfs_chunkmeta_t* chunk_meta = &(meta->chunk_meta[chunk_id]);
@@ -711,8 +727,9 @@ static int scrmfs_chunk_write(scrmfs_filemeta_t* meta, int chunk_id, off_t chunk
         MAP_OR_FAIL(pwrite);
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = __real_pwrite(scrmfs_spilloverblock, buf, count, spill_offset);
-        if ( rc < 0 ) 
+        if (rc < 0)  {
             perror("pwrite failed");
+        }
         /* TODO: check return code for errors */
     }
   #ifdef HAVE_CONTAINER_LIB
@@ -815,6 +832,7 @@ static off_t scrmfs_fid_size(int fid)
     return meta->size;
 }
 
+/* fill in limited amount of stat information */
 static int scrmfs_fid_stat(int fid, struct stat* buf)
 {
    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
@@ -837,7 +855,10 @@ static int scrmfs_fid_stat(int fid, struct stat* buf)
    buf->st_mtime = 0;   /* time of last modification */
    buf->st_ctime = 0;   /* time of last status change */
 
+   /* set the file size */
    buf->st_size = meta->size;
+
+   /* specify whether item is a file or directory */
    if(scrmfs_fid_is_dir(fid)) {
       buf->st_mode |= S_IFDIR;
    } else {
@@ -904,6 +925,7 @@ static int scrmfs_fid_create_file(const char * path)
  * returns the new fid, or a negative value on error */
 static int scrmfs_fid_create_directory(const char * path)
 {
+   /* set everything we do for a file... */
    int fid = scrmfs_fid_create_file(path);
    if (fid < 0) {
        /* was there an error? if so, return it */
@@ -911,6 +933,7 @@ static int scrmfs_fid_create_directory(const char * path)
        return fid;
    }
 
+   /* ...and a little more */
    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
    meta->is_dir = 1;
    return fid;
@@ -935,15 +958,15 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
     if (count <= remaining) {
         /* all bytes for this read fit within the current chunk */
   #ifdef HAVE_CONTAINER_LIB
-        if(scrmfs_use_containers){
+        if(scrmfs_use_containers) {
            rc = scrmfs_chunk_read(meta, chunk_id, pos, buf, count);
-           if(rc != SCRMFS_SUCCESS){
+           if(rc != SCRMFS_SUCCESS) {
               fprintf(stderr, "container read failed with code %d at position %d\n", rc, pos);
               return rc;
            }
-        }
-        else
+        } else }
            rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, buf, count);
+        }
   #else
         rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, buf, count);
   #endif
@@ -952,16 +975,16 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
         char* ptr = (char*) buf;
   #ifdef HAVE_CONTAINER_LIB
         off_t currpos = pos;
-        if(scrmfs_use_containers){
+        if(scrmfs_use_containers) {
            rc = scrmfs_chunk_read(meta, chunk_id, currpos, (void*)ptr, remaining);
-           if(rc != SCRMFS_SUCCESS){
+           if(rc != SCRMFS_SUCCESS) {
               fprintf(stderr, "container read failed with code %d at position %d\n", rc, currpos);
               return rc;
            }
            currpos += remaining;
-        }
-        else 
+        } else  {
            rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+        }
   #else
         rc = scrmfs_chunk_read(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
   #endif
@@ -981,16 +1004,16 @@ static int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
    
             /* read data */
    #ifdef HAVE_CONTAINER_LIB
-            if(scrmfs_use_containers){
+            if(scrmfs_use_containers) {
               rc = scrmfs_chunk_read(meta, chunk_id, currpos, (void*)ptr, num);
-              if(rc != SCRMFS_SUCCESS){
+              if(rc != SCRMFS_SUCCESS) {
                  fprintf(stderr, "container read failed with code %d at position %d\n", rc, currpos);
                  return rc;
               }
               currpos += num;
-            }
-            else
+            } else {
                rc = scrmfs_chunk_read(meta, chunk_id, 0, (void*)ptr, num);
+            }
    #else
             rc = scrmfs_chunk_read(meta, chunk_id, 0, (void*)ptr, num);
    #endif
@@ -1023,14 +1046,13 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
     if (count <= remaining) {
         /* all bytes for this write fit within the current chunk */
   #ifdef HAVE_CONTAINER_LIB
-        if(scrmfs_use_containers){
+        if(scrmfs_use_containers) {
            rc = scrmfs_chunk_write(meta, chunk_id, pos, buf, count);
-           if(rc != SCRMFS_SUCCESS){
+           if(rc != SCRMFS_SUCCESS) {
               fprintf(stderr, "container write failed with code %d to position %d\n", rc, pos);
               return rc;
            }
-        }
-        else{
+        } else {
           rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, buf, count);
         }
   #else
@@ -1041,16 +1063,16 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
         char* ptr = (char*) buf;
 #ifdef HAVE_CONTAINER_LIB
         off_t currpos = pos;
-        if(scrmfs_use_containers){
+        if(scrmfs_use_containers) {
            rc = scrmfs_chunk_write(meta, chunk_id, currpos, (void*)ptr, remaining);
-           if(rc != SCRMFS_SUCCESS){
+           if(rc != SCRMFS_SUCCESS) {
               fprintf(stderr, "container write failed with code %d to position %d\n", rc, currpos);
               return rc;
            }
            currpos += remaining;
-        }
-        else
+        } else {
            rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
+        }
 #else
         rc = scrmfs_chunk_write(meta, chunk_id, chunk_offset, (void*)ptr, remaining);
 #endif
@@ -1071,16 +1093,16 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
    
             /* write data */
   #ifdef HAVE_CONTAINER_LIB
-            if(scrmfs_use_containers){
+            if(scrmfs_use_containers) {
               rc = scrmfs_chunk_write(meta, chunk_id, currpos, (void*)ptr, num);
-              if(rc != SCRMFS_SUCCESS){
+              if(rc != SCRMFS_SUCCESS) {
                  fprintf(stderr, "container write failed with code %d to position %d\n", rc, currpos);
                  return rc;
               }
               currpos += num;
-            }
-            else
+            } else {
                rc = scrmfs_chunk_write(meta, chunk_id, 0, (void*)ptr, num);
+            }
   #else
             rc = scrmfs_chunk_write(meta, chunk_id, 0, (void*)ptr, num);
   #endif
@@ -1096,7 +1118,7 @@ static int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
 }
 
 /* given a file id, write zero bytes to region of specified offset
- * an length, assumes space is already reserved */
+ * and length, assumes space is already reserved */
 static int scrmfs_fid_write_zero(int fid, off_t pos, off_t count)
 {
     int rc = SCRMFS_SUCCESS;
@@ -1259,7 +1281,7 @@ static int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid
                return SCRMFS_ERR_NFILE;
             }
 #ifdef HAVE_CONTAINER_LIB
-            if(scrmfs_use_containers){
+            if(scrmfs_use_containers) {
               scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
               cs_container_handle_t ch;
               size_t size = scrmfs_chunk_size;
@@ -1342,7 +1364,7 @@ static int scrmfs_fid_unlink(int fid)
     scrmfs_filelist[fid].in_use = 0;
 
 #ifdef HAVE_CONTAINER_LIB
-    if(scrmfs_use_containers){
+    if(scrmfs_use_containers) {
         scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
         int ret = cs_set_container_remove(cs_set_handle, meta->filename);
         free(meta->filename);
@@ -1452,7 +1474,7 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
     if (spillblock_fd < 0) {
         if (errno == EEXIST) {
             /* spillover block exists; attach and return */
-            spillblock_fd = __real_open(path, O_RDWR );
+            spillblock_fd = __real_open(path, O_RDWR);
         } else {
             perror("open() in scrmfs_get_spillblock() failed");
             return -1;
@@ -1463,8 +1485,9 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
     
         /*temp*/
         off_t rc = lseek(spillblock_fd, size, SEEK_SET);
-        if (rc < 0)
+        if (rc < 0) {
             perror("lseek failed");
+        }
     }
 
     return spillblock_fd;
@@ -1589,84 +1612,84 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
 /* converts string like 10mb to unsigned long long integer value of 10*1024*1024 */
 static int scrmfs_abtoull(char* str, unsigned long long* val)
 {
-  /* check that we have a string */
-  if (str == NULL) {
-    debug("scr_abtoull: Can't convert NULL string to bytes @ %s:%d",
+    /* check that we have a string */
+    if (str == NULL) {
+        debug("scr_abtoull: Can't convert NULL string to bytes @ %s:%d",
             __FILE__, __LINE__
-    );
-    return SCRMFS_FAILURE;
-  }
+        );
+        return SCRMFS_FAILURE;
+    }
 
-  /* check that we have a value to write to */
-  if (val == NULL) {
-    debug("scr_abtoull: NULL address to store value @ %s:%d",
+    /* check that we have a value to write to */
+    if (val == NULL) {
+        debug("scr_abtoull: NULL address to store value @ %s:%d",
             __FILE__, __LINE__
-    );
-    return SCRMFS_FAILURE;
-  }
+        );
+        return SCRMFS_FAILURE;
+    }
 
-  /* pull the floating point portion of our byte string off */
-  errno = 0;
-  char* next = NULL;
-  double num = strtod(str, &next);
-  if (errno != 0) {
-    debug("scr_abtoull: Invalid double: %s @ %s:%d",
+    /* pull the floating point portion of our byte string off */
+    errno = 0;
+    char* next = NULL;
+    double num = strtod(str, &next);
+    if (errno != 0) {
+        debug("scr_abtoull: Invalid double: %s @ %s:%d",
             str, __FILE__, __LINE__
-    );
-    return SCRMFS_FAILURE;
-  }
-
-  /* now extract any units, e.g. KB MB GB, etc */
-  unsigned long long units = 1;
-  if (*next != '\0') {
-    switch(*next) {
-    case 'k':
-    case 'K':
-      units = 1024;
-      break;
-    case 'm':
-    case 'M':
-      units = 1024*1024;
-      break;
-    case 'g':
-    case 'G':
-      units = 1024*1024*1024;
-      break;
-    default:
-      debug("scr_abtoull: Unexpected byte string %s @ %s:%d",
-              str, __FILE__, __LINE__
-      );
-      return SCRMFS_FAILURE;
+        );
+        return SCRMFS_FAILURE;
     }
 
-    next++;
+    /* now extract any units, e.g. KB MB GB, etc */
+    unsigned long long units = 1;
+    if (*next != '\0') {
+        switch(*next) {
+        case 'k':
+        case 'K':
+            units = 1024;
+            break;
+        case 'm':
+        case 'M':
+            units = 1024*1024;
+            break;
+        case 'g':
+        case 'G':
+            units = 1024*1024*1024;
+            break;
+        default:
+            debug("scr_abtoull: Unexpected byte string %s @ %s:%d",
+                str, __FILE__, __LINE__
+            );
+            return SCRMFS_FAILURE;
+        }
 
-    /* handle optional b or B character, e.g. in 10KB */
-    if (*next == 'b' || *next == 'B') {
-      next++;
+        next++;
+
+        /* handle optional b or B character, e.g. in 10KB */
+        if (*next == 'b' || *next == 'B') {
+            next++;
+        }
+
+        /* check that we've hit the end of the string */
+        if (*next != 0) {
+            debug("scr_abtoull: Unexpected byte string: %s @ %s:%d",
+                str, __FILE__, __LINE__
+            );
+            return SCRMFS_FAILURE;
+        }
     }
 
-    /* check that we've hit the end of the string */
-    if (*next != 0) {
-      debug("scr_abtoull: Unexpected byte string: %s @ %s:%d",
-              str, __FILE__, __LINE__
-      );
-      return SCRMFS_FAILURE;
-    }
-  }
-
-  /* check that we got a positive value */
-  if (num < 0) {
-    debug("scr_abtoull: Byte string must be positive: %s @ %s:%d",
+    /* check that we got a positive value */
+    if (num < 0) {
+        debug("scr_abtoull: Byte string must be positive: %s @ %s:%d",
             str, __FILE__, __LINE__
-    );
-    return SCRMFS_FAILURE;
-  }
+        );
+        return SCRMFS_FAILURE;
+    }
 
-  /* multiply by our units and set out return value */
-  *val = (unsigned long long) (num * (double) units);
+    /* multiply by our units and set out return value */
+    *val = (unsigned long long) (num * (double) units);
 
-  return SCRMFS_SUCCESS;
+    return SCRMFS_SUCCESS;
 }
 
 static int scrmfs_init(int rank)
@@ -1966,13 +1989,13 @@ int SCRMFS_DECL(rmdir)(const char *path)
         }
 
         /* is it a directory? */
-        if (!scrmfs_fid_is_dir(fid)) {
+        if (! scrmfs_fid_is_dir(fid)) {
             errno = ENOTDIR;
             return -1;
         }
 
         /* is it empty? */
-        if (!scrmfs_fid_is_dir_empty(path)) {
+        if (! scrmfs_fid_is_dir_empty(path)) {
             errno = ENOTEMPTY;
             return -1;
         }
