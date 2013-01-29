@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w
+use strict;
+
+# commands to build fakechroot list
+#   git clone https://github.com/fakechroot/fakechroot.git fakechroot.git
+#   cd fakechroot.git/src
+#   ls *.c > fakechroot_list.txt
+#
+# commands to build scrmfs list
+#   grep SCRMFS_DECL runtime/lib/*.c > scrmfs_list.txt
+
+my $fakechroot_list = "fakechroot_list.txt";
+my $scrmfs_list     = "scrmfs_list.txt";
+
+if (@ARGV != 1) {
+  print "Usage: scrmfs_check_fns <executable>\n";
+  exit 1;
+}
+my $exe = shift @ARGV;
+
+my %fakechroot = ();
+open(IN, $fakechroot_list) || die "failed to open $fakechroot_list\n";
+while (my $line = <IN>) {
+  # drop trailing newline
+  chomp $line;
+
+  # chop trailing .c
+  $line =~ s/\.c$//;
+
+  $fakechroot{$line} = 1;
+}
+close(IN);
+
+my %scrmfs = ();
+open(IN, $scrmfs_list) || die "failed to open $scrmfs_list\n";
+while (my $line = <IN>) {
+  # drop trailing newline
+  chomp $line;
+
+  # pick off item in parens in SCRMFS_DELC(fn_name)
+  if ($line =~ /SCRMFS_DECL\((.*?)\)/) {
+    my $fn = $1;
+    $scrmfs{$fn} = 1;
+  }
+}
+close(IN);
+
+# get list of functions called by executable
+my $fns_str = `nm $exe`;
+my @fns_list = split("\n", $fns_str);
+foreach my $line (@fns_list) {
+  chomp $line;
+#  print "$line, ";
+
+  my ($hex, $code, $fn) = split(/\s+/, $line);
+#  print "$fn, ";
+
+  $fn =~ s/@.*$//;
+#  print "$fn\n";
+
+  my $used = 0;
+  my $supported = 0;
+  if (defined $fakechroot{$fn}) {
+    $used = 1;
+    if (defined $scrmfs{$fn}) {
+      $supported = 1;
+    }
+  }
+
+  if ($used) {
+    print "$fn";
+    if (not $supported) {
+      print ", not supported";
+    }
+    print "\n";
+  }
+}
+
+exit 0;
