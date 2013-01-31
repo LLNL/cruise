@@ -15,6 +15,7 @@
 #include <search.h>
 #include <assert.h>
 #include <libgen.h>
+#include <limits.h>
 #define __USE_GNU
 #include <pthread.h>
 
@@ -48,11 +49,18 @@
 typedef int64_t off64_t;
 #endif
 
-static int scrmfs_use_memfs = 1;
+static int scrmfs_fpos_enabled   = 1;  /* whether we can use fgetpos/fsetpos */
+
+static int scrmfs_use_memfs      = 1;
 static int scrmfs_use_spillover;
 static int scrmfs_use_single_shm = 0;
 static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
-static int scrmfs_page_size = 0;
+static int scrmfs_page_size      = 0;
+
+static off_t scrmfs_max_offt;
+static off_t scrmfs_min_offt;
+static off_t scrmfs_max_long;
+static off_t scrmfs_min_long;
 
 static int    scrmfs_max_files;  /* maximum number of files to store */
 static size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
@@ -125,7 +133,7 @@ SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
 SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
 SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
 SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
-/* TODO: remove() */
+SCRMFS_FORWARD_DECL(remove, int, (const char *path));
 SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
 SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
 SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
@@ -170,7 +178,9 @@ SCRMFS_FORWARD_DECL(close, int, (int fd));
  * --------------------------------------- */
 
 SCRMFS_FORWARD_DECL(fopen, FILE*, (const char *path, const char *mode));
-SCRMFS_FORWARD_DECL(fopen64, FILE*, (const char *path, const char *mode));
+SCRMFS_FORWARD_DECL(setvbuf, int, (FILE *stream, char* buf, int type, size_t size));
+SCRMFS_FORWARD_DECL(setbuf, void*, (FILE *stream, char* buf));
+SCRMFS_FORWARD_DECL(ungetc, int, (int c, FILE *stream));
 SCRMFS_FORWARD_DECL(fgetc, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(fputc, int, (int c, FILE *stream));
 SCRMFS_FORWARD_DECL(getc, int, (FILE *stream));
@@ -179,11 +189,17 @@ SCRMFS_FORWARD_DECL(fgets, char*, (char* s, int n, FILE* stream));
 SCRMFS_FORWARD_DECL(fputs, int, (const char* s, FILE* stream));
 SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
 SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
+SCRMFS_FORWARD_DECL(fprintf, int, (FILE* stream, const char* format, ...));
+SCRMFS_FORWARD_DECL(vfprintf, int, (FILE* stream, const char* format, va_list ap));
+SCRMFS_FORWARD_DECL(fscanf, int, (FILE* stream, const char* format, ...));
+SCRMFS_FORWARD_DECL(vfscanf, int, (FILE* stream, const char* format, va_list ap));
 SCRMFS_FORWARD_DECL(fseek,  int, (FILE *stream, long offset,  int whence));
 SCRMFS_FORWARD_DECL(fseeko, int, (FILE *stream, off_t offset, int whence));
 SCRMFS_FORWARD_DECL(ftell,  long,  (FILE *stream));
 SCRMFS_FORWARD_DECL(ftello, off_t, (FILE *stream));
 SCRMFS_FORWARD_DECL(rewind, void, (FILE *stream));
+SCRMFS_FORWARD_DECL(fgetpos, int, (FILE *stream, fpos_t* pos));
+SCRMFS_FORWARD_DECL(fsetpos, int, (FILE *stream, const fpos_t* pos));
 SCRMFS_FORWARD_DECL(fflush, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(feof, int, (FILE *stream));
 SCRMFS_FORWARD_DECL(ferror, int, (FILE *stream));
@@ -224,17 +240,12 @@ pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
  * added together */
 static inline int scrmfs_would_overflow_offt(off_t a, off_t b)
 {
-    /* compute min and max values */
-    unsigned long long bits = sizeof(off_t) * 8;
-    off_t max = (off_t) ( (1ULL << (bits-1ULL)) - 1ULL);
-    off_t min = (off_t) (-(1ULL << (bits-1ULL))       );
-
     /* if both parameters are positive, they could overflow when
      * added together */
     if (a > 0 && b > 0) {
         /* if the distance between a and max is greater than or equal to
          * b, then we could add a and b and still not exceed max */
-        if (max - a >= b) {
+        if (scrmfs_max_offt - a >= b) {
             return 0;
         }
         return 1;
@@ -245,7 +256,7 @@ static inline int scrmfs_would_overflow_offt(off_t a, off_t b)
     if (a < 0 && b < 0) {
         /* if the distance between min and a is less than or equal to
          * b, then we could add a and b and still not exceed min */
-        if (min - a <= b) {
+        if (scrmfs_min_offt - a <= b) {
             return 0;
         }
         return 1;
@@ -261,17 +272,12 @@ static inline int scrmfs_would_overflow_offt(off_t a, off_t b)
  * added together */
 static inline int scrmfs_would_overflow_long(long a, long b)
 {
-    /* compute min and max values */
-    unsigned long long bits = sizeof(long) * 8;
-    long max = (long) ( (1ULL << (bits-1ULL)) - 1ULL);
-    long min = (long) (-(1ULL << (bits-1ULL))       );
-
     /* if both parameters are positive, they could overflow when
      * added together */
     if (a > 0 && b > 0) {
         /* if the distance between a and max is greater than or equal to
          * b, then we could add a and b and still not exceed max */
-        if (max - a >= b) {
+        if (scrmfs_max_long - a >= b) {
             return 0;
         }
         return 1;
@@ -282,7 +288,7 @@ static inline int scrmfs_would_overflow_long(long a, long b)
     if (a < 0 && b < 0) {
         /* if the distance between min and a is less than or equal to
          * b, then we could add a and b and still not exceed min */
-        if (min - a <= b) {
+        if (scrmfs_min_long - a <= b) {
             return 0;
         }
         return 1;
@@ -1698,8 +1704,26 @@ static int scrmfs_init(int rank)
         char* env;
         unsigned long long bytes;
 
+        /* as a hack to support fgetpos/fsetpos, we store the value of
+         * a void* in an fpos_t so check that there's room and at least
+         * print a message if this won't work */
+        if (sizeof(fpos_t) < sizeof(void*)) {
+            fprintf(stderr, "ERROR: fgetpos/fsetpos will not work correctly.\n");
+            scrmfs_fpos_enabled = 0;
+        }
+
         /* look up page size for buffer alignment */
         scrmfs_page_size = getpagesize();
+
+        /* compute min and max off_t values */
+        unsigned long long bits;
+        bits = sizeof(off_t) * 8;
+        scrmfs_max_offt = (off_t) ( (1ULL << (bits-1ULL)) - 1ULL);
+        scrmfs_min_offt = (off_t) (-(1ULL << (bits-1ULL))       );
+
+        /* compute min and max long values */
+        scrmfs_max_long = LONG_MAX;
+        scrmfs_min_long = LONG_MIN;
 
         /* will we use containers or shared memory to store the files? */
         scrmfs_use_containers = 0;
@@ -1744,7 +1768,7 @@ static int scrmfs_init(int rank)
             scrmfs_chunk_bits = val;
         }
 
-        /* determine maximum number of bytes of memory to use for chunk storage */
+        /* determine maximum number of bytes of memory for chunk storage */
         scrmfs_chunk_mem = SCRMFS_CHUNK_MEM;
         env = getenv("SCRMFS_CHUNK_MEM");
         if (env) {
@@ -1752,12 +1776,13 @@ static int scrmfs_init(int rank)
             scrmfs_chunk_mem = (size_t) bytes;
         }
 
-        /* set chunk size, set chunk offset mask, and set total number of chunks */
+        /* set chunk size, set chunk offset mask, and set total number
+         * of chunks */
         scrmfs_chunk_size = 1 << scrmfs_chunk_bits;
         scrmfs_chunk_mask = scrmfs_chunk_size - 1;
         scrmfs_max_chunks = scrmfs_chunk_mem >> scrmfs_chunk_bits;
 
-        /* determine maximum number of bytes of spillover to use for chunk storage */
+        /* determine maximum number of bytes of spillover for chunk storage */
         scrmfs_spillover_size = SCRMFS_SPILLOVER_SIZE;
         env = getenv("SCRMFS_SPILLOVER_SIZE");
         if (env) {
@@ -2129,6 +2154,40 @@ int SCRMFS_DECL(unlink)(const char *path)
     }
 }
 
+int SCRMFS_DECL(remove)(const char *path)
+{
+    /* determine whether we should intercept this path or not */
+    if (scrmfs_intercept_path(path)) {
+        /* get file id for path name */
+        int fid = scrmfs_get_fid_from_path(path);
+        if (fid < 0) {
+            /* ERROR: file does not exist */
+            debug("Couldn't find entry for %s in SCRMFS\n",path);
+            errno = ENOENT;
+            return -1;
+        }
+
+        /* check that it's not a directory */
+        if (scrmfs_fid_is_dir(fid)) {
+            /* TODO: shall be equivalent to rmdir(path) */
+            /* ERROR: is a directory */
+            debug("Attempting to remove a directory %s in SCRMFS\n",path);
+            errno = EISDIR;
+            return -1;
+        }
+
+        /* shall be equivalent to unlink(path) */
+        /* delete the file */
+        scrmfs_fid_unlink(fid);
+
+        return 0;
+    } else {
+        MAP_OR_FAIL(remove);
+        int ret = __real_remove(path);
+        return ret;
+    }
+}
+
 int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
 {
     debug("stat was called for %s....\n",path);
@@ -2239,11 +2298,19 @@ static int scrmfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* re
        return SCRMFS_ERR_ISDIR;
     }
 
+    /* check that file descriptor is open for read */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+    if (! filedesc->read) {
+        return SCRMFS_ERR_BADF;
+    }
+
     /* TODO: is it safe to assume that off_t is bigger than size_t? */
     /* check that we don't overflow the file length */
     if (scrmfs_would_overflow_offt(pos, (off_t) count)) {
         return SCRMFS_ERR_OVERFLOW;
     }
+
+    /* TODO: check that file is open for reading */
 
     /* check that we don't try to read past the end of the file */
     off_t lastread = pos + (off_t) count;
@@ -2282,11 +2349,20 @@ static int scrmfs_fd_write(int fd, off_t pos, const void* buf, size_t count)
         return SCRMFS_ERR_INVAL;
     }
 
+    /* check that file descriptor is open for write */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+    if (! filedesc->write) {
+        return SCRMFS_ERR_BADF;
+    }
+
     /* TODO: is it safe to assume that off_t is bigger than size_t? */
     /* check that our write won't overflow the length */
     if (scrmfs_would_overflow_offt(pos, (off_t) count)) {
+        /* TODO: want to return EFBIG here for streams */
         return SCRMFS_ERR_OVERFLOW;
     }
+
+    /* TODO: check that file is open for writing */
 
     /* get current file size before extending the file */
     off_t filesize = scrmfs_fid_size(fid);
@@ -2307,8 +2383,8 @@ static int scrmfs_fd_write(int fd, off_t pos, const void* buf, size_t count)
         }
     }
 
-    debug("request to write %d bytes to position %d\n", count, pos);
     /* finally write specified data to file */
+    debug("request to write %d bytes to position %d\n", count, pos);
     int write_rc = scrmfs_fid_write(fid, pos, buf, count);
     
     return write_rc;
@@ -2333,7 +2409,10 @@ int SCRMFS_DECL(creat)(const char* path, mode_t mode)
 
         /* TODO: allocate a free file descriptor and associate it with fid */
         /* set in_use flag and file pointer */
-        scrmfs_fds[fid].pos = pos;
+        scrmfs_fd_t* filedesc = &(scrmfs_fds[fid]);
+        filedesc->pos   = pos;
+        filedesc->read  = mode & (O_RDONLY | O_RDWR);
+        filedesc->write = mode & (O_WRONLY | O_RDWR);
         debug("SCRMFS_open generated fd %d for file %s\n", fid, path);    
 
         /* don't conflict with active system fds that range from 0 - (fd_limit) */
@@ -2388,7 +2467,10 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
 
         /* TODO: allocate a free file descriptor and associate it with fid */
         /* set in_use flag and file pointer */
-        scrmfs_fds[fid].pos = pos;
+        scrmfs_fd_t* filedesc = &(scrmfs_fds[fid]);
+        filedesc->pos   = pos;
+        filedesc->read  = mode & (O_RDONLY | O_RDWR);
+        filedesc->write = mode & (O_WRONLY | O_RDWR);
         debug("SCRMFS_open generated fd %d for file %s\n", fid, path);    
 
         /* don't conflict with active system fds that range from 0 - (fd_limit) */
@@ -2453,9 +2535,14 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
             return (off_t)-1;
         }
 
-        debug("seeking from %ld\n", scrmfs_fds[fd].pos);        
-        off_t current_pos = scrmfs_fds[fd].pos;
+        /* get file descriptor for fd */
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
 
+        /* get current file position */
+        off_t current_pos = filedesc->pos;
+
+        /* compute final file position */
+        debug("seeking from %ld\n", current_pos);        
         switch (whence)
         {
             case SEEK_SET:
@@ -2474,14 +2561,14 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
                 errno = EINVAL;
                 return (off_t)-1;
         }
+        debug("seeking to %ld\n", current_pos);        
 
-        scrmfs_fds[fd].pos = current_pos;
-
-        debug("seeking to %ld\n", scrmfs_fds[fd].pos);        
+        /* set and return final file position */
+        filedesc->pos = current_pos;
         return current_pos;
     } else {
         MAP_OR_FAIL(lseek);
-        int ret = __real_lseek(fd, offset, whence);
+        off_t ret = __real_lseek(fd, offset, whence);
         return ret;
     }
 }
@@ -2767,6 +2854,13 @@ int SCRMFS_DECL(ftruncate)(int fd, off_t length)
         int fid = scrmfs_get_fid_from_fd(fd);
         if (fid < 0) {
             /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return -1;
+        }
+
+        /* check that file descriptor is open for write */
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+        if (! filedesc->write) {
             errno = EBADF;
             return -1;
         }
@@ -3064,7 +3158,15 @@ static int scrmfs_stream_free(int sid)
 }
 #endif
 
-static int scrmfs_fopen_parse_mode(const char* mode, int* read, int* write, int* append, int* plus)
+/* given a mode like "r", "wb+", or "a+" return flags read, write,
+ * append, and plus to indicate which were set,
+ * returns SCRMFS_ERR_INVAL if invalid character is found */
+static int scrmfs_fopen_parse_mode(
+  const char* mode,
+  int* read,
+  int* write,
+  int* append,
+  int* plus)
 {
     /* we'll set each of these to 1 as we find them */
     *read   = 0;
@@ -3099,7 +3201,7 @@ static int scrmfs_fopen_parse_mode(const char* mode, int* read, int* write, int*
         return SCRMFS_ERR_INVAL;
     }
 
-    /* optional second character may either by + or b */
+    /* optional second character may either be + or b */
     if (len > 1) {
         char second = mode[1];
         if (second == '+') {
@@ -3134,7 +3236,14 @@ static int scrmfs_fopen_parse_mode(const char* mode, int* read, int* write, int*
     return SCRMFS_SUCCESS;
 }
 
-static int scrmfs_fopen(const char* path, const char* mode, FILE** outstream)
+/* calls scrmfs_fid_open to open specified file in mode according to
+ * fopen mode semantics, initializes outstream and returns
+ * SCRMFS_SUCCESS if successful, returns some other SCRMFS error
+ * otherwise */
+static int scrmfs_fopen(
+  const char* path,
+  const char* mode,
+  FILE** outstream)
 {
     /* assume that we'll fail */
     *outstream = NULL;
@@ -3146,7 +3255,7 @@ static int scrmfs_fopen(const char* path, const char* mode, FILE** outstream)
         return parse_rc;
     }
 
-    /* TODO: get real permissions */
+    /* TODO: get real permissions via umask */
     /* assume default permissions */
     mode_t perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
@@ -3154,6 +3263,8 @@ static int scrmfs_fopen(const char* path, const char* mode, FILE** outstream)
     int fid;
     off_t pos;
     if (read) {
+      /* read shall fail if file does not already exist, scrmfs_fid_open
+       * returns SCRMFS_ERR_NOENT if file does not exist w/o O_CREAT */
       if (plus) {
           /* r+ ==> open file for update (reading and writing) */
           open_rc = scrmfs_fid_open(path, O_RDWR, perms, &fid, &pos);
@@ -3163,20 +3274,23 @@ static int scrmfs_fopen(const char* path, const char* mode, FILE** outstream)
       }
     } else if (write) {
       if (plus) {
-          /* w+ ==> truncate to zero length or create file for update (read/write) */
+          /* w+ ==> truncate to zero length or create file for update
+           * (read/write) */
           open_rc = scrmfs_fid_open(path, O_RDWR | O_CREAT | O_TRUNC, perms, &fid, &pos);
       } else {
-          /* w  ==> truncate to zero length or create file for writing */
+          /* w  ==> truncate to zero length or create file for
+           * writing */
           open_rc = scrmfs_fid_open(path, O_WRONLY | O_CREAT | O_TRUNC, perms, &fid, &pos);
       }
     } else if (append) {
-      /* TODO: need to ignore fseek in this mode */
-
+      /* force all writes to end of file when append is set */
       if (plus) {
-          /* a+ ==> append, open or create file for update, at end of file */
+          /* a+ ==> append, open or create file for update, at end
+           * of file */
           open_rc = scrmfs_fid_open(path, O_RDWR | O_CREAT | O_APPEND, perms, &fid, &pos);
       } else {
-          /* a  ==> append, open or create file for writing, at end of file */
+          /* a  ==> append, open or create file for writing, at end
+           * of file */
           open_rc = scrmfs_fid_open(path, O_WRONLY | O_CREAT | O_APPEND, perms, &fid, &pos);
       }
     }
@@ -3192,17 +3306,479 @@ static int scrmfs_fopen(const char* path, const char* mode, FILE** outstream)
     /* allocate a file descriptor for this file */
     int fd = fid;
 
-    /* clear the error and eof indicators and remember the file descriptor */
+    /* clear error and eof indicators and record file descriptor */
     s->err = 0;
     s->eof = 0;
     s->fd  = fd;
 
-    /* set the file pointer in the file descriptor */
-    scrmfs_fds[fd].pos = pos;
+    /* record the access mode for the stream */
+    s->append = append;
+
+    /* set orientation to NULL */
+    s->orient = SCRMFS_STREAM_ORIENTATION_NULL;
+
+    /* default to fully buffered, set buffer to NULL to indicate
+     * setvbuf has not been called */
+    s->buf      = NULL;
+    s->buffree  = 0;
+    s->buftype  = _IOFBF;
+    s->bufsize  = 0;
+    s->bufpos   = 0;
+    s->buflen   = 0;
+    s->bufdirty = 0;
+
+    /* set file pointer and read/write mode in file descriptor */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+    filedesc->pos   = pos;
+    filedesc->read  = read  || plus;
+    filedesc->write = write || plus;
 
     /* set return parameter and return */
     *outstream = (FILE*)s;
     return SCRMFS_SUCCESS;
+}
+
+/* associate buffer with stream, allocates a buffer of specified size
+ * if buf is NULL, otherwise uses buffer passed by caller, also sets
+ * stream to fully/line/unbuffered, returns SCRMFS error codes */
+static int scrmfs_setvbuf(
+  FILE* stream,
+  char* buf,
+  int type,
+  size_t size)
+{
+    /* lookup stream */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+    /* TODO: check that stream is valid */
+
+    /* check whether we've already associated a buffer */
+    if (s->buf != NULL) {
+        /* ERROR: stream already has buffer */
+        return SCRMFS_ERR_BADF;
+    }
+
+    /* check that the type argument is valid */
+    if (type != _IOFBF && type != _IOLBF && type != _IONBF) {
+        /* ERROR: invalid type argument */
+        return SCRMFS_ERR_INVAL;
+    }
+
+    /* check that size is valid */
+    if (size <= 0) {
+        /* ERROR: invalid size argument */
+        return SCRMFS_ERR_INVAL;
+    }
+
+    /* associate buffer with stream */
+    if (buf == NULL) {
+        /* allocate buffer */
+        s->buf = malloc(size);
+        if (s->buf == NULL) {
+            /* ERROR: no memory */
+            return SCRMFS_ERR_NOMEM;
+        }
+        /* remember that we need to free the buffer at the end */
+        s->buffree = 1;
+    } else {
+        /* caller provided buffer, remember that we don't need to
+         * free it when closing the stream */
+        s->buf = buf;
+        s->buffree = 0;
+    }
+
+    /* set properties of buffer */
+    s->buftype  = type;
+    s->bufsize  = size;
+    s->bufpos   = 0;
+    s->buflen   = 0;
+    s->bufdirty = 0;
+
+    return SCRMFS_SUCCESS;
+}
+
+/* calls scrmfs_fd_write to flush stream if it is dirty,
+ * returns SCRMFS error codes, does not set errno */
+static int scrmfs_stream_flush(FILE* stream)
+{
+    /* lookup stream */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+    /* TODO: check that stream is valid */
+
+    /* if buffer is dirty, write data to file */
+    if (s->buf != NULL && s->bufdirty) {
+        int write_rc = scrmfs_fd_write(s->fd, s->bufpos, s->buf, s->buflen);
+        if (write_rc != SCRMFS_SUCCESS) {
+            return write_rc;
+        }
+
+        /* indicate that buffer is now flushed */
+        s->bufdirty = 0;
+    }
+
+    return SCRMFS_SUCCESS;
+}
+
+/* reads count bytes from stream into buf, sets stream EOF and error
+ * indicators as appropriate, sets errno if error, updates file
+ * position, returns number of bytes read in retcount, returns SCRMFS
+ * error codes*/
+static int scrmfs_stream_read(
+  FILE* stream,
+  void* buf,
+  size_t count,
+  size_t* retcount)
+{
+    /* lookup stream */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+    /* TODO: check that stream is valid */
+
+    /* get pointer to file descriptor structure */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    if (filedesc == NULL) {
+        /* ERROR: invalid file descriptor */
+        s->err = 1;
+        errno = EBADF;
+        return SCRMFS_ERR_BADF;
+    }
+
+    /* bail with error if stream not open for reading */
+    if (! filedesc->read) {
+        s->err = 1;
+        errno = EBADF;
+        return SCRMFS_ERR_BADF;
+    }
+
+    /* associate buffer with stream if we need to */
+    if (s->buf == NULL) {
+        int setvbuf_rc = scrmfs_setvbuf(stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
+        if (setvbuf_rc != SCRMFS_SUCCESS) {
+            /* ERROR: failed to associate buffer */
+            s->err = 1;
+            errno = scrmfs_err_map_to_errno(setvbuf_rc);
+            return setvbuf_rc;
+        }
+    }
+
+    /* don't attempt read if end-of-file indicator is set */
+    if (s->eof) {
+        return SCRMFS_FAILURE;
+    }
+
+    /* read data from file into buffer */
+    int eof = 0;
+    off_t current = filedesc->pos;
+    size_t remaining = count;
+    while (remaining > 0 && !eof) {
+        /* TODO: flush buffer if needed before read */
+
+        /* check that current falls within buffer */
+        off_t start  = s->bufpos;
+        off_t length = s->buflen;
+        if (current < start || current >= start + length) {
+            /* TODO: if count is large enough, read directly to user's
+             * buffer and be done with it */
+
+            /* current is outside the range, read data from file
+             * into buffer */
+            size_t bufcount;
+            int read_rc = scrmfs_fd_read(s->fd, current, s->buf, s->bufsize, &bufcount);
+            if (read_rc != SCRMFS_SUCCESS) {
+                /* ERROR: read error, set error indicator and errno */
+                s->err = 1;
+                errno = scrmfs_err_map_to_errno(read_rc);
+                return read_rc;
+            }
+
+            /* record new buffer range within file */
+            s->bufpos  = current;
+            s->buflen  = bufcount;
+
+            /* set end-of-file flag if our read was short */
+            if (bufcount < s->bufsize) {
+              eof = 1;
+            }
+        }
+
+        /* determine number of bytes to copy from stream buffer */
+        size_t stream_offset    = (size_t) (current - s->bufpos);
+        size_t stream_remaining = s->buflen - stream_offset;
+        size_t bytes = stream_remaining;
+        if (bytes > remaining) {
+            bytes = remaining;
+        }
+
+        /* copy data from stream buffer to user buffer */
+        char* buf_start    = (char*)buf + (count - remaining);
+        char* stream_start = (char*)s->buf + stream_offset;
+        memcpy(buf_start, stream_start, bytes);
+
+        /* update our current position and the number of bytes
+         * left to read */
+        current   += bytes;
+        remaining -= bytes;
+    }
+
+    /* set number of bytes read */
+    *retcount = (count - remaining);
+
+    /* update file position */
+    filedesc->pos += (off_t) *retcount;
+
+    /* set end of file indicator if we hit the end */
+    if (*retcount < count) {
+        s->eof = 1;
+    }
+
+    /* return success */
+    return SCRMFS_SUCCESS;
+}
+
+/* writes count bytes from buf to stream, sets stream EOF and error
+ * indicators as appropriate, sets errno if error, updates file
+ * position, return SCRMFS error codes */
+static int scrmfs_stream_write(
+  FILE* stream,
+  const void* buf,
+  size_t count)
+{
+    /* lookup stream */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+    /* TODO: check that stream is valid */
+
+    /* get pointer to file descriptor structure */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    if (filedesc == NULL) {
+        /* ERROR: invalid file descriptor */
+        s->err = 1;
+        errno = EBADF;
+        return SCRMFS_ERR_BADF;
+    }
+
+    /* bail with error if stream not open for writing */
+    if (! filedesc->write) {
+        s->err = 1;
+        errno = EBADF;
+        return SCRMFS_ERR_BADF;
+    }
+
+    /* set the position to write */
+    off_t pos;
+    if (s->append) {
+      /* if in append mode, always write to end of file */
+      int fid = scrmfs_get_fid_from_fd(s->fd);
+      if (fid < 0) {
+          s->err = 1;
+          errno = EBADF;
+          return SCRMFS_ERR_BADF;
+      }
+      pos = scrmfs_fid_size(fid);
+    } else {
+      /* otherwise, write at current file pointer */
+      pos = filedesc->pos;
+    }
+
+    /* associate buffer with stream if we need to */
+    if (s->buf == NULL) {
+        int setvbuf_rc = scrmfs_setvbuf(stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
+        if (setvbuf_rc != SCRMFS_SUCCESS) {
+            /* ERROR: failed to associate buffer */
+            s->err = 1;
+            errno = scrmfs_err_map_to_errno(setvbuf_rc);
+            return setvbuf_rc;
+        }
+    }
+
+    /* if unbuffered, write data directly to file */
+    if (s->buftype == _IONBF) {
+        /* write data directly to file */
+        int write_rc = scrmfs_fd_write(s->fd, pos, buf, count);
+        if (write_rc != SCRMFS_SUCCESS) {
+            /* ERROR: write error, set error indicator and errno */
+            s->err = 1;
+            errno = scrmfs_err_map_to_errno(write_rc);
+            return write_rc;
+        }
+
+        /* update file position */
+        filedesc->pos = pos + (off_t) count;
+
+        return SCRMFS_SUCCESS;
+    }
+
+    /* write data from buffer to file */
+    off_t current = pos;
+    size_t remaining = count;
+    while (remaining > 0) {
+        /* if buffer is clean, set start of buffer to current */
+        if (! s->bufdirty) {
+            /* TODO: if count is large enough, write directly to file
+             * and be done with it */
+
+            s->bufpos = current;
+            s->buflen = 0;
+        }
+
+        /* determine number of bytes to copy to buffer and whether
+         * we need to flush the stream after the write */
+        size_t bytes;
+        int need_flush = 0;
+        size_t stream_offset    = s->buflen;
+        size_t stream_remaining = s->bufsize - stream_offset;
+        if (s->buftype == _IOLBF) {
+            /* line buffered, scan to first newline or end of
+             * user buffer and counts bytes as we go */
+            bytes = 0;
+            const char* ptr = (const char*)buf + (count - remaining);
+            while (bytes < remaining) {
+                bytes++;
+                if (*ptr == '\n') {
+                  /* found a newline, write up to and including newline
+                   * then flush stream */
+                  need_flush = 1;
+                  break;
+                }
+                ptr++;
+            }
+
+            /* error if we exhaust buffer before finding a newline */
+            if (bytes > stream_remaining ||
+                (bytes == stream_remaining && !need_flush))
+            {
+                /* ERROR: write error, set error indicator and errno */
+                s->err = 1;
+                errno = ENOMEM;
+                return SCRMFS_ERR_NOMEM;
+            }
+        } else {
+            /* fully buffered, write until we hit the buffer limit */
+            bytes = remaining;
+            if (bytes >= stream_remaining) {
+                bytes = stream_remaining;
+                need_flush = 1;
+            }
+        }
+
+        /* copy data from user buffer to stream buffer */
+        if (bytes > 0) {
+            char* buf_start    = (char*)buf + (count - remaining);
+            char* stream_start = (char*)s->buf + stream_offset;
+            memcpy(stream_start, buf_start, bytes);
+
+            /* mark buffer as dirty and increase number of bytes */
+            s->bufdirty = 1;
+            s->buflen += bytes;
+        }
+
+        /* if we've filled the buffer, flush it */
+        if (need_flush) {
+            /* flush stream */
+            int flush_rc = scrmfs_stream_flush(stream);
+            if (flush_rc != SCRMFS_SUCCESS) {
+                /* ERROR: write error, set error indicator and errno */
+                s->err = 1;
+                errno = scrmfs_err_map_to_errno(flush_rc);
+                return flush_rc;
+            }
+        }
+
+        /* update our current position and the number of bytes
+         * left to write */
+        current   += bytes;
+        remaining -= bytes;
+    }
+
+    /* update file position */
+    filedesc->pos += (off_t) count;
+
+    return SCRMFS_SUCCESS;
+}
+
+/* fseek, fseeko, rewind, and fsetpos all call this function, sets error
+ * indicator and errno if necessary, returns -1 on error, returns
+ * 0 for success */
+static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
+{
+    /* lookup stream */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+    /* get pointer to file descriptor structure */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    if (filedesc == NULL) {
+        /* ERROR: invalid file descriptor */
+        s->err = 1;
+        errno = EBADF;
+        return -1;
+    }
+
+    /* TODO: ungetc discard changes */
+
+    /* flush stream if we need to */
+    int flush_rc = scrmfs_stream_flush(stream);
+    if (flush_rc != SCRMFS_SUCCESS) {
+        s->err = 1;
+        errno = scrmfs_err_map_to_errno(flush_rc);
+        return -1;
+    }
+
+    /* get the file id for this file descriptor */
+    int fid = scrmfs_get_fid_from_fd(s->fd);
+    if (fid < 0) {
+        /* couldn't find file id, so assume we're at the end,
+         * feof defines to errors */
+        s->err = 1;
+        errno = EBADF;
+        return -1;
+    }
+
+    /* get current position */
+    off_t current_pos = filedesc->pos;
+
+    /* update current position based on whence and offset */
+    off_t filesize;
+    switch (whence)
+    {
+        case SEEK_SET:
+            /* seek to offset */
+            current_pos = offset;
+            break;
+        case SEEK_CUR:
+            /* seek to current position + offset */
+            if (scrmfs_would_overflow_offt(current_pos, offset)) {
+                s->err = 1;
+                errno  = EOVERFLOW;
+                return -1;
+            }
+            current_pos += offset;
+            break;
+        case SEEK_END:
+            /* seek to EOF + offset */
+            filesize = scrmfs_fid_size(fid);
+            if (scrmfs_would_overflow_offt(filesize, offset)) {
+                s->err = 1;
+                errno  = EOVERFLOW;
+                return -1;
+            }
+            current_pos = filesize + offset;
+            break;
+        default:
+            s->err = 1;
+            errno = EINVAL;
+            return -1;
+    }
+
+    /* TODO: only update file descriptor if most recent call is
+     * fflush? */
+    /* save new position */
+    filedesc->pos = current_pos;
+
+    /* clear end-of-file indicator */
+    s->eof = 0;
+
+    return 0;
 }
 
 FILE* SCRMFS_DECL(fopen)(const char *path, const char *mode)
@@ -3223,98 +3799,52 @@ FILE* SCRMFS_DECL(fopen)(const char *path, const char *mode)
     }
 }
 
-FILE* SCRMFS_DECL(fopen64)(const char *path, const char *mode)
+int SCRMFS_DECL(setvbuf)(FILE* stream, char* buf, int type, size_t size)
 {
     /* check whether we should intercept this path */
-    if (scrmfs_intercept_path(path)) {
-        /* ERROR: fn not yet supported */
-        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
-        errno = ENOENT;
-        return NULL;
+    if (scrmfs_intercept_stream(stream)) {
+        int rc = scrmfs_setvbuf(stream, buf, type, size);
+        if (rc != SCRMFS_SUCCESS) {
+            errno = scrmfs_err_map_to_errno(rc);
+            return 1;
+        }
+        return 0;
     } else {
-        MAP_OR_FAIL(fopen64);
-        FILE* ret = __real_fopen64(path, mode);
+        MAP_OR_FAIL(setvbuf);
+        int ret = __real_setvbuf(stream, buf, type, size);
         return ret;
     }
 }
 
-/* reads count bytes from stream into buf, sets stream EOF and error indicators as appropriate,
- * sets errno if error, updates file position, returns number of bytes read in retcount */
-static int scrmfs_stream_read(FILE* stream, void* buf, size_t count, size_t* retcount)
+void SCRMFS_DECL(setbuf)(FILE* stream, char* buf)
 {
-    /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-
-    /* TODO: check that stream is valid */
-
-    /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
-    if (filedesc == NULL) {
-        /* ERROR: invalid file descriptor */
-        s->err = 1;
-        errno = EBADF;
-        return SCRMFS_ERR_BADF;
+    /* check whether we should intercept this path */
+    if (scrmfs_intercept_stream(stream)) {
+        if (buf != NULL) {
+            scrmfs_setvbuf(stream, buf, _IOFBF, BUFSIZ);
+        } else {
+            scrmfs_setvbuf(stream, buf, _IONBF, BUFSIZ);
+        }
+        return;
+    } else {
+        MAP_OR_FAIL(setbuf);
+        __real_setbuf(stream, buf);
+        return;
     }
-
-    /* don't attempt read if end-of-file indicator is set */
-    if (s->eof) {
-        return SCRMFS_FAILURE;
-    }
-
-    /* read data from file */
-    int read_rc = scrmfs_fd_read(s->fd, filedesc->pos, buf, count, retcount);
-    if (read_rc != SCRMFS_SUCCESS) {
-        /* ERROR: read error, set error indicator and errno */
-        s->err = 1;
-        errno = scrmfs_err_map_to_errno(read_rc);
-        return read_rc;
-    }
-
-    /* update file position */
-    filedesc->pos += (off_t) *retcount;
-
-    /* set end of file indicator if we hit the end */
-    if (*retcount < count) {
-        s->eof = 1;
-    }
-
-    /* return success */
-    return SCRMFS_SUCCESS;
 }
 
-/* writes count bytes from buf to stream, sets stream EOF and error indicators as appropriate,
- * sets errno if error, updates file position */
-static int scrmfs_stream_write(FILE* stream, const void* buf, size_t count)
+int SCRMFS_DECL(ungetc)(int c, FILE *stream)
 {
-    /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-
-    /* TODO: check that stream is valid */
-
-    /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
-    if (filedesc == NULL) {
-        /* ERROR: invalid file descriptor */
-        s->err = 1;
-        errno = EBADF;
-        return SCRMFS_ERR_BADF;
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* ERROR: fn not yet supported */
+        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+        return EOF;
+    } else {
+        MAP_OR_FAIL(ungetc);
+        int ret = __real_ungetc(c, stream);
+        return ret;
     }
-
-    /* TODO: if stream is append mode, always append to end of file */
-
-    /* write data to file */
-    int write_rc = scrmfs_fd_write(s->fd, filedesc->pos, buf, count);
-    if (write_rc != SCRMFS_SUCCESS) {
-        /* ERROR: write error, set error indicator and errno */
-        s->err = 1;
-        errno = scrmfs_err_map_to_errno(write_rc);
-        return write_rc;
-    }
-
-    /* update file position */
-    filedesc->pos += (off_t) count;
-
-    return SCRMFS_SUCCESS;
 }
 
 int SCRMFS_DECL(fgetc)(FILE *stream)
@@ -3327,7 +3857,8 @@ int SCRMFS_DECL(fgetc)(FILE *stream)
         size_t retcount;
         int read_rc = scrmfs_stream_read(stream, &charbuf, count, &retcount);
         if (read_rc != SCRMFS_SUCCESS || retcount == 0) {
-            /* stream read sets error indicator, EOF indicator, and errno for us */
+            /* stream read sets error indicator, EOF indicator,
+             * and errno for us */
             return EOF;
         }
 
@@ -3349,7 +3880,8 @@ int SCRMFS_DECL(fputc)(int c, FILE *stream)
         size_t count = 1;
         int write_rc = scrmfs_stream_write(stream, &charbuf, count);
         if (write_rc != SCRMFS_SUCCESS) {
-            /* stream write sets error indicator, EOF indicator, and errno for us */
+            /* stream write sets error indicator, EOF indicator,
+             * and errno for us */
             return EOF;
         }
 
@@ -3372,7 +3904,8 @@ int SCRMFS_DECL(getc)(FILE *stream)
         size_t retcount;
         int read_rc = scrmfs_stream_read(stream, &charbuf, count, &retcount);
         if (read_rc != SCRMFS_SUCCESS || retcount == 0) {
-            /* stream read sets error indicator, EOF indicator, and errno for us */
+            /* stream read sets error indicator, EOF indicator,
+             * and errno for us */
             return EOF;
         }
 
@@ -3394,7 +3927,8 @@ int SCRMFS_DECL(putc)(int c, FILE *stream)
         size_t count = 1;
         int write_rc = scrmfs_stream_write(stream, &charbuf, count);
         if (write_rc != SCRMFS_SUCCESS) {
-            /* stream write sets error indicator, EOF indicator, and errno for us */
+            /* stream write sets error indicator, EOF indicator,
+             * and errno for us */
             return EOF;
         }
 
@@ -3415,8 +3949,21 @@ char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
          * would be faster to read a large block of characters then
          * scan for newline */
 
+        /* lookup stream */
+        scrmfs_stream_t* stm = (scrmfs_stream_t*) stream;
+
+        /* TODO: check that stream is valid */
+
+        /* check that we got a positive buffer size */
+        if (n <= 0) {
+            /* caller specified a buffer length <= 0 */
+            stm->err = 1;
+            errno = ENOMEM;
+            return NULL;
+        }
+
         /* read one character at a time until we hit a newline, read
-         * n-1 characters or hit the end of the file (or a read error) */
+         * n-1 characters or hit end of the file (or a read error) */
         int limit = 0;
         while (limit < n-1) {
             /* read the next character from the file */
@@ -3424,15 +3971,14 @@ char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
             size_t retcount;
             int read_rc = scrmfs_stream_read(stream, &charbuf, 1, &retcount);
             if (read_rc != SCRMFS_SUCCESS) {
+                /* if error flag is not set, we must have hit EOF,
+                 * terminate string before returning */
+                if (! stm->err) {
+                    s[limit] = '\0';
+                }
+
                 /* stream read sets error indicator, EOF indicator,
                  * and errno for us */
-                return NULL;
-            }
-
-            /* if we hit the end of the file, terminate the string
-             * and return NULL */
-            if (retcount < 1) {
-                s[limit] = '\0';
                 return NULL;
             }
 
@@ -3440,11 +3986,14 @@ char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
             s[limit] = charbuf;
             limit++;
 
-            /* if we hit a newline, break early */
+            /* if we hit a newline, break after copying it */
             if (charbuf == '\n') {
                 break;
             }
         }
+
+        /* terminate string with a NUL */
+        s[limit] = '\0';
 
         return s;
     } else {
@@ -3466,7 +4015,8 @@ int SCRMFS_DECL(fputs)(const char* s, FILE* stream)
         /* write data to file */
         int write_rc = scrmfs_stream_write(stream, (const void*)s, count);
         if (write_rc != SCRMFS_SUCCESS) {
-            /* stream write sets error indicator, EOF indicator, and errno for us */
+            /* stream write sets error indicator, EOF indicator,
+             * and errno for us */
             return EOF;
         }
 
@@ -3496,13 +4046,14 @@ size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
         size_t retcount;
         int read_rc = scrmfs_stream_read(stream, ptr, count, &retcount);
         if (read_rc != SCRMFS_SUCCESS) {
-            /* stream read sets error indicator, EOF indicator, and errno for us */
+            /* stream read sets error indicator, EOF indicator,
+             * and errno for us */
             return 0;
         }
 
         /* return number of items read */
         if (retcount < count) {
-            /* adjust return value if we read less data than requested */
+            /* adjust return value if read less data than requested */
             size_t nitems_read = retcount / size;
             return nitems_read;
         } else {
@@ -3531,7 +4082,8 @@ size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
         /* write data to file */
         int write_rc = scrmfs_stream_write(stream, ptr, count);
         if (write_rc != SCRMFS_SUCCESS) {
-            /* stream write sets error indicator, EOF indicator, and errno for us */
+            /* stream write sets error indicator, EOF indicator,
+             * and errno for us */
             return 0;
         }
 
@@ -3544,77 +4096,151 @@ size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
     }
 }
 
-/* both fseek and fseeko delegate to this function */
-int scrmfs_fseek(FILE *stream, off_t offset, int whence)
+int SCRMFS_DECL(fprintf)(FILE *stream, const char* format, ...)
 {
-    /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
 
-    /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
-    if (filedesc == NULL) {
-        /* ERROR: invalid file descriptor */
-        s->err = 1;
-        errno = EBADF;
-        return -1;
-    }
+        /* TODO: check that stream is active */
 
-    /* get the file id for this file descriptor */
-    int fid = scrmfs_get_fid_from_fd(s->fd);
-    if (fid < 0) {
-        /* couldn't find file id, so assume we're at the end,
-         * feof defines to errors */
-        s->err = 1;
-        errno = EBADF;
-        return -1;
-    }
+        /* get length of component string */
+        va_list args1;
+        va_start(args1, format);
+        size_t chars = (size_t) vsnprintf(NULL, 0, format, args1);
+        va_end(args1);
 
-    /* get current position */
-    off_t current_pos = filedesc->pos;
-
-    /* update current position based on whence and offset */
-    off_t filesize;
-    switch (whence)
-    {
-        case SEEK_SET:
-            /* seek to offset */
-            current_pos = (off_t) offset;
-            break;
-        case SEEK_CUR:
-            /* seek to current position + offset */
-            if (scrmfs_would_overflow_long((long)current_pos, (long)offset)) {
-                s->err = 1;
-                errno  = EOVERFLOW;
-                return -1;
-            }
-            current_pos += (off_t) offset;
-            break;
-        case SEEK_END:
-            /* seek to EOF + offset */
-            filesize = scrmfs_fid_size(fid);
-            if (scrmfs_would_overflow_long((long)filesize, (long)offset)) {
-                s->err = 1;
-                errno  = EOVERFLOW;
-                return -1;
-            }
-            current_pos = filesize + (off_t) offset;
-            break;
-        default:
+        /* allocate space to hold string, add one for the terminating NUL */
+        size_t strlen = chars + 1;
+        char* str = (char*) malloc(strlen);
+        if (str == NULL) {
             s->err = 1;
-            errno = EINVAL;
+            errno = ENOMEM;
             return -1;
+        }
+
+        /* copy formatted string into new memory */
+        va_list args2;
+        va_start(args2, format);
+        int printf_rc = vsnprintf(str, strlen, format, args2);
+        va_end(args2);
+        if (printf_rc != chars) {
+            s->err = 1;
+            /* assuming that vsnprintf sets errno for us */
+            return printf_rc;
+        }
+
+        /* write data to file */
+        int write_rc = scrmfs_stream_write(stream, str, chars);
+        if (write_rc != SCRMFS_SUCCESS) {
+            /* stream write sets error indicator, EOF indicator,
+             * and errno for us */
+            return -1;
+        }
+
+        /* free the string */
+        free(str);
+
+        /* return number of bytes written */
+        return chars;
+    } else {
+        va_list args;
+        va_start(args, format);
+        MAP_OR_FAIL(vfprintf);
+        int ret = __real_vfprintf(stream, format, args);
+        va_end(args);
+        return ret;
     }
-
-    /* TODO: only update file descriptor if most recent call is fflush? */
-    /* save new position */
-    filedesc->pos = current_pos;
-
-    /* clear end-of-file indicator */
-    s->eof = 0;
-
-    return 0;
 }
 
+int SCRMFS_DECL(vfprintf)(FILE *stream, const char* format, va_list ap)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+        /* TODO: check that stream is active */
+
+        
+        /* get length of component string */
+        va_list ap2;
+        va_copy(ap, ap2);
+        size_t chars = (size_t) vsnprintf(NULL, 0, format, ap2);
+        va_end(ap2);
+
+        /* allocate space to hold string, add one for the terminating NUL */
+        size_t strlen = chars + 1;
+        char* str = (char*) malloc(strlen);
+        if (str == NULL) {
+            s->err = 1;
+            errno = ENOMEM;
+            return -1;
+        }
+
+        /* copy formatted string into new memory */
+        int printf_rc = vsnprintf(str, strlen, format, ap);
+        if (printf_rc != chars) {
+            s->err = 1;
+            /* assuming that vsnprintf sets errno for us */
+            return printf_rc;
+        }
+
+        /* write data to file */
+        int write_rc = scrmfs_stream_write(stream, str, chars);
+        if (write_rc != SCRMFS_SUCCESS) {
+            /* stream write sets error indicator, EOF indicator,
+             * and errno for us */
+            return -1;
+        }
+
+        /* free the string */
+        free(str);
+
+        /* return number of bytes written */
+        return chars;
+    } else {
+        MAP_OR_FAIL(vfprintf);
+        int ret = __real_vfprintf(stream, format, ap);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fscanf)(FILE *stream, const char* format, ...)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* ERROR: fn not yet supported */
+        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+        errno = ENOENT;
+        return EOF;
+    } else {
+        va_list args;
+        va_start(args, format);
+        MAP_OR_FAIL(vfscanf);
+        int ret = __real_vfscanf(stream, format, args);
+        va_end(args);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(vfscanf)(FILE *stream, const char* format, va_list ap)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* ERROR: fn not yet supported */
+        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
+        errno = ENOENT;
+        return EOF;
+    } else {
+        MAP_OR_FAIL(vfscanf);
+        int ret = __real_vfscanf(stream, format, ap);
+        return ret;
+    }
+}
+
+/* TODO: return error if new position overflows long */
 int SCRMFS_DECL(fseek)(FILE *stream, long offset, int whence)
 {
     /* check whether we should intercept this stream */
@@ -3642,6 +4268,7 @@ int SCRMFS_DECL(fseeko)(FILE *stream, off_t offset, int whence)
     }
 }
 
+/* TODO: set EOVERFLOW if position overflows long */
 long SCRMFS_DECL(ftell)(FILE *stream)
 {
     /* check whether we should intercept this stream */
@@ -3694,7 +4321,8 @@ off_t SCRMFS_DECL(ftello)(FILE *stream)
     }
 }
 
-/* equivalent to fseek(stream, 0L, SEEK_SET) except shall also clear error indicator */
+/* equivalent to fseek(stream, 0L, SEEK_SET) except shall also clear
+ * error indicator */
 void SCRMFS_DECL(rewind)(FILE* stream)
 {
     /* check whether we should intercept this stream */
@@ -3704,13 +4332,17 @@ void SCRMFS_DECL(rewind)(FILE* stream)
 
         /* TODO: check that stream is active */
 
-        /* TODO: do we need to clear the error even if the seek fails? */
-        /* clear error indicator */
-        s->err = 0;
-
-        /* now seek to front of file */
+        /* seek to front of file */
         int rc = scrmfs_fseek(stream, (off_t) 0L, SEEK_SET);
+
+        /* set errno */
         errno = scrmfs_err_map_to_errno(rc);
+
+        /* clear error indicator if seek successful */
+        if (rc == 0) {
+            s->err = 0;
+        }
+
         return;
     } else {
         MAP_OR_FAIL(rewind);
@@ -3719,22 +4351,142 @@ void SCRMFS_DECL(rewind)(FILE* stream)
     }
 }
 
+struct scrmfs_fpos_t {
+    off_t pos;
+};
+
+int SCRMFS_DECL(fgetpos)(FILE* stream, fpos_t* pos)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* check that we can store a pointer in fpos_t */
+        if (! scrmfs_fpos_enabled) {
+            errno = EOVERFLOW;
+            return 1;
+        }
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+        /* TODO: check that stream is active */
+
+        /* get file descriptor for stream */
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        if (filedesc == NULL) {
+            /* ERROR: invalid file descriptor */
+            errno = EBADF;
+            return 1;
+        }
+
+        /* allocate memory to hold state of stream */
+        struct scrmfs_fpos_t* state = malloc(sizeof(struct scrmfs_fpos_t));
+        if (state == NULL) {
+            errno = ENOMEM;
+            return 1;
+        }
+
+        /* record state */
+        state->pos = filedesc->pos;
+
+        /* save pointer to state in output parameter */
+        void** ptr = (void**) pos;
+        *ptr = (void*) state;
+
+        return 0;
+    } else {
+        MAP_OR_FAIL(fgetpos);
+        int ret = __real_fgetpos(stream, pos);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fsetpos)(FILE* stream, const fpos_t* pos)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+        /* TODO: check that stream is active */
+
+        /* check that we can store a pointer in fpos_t */
+        if (! scrmfs_fpos_enabled) {
+            s->err = 1;
+            errno = EOVERFLOW;
+            return -1;
+        }
+
+        /* get pointer to state from pos input parameter,
+         * assumes pos is a pointer to void*, deference to get value
+         * of void*, which we then cast to a state pointer, ugh */
+        struct scrmfs_fpos_t* state = (struct scrmfs_fpos_t*) *(void**) pos;
+
+        /* semantics of fsetpos seem to match a seek */
+        int seek_rc = scrmfs_fseek(stream, state->pos, SEEK_SET);
+        if (seek_rc != 0) {
+            return seek_rc;
+        }
+
+        /* free memory */
+        free(state);
+
+        return 0;
+    } else {
+        MAP_OR_FAIL(fsetpos);
+        int ret = __real_fsetpos(stream, pos);
+        return ret;
+    }
+}
+
 int SCRMFS_DECL(fflush)(FILE* stream)
 {
     /* if stream is NULL, flush output on all streams */
     if (stream == NULL) {
-        /* TODO: for loop over all active scrmfs streams and flush each one */
-        /* nothing to do right now */
-
+        /* first, have real library flush all of its streams,
+         * important to do this in this order since it may set errno,
+         * which could override our setting for scrmfs streams */
         MAP_OR_FAIL(fflush);
-        int ret = __real_fflush(stream);
+        int ret = __real_fflush(NULL);
+
+        /* flush each active scrmfs stream */
+        int fid;
+        for (fid = 0; fid < SCRMFS_MAX_FILEDESCS; fid++) {
+            /* get stream and check whether it's active */
+            scrmfs_stream_t* s = &(scrmfs_streams[fid]);
+            if (s->fd >= 0) {
+                /* attempt to flush stream */
+                int flush_rc = scrmfs_stream_flush((FILE*)s);
+                if (flush_rc != SCRMFS_SUCCESS) {
+                    /* flush failed, set stream error state */
+                    s->err = 1;
+
+                    /* set errno if it's not already set */
+                    if (ret == 0) {
+                        errno = scrmfs_err_map_to_errno(flush_rc);
+                        ret = EOF;
+                    }
+                }
+            }
+        }
+
         return ret;
     }
 
     /* otherwise, check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* TODO: flush output on stream */
-        /* nothing to do right now */
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+        /* TODO: check that stream is active */
+
+        /* flush output on stream */
+        int rc = scrmfs_stream_flush(stream);
+        if (rc != SCRMFS_SUCCESS) {
+            s->err = 1;
+            errno = scrmfs_err_map_to_errno(rc);
+            return EOF;
+        }
+
         return 0;
     } else {
         MAP_OR_FAIL(fflush);
@@ -3743,7 +4495,8 @@ int SCRMFS_DECL(fflush)(FILE* stream)
     }
 }
 
-/* return non-zero if and only if end-of-file indicator is set for stream */
+/* return non-zero if and only if end-of-file indicator is set
+ * for stream */
 int SCRMFS_DECL(feof)(FILE *stream)
 {
     /* check whether we should intercept this stream */
@@ -3809,9 +4562,14 @@ int SCRMFS_DECL(fileno)(FILE *stream)
         scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
 
         /* TODO: check that stream is valid */
+        int fd = s->fd;
+        if (fd < 0) {
+            errno = EBADF;
+            return -1;
+        }
 
         /* return file descriptor associated with stream */
-        return s->fd;
+        return fd;
     } else {
         MAP_OR_FAIL(fileno);
         int ret = __real_fileno(stream);
@@ -3833,7 +4591,20 @@ int SCRMFS_DECL(fclose)(FILE *stream)
             return EOF;
         }
 
-        /* TODO: flush stream */
+        /* flush stream */
+        int flush_rc = scrmfs_stream_flush(stream);
+        if (flush_rc != SCRMFS_SUCCESS) {
+            /* ERROR: write error, set error indicator and errno */
+            errno = scrmfs_err_map_to_errno(flush_rc);
+            return EOF;
+        }
+
+        /* free the buffer */
+        if (s->buffree) {
+            free(s->buf);
+            s->buf = NULL;
+            s->buffree = 0;
+        }
 
         /* close the file */
         int close_rc = scrmfs_fid_close(fid);
@@ -3869,6 +4640,7 @@ size_t scrmfs_get_data_region(void **ptr)
 /* get a list of chunks for a given file (useful for RDMA, etc.) */
 chunk_list_t* scrmfs_get_chunk_list(char* path)
 {
+#if 0
     if (scrmfs_intercept_path(path)) {
         int i = 0;
         chunk_list_t *chunk_list = NULL;
@@ -3922,12 +4694,15 @@ chunk_list_t* scrmfs_get_chunk_list(char* path)
         errno = EACCES;
         return NULL;
     }
+#endif
+    return NULL;
 }
 
 /* debug function to print list of chunks constituting a file
  * and to test above function*/
 void scrmfs_print_chunk_list(char* path)
 {
+#if 0
     chunk_list_t *chunk_list;
     chunk_list_t *chunk_element;
 
@@ -3946,12 +4721,15 @@ void scrmfs_print_chunk_list(char* path)
     }
     fprintf(stdout,"\n");
     fprintf(stdout,"-------------------------------------\n");
+#endif
     
 }
 
 /*
+ * LGPL libc http://uclibc.org/
+ *
  * http://pubs.opengroup.org/onlinepubs/009695399/
- * http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
+ * http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf (7.19)
  * https://github.com/fakechroot/fakechroot/tree/master/src
  *
  * fopen
@@ -3985,11 +4763,11 @@ void scrmfs_print_chunk_list(char* path)
  * ftell
  * ftello
  * rewind
- * -- fsetpos
- * -- fgetpos
+ * fsetpos
+ * fgetpos
  *
- * -- setbuf
- * -- setvbuf
+ * setvbuf
+ * setbuf
  *
  * fflush
  * feof

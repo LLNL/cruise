@@ -178,15 +178,13 @@ int write_checkpoint(FILE* fp, int rank, int ckpt, char* buf, size_t size)
   size_t field_size = 6;
 
   /* write the rank id */
-  sprintf(rank_buf, "%06d", rank);
-  rc = reliable_write(fp, rank_buf, field_size);
+  rc = fprintf(fp, "%06d", rank);
   if (rc < 0) {
     valid = 0;
   }
 
   /* write the checkpoint id (application timestep) */
-  sprintf(ckpt_buf, "%06d", ckpt);
-  rc = reliable_write(fp, ckpt_buf, field_size);
+  rc = fprintf(fp, "%06d", ckpt);
   if (rc < 0) {
     valid = 0;
   }

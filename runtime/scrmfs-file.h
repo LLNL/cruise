@@ -19,6 +19,7 @@
 #define SCRMFS_ERR_FBIG   -11
 #define SCRMFS_ERR_BADF   -12
 #define SCRMFS_ERR_ISDIR  -13
+#define SCRMFS_ERR_NOMEM  -14
 
 enum flock_enum {
     UNLOCKED,
@@ -28,14 +29,31 @@ enum flock_enum {
 
 /* structure to represent file descriptors */
 typedef struct {
-    off_t pos;     /* current file pointer */
+    off_t pos;   /* current file pointer */
+    int   read;  /* whether file is opened for read */
+    int   write; /* whether file is opened for write */
 } scrmfs_fd_t;
+
+enum scrmfs_stream_orientation {
+    SCRMFS_STREAM_ORIENTATION_NULL = 0,
+    SCRMFS_STREAM_ORIENTATION_BYTE,
+    SCRMFS_STREAM_ORIENTATION_WIDE,
+};
 
 /* structure to represent FILE* streams */
 typedef struct {
-    int err;       /* stream error indicator flag */
-    int eof;       /* stream end-of-file indicator flag */
-    int fd;        /* file descriptor associated with stream */
+    int    err;      /* stream error indicator flag */
+    int    eof;      /* stream end-of-file indicator flag */
+    int    fd;       /* file descriptor associated with stream */
+    int    append;   /* whether file is opened in append mode */
+    int    orient;   /* stream orientation, SCRMFS_STREAM_ORIENTATION_{NULL,BYTE,WIDE} */
+    void*  buf;      /* pointer to buffer */
+    int    buffree;  /* whether we need to free buffer */
+    int    buftype;  /* _IOFBF fully buffered, _IOLBF line buffered, _IONBF unbuffered */
+    size_t bufsize;  /* size of buffer in bytes */
+    off_t  bufpos;   /* byte offset in file corresponding to start of buffer */
+    size_t buflen;   /* number of bytes active in buffer */
+    size_t bufdirty; /* whether data in buffer needs to be flushed */
 } scrmfs_stream_t;
 
 /* linked list of chunk information given to an external library wanting

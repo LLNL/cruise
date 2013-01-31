@@ -7,6 +7,8 @@
 
 #define SCRMFS_MAX_FILENAME     ( 128 )
 
+#define SCRMFS_STREAM_BUFSIZE   ( 1 * 1024 * 1024 )
+
 #define SCRMFS_CHUNK_BITS       ( 24 )
 
 #ifdef MACHINE_BGQ
