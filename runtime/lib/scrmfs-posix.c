@@ -3443,7 +3443,7 @@ static int scrmfs_stream_flush(FILE* stream)
         int write_rc = scrmfs_fd_write(s->fd, s->bufpos, s->buf, s->buflen);
         if (write_rc != SCRMFS_SUCCESS) {
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(flush_rc);
+            errno = scrmfs_err_map_to_errno(write_rc);
             return write_rc;
         }
 
@@ -4265,50 +4265,12 @@ int SCRMFS_DECL(fprintf)(FILE *stream, const char* format, ...)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-
-        /* TODO: check that stream is active */
-
-        /* get length of component string */
-        va_list args1;
-        va_start(args1, format);
-        size_t chars = (size_t) vsnprintf(NULL, 0, format, args1);
-        va_end(args1);
-
-        /* allocate space to hold string, add one for the terminating NUL */
-        size_t strlen = chars + 1;
-        char* str = (char*) malloc(strlen);
-        if (str == NULL) {
-            s->err = 1;
-            errno = ENOMEM;
-            return -1;
-        }
-
-        /* copy formatted string into new memory */
-        va_list args2;
-        va_start(args2, format);
-        int printf_rc = vsnprintf(str, strlen, format, args2);
-        va_end(args2);
-        if (printf_rc != chars) {
-            s->err = 1;
-            /* assuming that vsnprintf sets errno for us */
-            return printf_rc;
-        }
-
-        /* write data to file */
-        int write_rc = scrmfs_stream_write(stream, str, chars);
-        if (write_rc != SCRMFS_SUCCESS) {
-            /* stream write sets error indicator, EOF indicator,
-             * and errno for us */
-            return -1;
-        }
-
-        /* free the string */
-        free(str);
-
-        /* return number of bytes written */
-        return chars;
+        /* delegate work to vfprintf */
+        va_list args;
+        va_start(args, format);
+        int ret = vfprintf(stream, format, args);
+        va_end(args);
+        return ret;
     } else {
         va_list args;
         va_start(args, format);
@@ -4331,7 +4293,7 @@ int SCRMFS_DECL(vfprintf)(FILE *stream, const char* format, va_list ap)
         
         /* get length of component string */
         va_list ap2;
-        va_copy(ap, ap2);
+        va_copy(ap2, ap);
         size_t chars = (size_t) vsnprintf(NULL, 0, format, ap2);
         va_end(ap2);
 
@@ -4345,7 +4307,10 @@ int SCRMFS_DECL(vfprintf)(FILE *stream, const char* format, va_list ap)
         }
 
         /* copy formatted string into new memory */
-        int printf_rc = vsnprintf(str, strlen, format, ap);
+        va_list ap3;
+        va_copy(ap3, ap);
+        int printf_rc = vsnprintf(str, strlen, format, ap3);
+        va_end(ap3);
         if (printf_rc != chars) {
             s->err = 1;
             /* assuming that vsnprintf sets errno for us */
@@ -4376,10 +4341,12 @@ int SCRMFS_DECL(fscanf)(FILE *stream, const char* format, ...)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* ERROR: fn not yet supported */
-        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
-        errno = ENOENT;
-        return EOF;
+        /* delegate work to vfscanf */
+        va_list args;
+        va_start(args, format);
+        int ret = vfscanf(stream, format, args);
+        va_end(args);
+        return ret;
     } else {
         va_list args;
         va_start(args, format);
@@ -4905,7 +4872,7 @@ void scrmfs_print_chunk_list(char* path)
  * -- fdopen
  * -- freopen
  *
- * -- ungetc
+ * ungetc
  * fgetc
  * fputc
  * getc
