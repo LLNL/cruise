@@ -313,6 +313,24 @@ static inline void* scrmfs_memcpy(void *restrict b, const void *restrict a, size
 }
 #endif
 
+/* given an input mode, mask it with umask and return, can specify
+ * an input mode==0 to specify all read/write bits */
+static mode_t scrmfs_getmode(mode_t perms)
+{
+    /* perms == 0 is shorthand for all read and write bits */
+    if (perms == 0) {
+        perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+    }
+
+    /* get current user mask */
+    mode_t mask = umask(0);
+    umask(mask);
+
+    /* mask off bits from desired permissions */
+    mode_t ret = perms & ~mask & 0777;
+    return ret;
+}
+
 static inline int scrmfs_stack_lock()
 {
     if (scrmfs_use_single_shm) {
@@ -1475,8 +1493,10 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
     void *scr_spillblock = NULL;
     int spillblock_fd;
 
+    mode_t perms = scrmfs_getmode(0);
+
     MAP_OR_FAIL(open);
-    spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL | S_IRWXU);
+    spillblock_fd = __real_open(path, O_RDWR | O_CREAT | O_EXCL, perms);
     if (spillblock_fd < 0) {
         if (errno == EEXIST) {
             /* spillover block exists; attach and return */
@@ -2317,7 +2337,13 @@ static int scrmfs_fd_read(int fd, off_t pos, void* buf, size_t count, size_t* re
     off_t filesize = scrmfs_fid_size(fid);
     if (filesize < lastread) {
         /* adjust count so we don't read past end of file */
-        count = (size_t) (filesize - pos);
+        if (filesize > pos) {
+            /* read all bytes until end of file */
+            count = (size_t) (filesize - pos);
+        } else {
+            /* pos is already at or past the end of the file */
+            count = 0;
+        }
     }
 
     /* record number of bytes that we'll actually read */
@@ -3257,7 +3283,7 @@ static int scrmfs_fopen(
 
     /* TODO: get real permissions via umask */
     /* assume default permissions */
-    mode_t perms = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+    mode_t perms = scrmfs_getmode(0);
 
     int open_rc;
     int fid;
@@ -3326,6 +3352,11 @@ static int scrmfs_fopen(
     s->bufpos   = 0;
     s->buflen   = 0;
     s->bufdirty = 0;
+
+    /* initialize the ungetc buffer */
+    s->ubuf     = NULL;
+    s->ubufsize = 0;
+    s->ubuflen  = 0;
 
     /* set file pointer and read/write mode in file descriptor */
     scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
@@ -3398,7 +3429,8 @@ static int scrmfs_setvbuf(
 }
 
 /* calls scrmfs_fd_write to flush stream if it is dirty,
- * returns SCRMFS error codes, does not set errno */
+ * returns SCRMFS error codes, sets stream error indicator and errno
+ * upon error */
 static int scrmfs_stream_flush(FILE* stream)
 {
     /* lookup stream */
@@ -3410,6 +3442,8 @@ static int scrmfs_stream_flush(FILE* stream)
     if (s->buf != NULL && s->bufdirty) {
         int write_rc = scrmfs_fd_write(s->fd, s->bufpos, s->buf, s->buflen);
         if (write_rc != SCRMFS_SUCCESS) {
+            s->err = 1;
+            errno = scrmfs_err_map_to_errno(flush_rc);
             return write_rc;
         }
 
@@ -3432,8 +3466,6 @@ static int scrmfs_stream_read(
 {
     /* lookup stream */
     scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
-
-    /* TODO: check that stream is valid */
 
     /* get pointer to file descriptor structure */
     scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
@@ -3467,22 +3499,59 @@ static int scrmfs_stream_read(
         return SCRMFS_FAILURE;
     }
 
-    /* read data from file into buffer */
-    int eof = 0;
+    /* track our current position in the file and number of bytes
+     * left to read */
     off_t current = filedesc->pos;
     size_t remaining = count;
-    while (remaining > 0 && !eof) {
-        /* TODO: flush buffer if needed before read */
 
+    /* check that current + count doesn't overflow */
+    if (scrmfs_would_overflow_offt(current, (off_t) count)) {
+        s->err = 1;
+        errno = EOVERFLOW;
+        return SCRMFS_ERR_OVERFLOW;
+    }
+
+    /* take bytes from push back buffer if they exist */
+    size_t ubuflen = s->ubuflen;
+    if (ubuflen > 0) {
+        /* determine number of bytes to take from push-back buffer */
+        size_t ubuf_chars = ubuflen;
+        if (remaining < ubuflen) {
+            ubuf_chars = remaining;
+        }
+
+        /* copy bytes from push back buffer to user buffer */
+        unsigned char* ubuf_start = s->ubuf + s->ubufsize - ubuflen;
+        memcpy(buf, ubuf_start, ubuf_chars);
+
+        /* drop bytes from push back buffer */
+        s->ubuflen -= ubuf_chars;
+
+        /* update our current file position and remaining count */
+        current   += ubuf_chars;
+        remaining -= ubuf_chars;
+    }
+
+    /* TODO: if count is large enough, read directly to user's
+     * buffer and be done with it */
+
+    /* read data from file into buffer */
+    int eof = 0;
+    while (remaining > 0 && !eof) {
         /* check that current falls within buffer */
         off_t start  = s->bufpos;
         off_t length = s->buflen;
         if (current < start || current >= start + length) {
-            /* TODO: if count is large enough, read directly to user's
-             * buffer and be done with it */
+            /* current is outside the range of our buffer */
 
-            /* current is outside the range, read data from file
-             * into buffer */
+            /* flush buffer if needed before read */
+            int flush_rc = scrmfs_stream_flush(stream);
+            if (flush_rc != SCRMFS_SUCCESS) {
+                /* ERROR: flush sets error indicator and errno */
+                return flush_rc;
+            }
+
+            /* read data from file into buffer */
             size_t bufcount;
             int read_rc = scrmfs_fd_read(s->fd, current, s->buf, s->bufsize, &bufcount);
             if (read_rc != SCRMFS_SUCCESS) {
@@ -3511,9 +3580,11 @@ static int scrmfs_stream_read(
         }
 
         /* copy data from stream buffer to user buffer */
-        char* buf_start    = (char*)buf + (count - remaining);
-        char* stream_start = (char*)s->buf + stream_offset;
-        memcpy(buf_start, stream_start, bytes);
+        if (bytes > 0) {
+            char* buf_start    = (char*)buf + (count - remaining);
+            char* stream_start = (char*)s->buf + stream_offset;
+            memcpy(buf_start, stream_start, bytes);
+        }
 
         /* update our current position and the number of bytes
          * left to read */
@@ -3565,20 +3636,42 @@ static int scrmfs_stream_write(
         return SCRMFS_ERR_BADF;
     }
 
+    /* TODO: Don't know what to do with push back bytes if write
+     * overlaps.  Can't find defined behavoir in C and POSIX standards. */
+
     /* set the position to write */
-    off_t pos;
+    off_t current;
     if (s->append) {
-      /* if in append mode, always write to end of file */
-      int fid = scrmfs_get_fid_from_fd(s->fd);
-      if (fid < 0) {
-          s->err = 1;
-          errno = EBADF;
-          return SCRMFS_ERR_BADF;
-      }
-      pos = scrmfs_fid_size(fid);
+        /* if in append mode, always write to end of file */
+        int fid = scrmfs_get_fid_from_fd(s->fd);
+        if (fid < 0) {
+            s->err = 1;
+            errno = EBADF;
+            return SCRMFS_ERR_BADF;
+        }
+        current = scrmfs_fid_size(fid);
+
+        /* like a seek, we discard push back bytes */
+        s->ubuflen;
     } else {
-      /* otherwise, write at current file pointer */
-      pos = filedesc->pos;
+        /* otherwise, write at current file pointer */
+        current = filedesc->pos;
+
+        /* drop bytes from push back if write overlaps */
+        if (s->ubuflen > 0) {
+            if (count >= s->ubuflen) {
+                s->ubuflen = 0;
+            } else {
+                s->ubuflen -= count;
+            }
+        }
+    }
+
+    /* check that current + count doesn't overflow */
+    if (scrmfs_would_overflow_offt(current, (off_t) count)) {
+        s->err = 1;
+        errno = EFBIG;
+        return SCRMFS_ERR_FBIG;
     }
 
     /* associate buffer with stream if we need to */
@@ -3595,7 +3688,7 @@ static int scrmfs_stream_write(
     /* if unbuffered, write data directly to file */
     if (s->buftype == _IONBF) {
         /* write data directly to file */
-        int write_rc = scrmfs_fd_write(s->fd, pos, buf, count);
+        int write_rc = scrmfs_fd_write(s->fd, current, buf, count);
         if (write_rc != SCRMFS_SUCCESS) {
             /* ERROR: write error, set error indicator and errno */
             s->err = 1;
@@ -3604,20 +3697,19 @@ static int scrmfs_stream_write(
         }
 
         /* update file position */
-        filedesc->pos = pos + (off_t) count;
+        filedesc->pos = current + (off_t) count;
 
         return SCRMFS_SUCCESS;
     }
 
+    /* TODO: if count is large enough, write directly to file
+     * and be done with it */
+
     /* write data from buffer to file */
-    off_t current = pos;
     size_t remaining = count;
     while (remaining > 0) {
         /* if buffer is clean, set start of buffer to current */
         if (! s->bufdirty) {
-            /* TODO: if count is large enough, write directly to file
-             * and be done with it */
-
             s->bufpos = current;
             s->buflen = 0;
         }
@@ -3678,9 +3770,7 @@ static int scrmfs_stream_write(
             /* flush stream */
             int flush_rc = scrmfs_stream_flush(stream);
             if (flush_rc != SCRMFS_SUCCESS) {
-                /* ERROR: write error, set error indicator and errno */
-                s->err = 1;
-                errno = scrmfs_err_map_to_errno(flush_rc);
+                /* ERROR: flush sets error indicator and errno */
                 return flush_rc;
             }
         }
@@ -3691,8 +3781,12 @@ static int scrmfs_stream_write(
         remaining -= bytes;
     }
 
+    /* TODO: Don't know whether to update file position for append
+     * write or leave position where it is.  glibc seems to update
+     * so let's do the same here. */
+
     /* update file position */
-    filedesc->pos += (off_t) count;
+    filedesc->pos = current;
 
     return SCRMFS_SUCCESS;
 }
@@ -3714,13 +3808,10 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
         return -1;
     }
 
-    /* TODO: ungetc discard changes */
-
     /* flush stream if we need to */
     int flush_rc = scrmfs_stream_flush(stream);
     if (flush_rc != SCRMFS_SUCCESS) {
-        s->err = 1;
-        errno = scrmfs_err_map_to_errno(flush_rc);
+        /* ERROR: flush sets error indicator and errno */
         return -1;
     }
 
@@ -3768,6 +3859,11 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
             s->err = 1;
             errno = EINVAL;
             return -1;
+    }
+
+    /* discard contents of push back buffer */
+    if (s->ubuf != NULL) {
+        s->ubuflen = 0;
     }
 
     /* TODO: only update file descriptor if most recent call is
@@ -3837,9 +3933,78 @@ int SCRMFS_DECL(ungetc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
-        /* ERROR: fn not yet supported */
-        fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
-        return EOF;
+        /* operation shall fail and input stream left unchanged */
+        if (c == EOF) {
+            return EOF;
+        }
+
+        /* convert int to unsigned char */
+        unsigned char uc = (unsigned char) c;
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+
+        /* get filedescriptor and check that stream is valid */
+        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        if (filedesc == NULL) {
+            return EOF;
+        }
+
+        /* check that pos > 0 */
+        if (filedesc->pos <= 0) {
+            return EOF;
+        }
+
+        /* allocate bigger push-back buffer if needed */
+        size_t oldsize = s->ubufsize;
+        size_t len     = s->ubuflen;
+        size_t remaining = oldsize - len;
+        if (remaining == 0) {
+            /* start with a 32-byte push-back buffer,
+             * but double current size if we already have one */
+            size_t newsize = 1;
+            if (oldsize > 0) {
+                newsize = oldsize * 2;
+            }
+
+            /* make sure we don't get to big */
+            if (newsize > 1024) {
+                return EOF;
+            }
+
+            /* allocate new buffer */
+            unsigned char* newbuf = (unsigned char*) malloc(newsize);
+            if (newbuf == NULL) {
+                return EOF;
+            }
+
+            /* copy old bytes to new buffer and free old buffer */
+            if (len > 0) {
+                unsigned char* oldbuf = s->ubuf;
+                unsigned char* oldstart = oldbuf + oldsize - len;
+                unsigned char* newstart = newbuf + newsize - len;
+                memcpy(newstart, oldstart, len);
+                free(s->ubuf);
+            }
+
+            /* record details of new buffer */
+            s->ubuf     = newbuf;
+            s->ubufsize = newsize;
+            s->ubuflen  = len;
+        }
+
+        /* push char onto buffer */
+        s->ubuflen++;
+        unsigned char* pos = s->ubuf + s->ubufsize - s->ubuflen;
+        *pos = uc;
+
+        /* decrement file position */
+        filedesc->pos--;
+
+        /* clear end-of-file flag */
+        s->eof = 0;
+
+        return (int) uc;
     } else {
         MAP_OR_FAIL(ungetc);
         int ret = __real_ungetc(c, stream);
@@ -4457,14 +4622,8 @@ int SCRMFS_DECL(fflush)(FILE* stream)
                 /* attempt to flush stream */
                 int flush_rc = scrmfs_stream_flush((FILE*)s);
                 if (flush_rc != SCRMFS_SUCCESS) {
-                    /* flush failed, set stream error state */
-                    s->err = 1;
-
-                    /* set errno if it's not already set */
-                    if (ret == 0) {
-                        errno = scrmfs_err_map_to_errno(flush_rc);
-                        ret = EOF;
-                    }
+                    /* ERROR: flush sets error indicator and errno */
+                    ret = EOF;
                 }
             }
         }
@@ -4482,8 +4641,7 @@ int SCRMFS_DECL(fflush)(FILE* stream)
         /* flush output on stream */
         int rc = scrmfs_stream_flush(stream);
         if (rc != SCRMFS_SUCCESS) {
-            s->err = 1;
-            errno = scrmfs_err_map_to_errno(rc);
+            /* ERROR: flush sets error indicator and errno */
             return EOF;
         }
 
@@ -4594,8 +4752,7 @@ int SCRMFS_DECL(fclose)(FILE *stream)
         /* flush stream */
         int flush_rc = scrmfs_stream_flush(stream);
         if (flush_rc != SCRMFS_SUCCESS) {
-            /* ERROR: write error, set error indicator and errno */
-            errno = scrmfs_err_map_to_errno(flush_rc);
+            /* ERROR: flush sets error indicator and errno */
             return EOF;
         }
 
@@ -4604,6 +4761,12 @@ int SCRMFS_DECL(fclose)(FILE *stream)
             free(s->buf);
             s->buf = NULL;
             s->buffree = 0;
+        }
+
+        /* free the push back buffer */
+        if (s->ubuf != NULL) {
+            free(s->ubuf);
+            s->ubuf = NULL;
         }
 
         /* close the file */
@@ -4722,12 +4885,18 @@ void scrmfs_print_chunk_list(char* path)
     fprintf(stdout,"\n");
     fprintf(stdout,"-------------------------------------\n");
 #endif
-    
 }
 
 /*
+ * FreeBSD http://www.freebsd.org/
+ *   svn co svn://svn.freebsd.org/base/head/lib/libc/ freebsd_libc.svn
+ *
+ * Bionic libc BSD from google
+ * https://github.com/android/platform_bionic/blob/master/libc/docs/OVERVIEW.TXT
+ *
  * LGPL libc http://uclibc.org/
  *
+ * http://www.gnu.org/software/libc/manual/html_node/I_002fO-Overview.html#I_002fO-Overview
  * http://pubs.opengroup.org/onlinepubs/009695399/
  * http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf (7.19)
  * https://github.com/fakechroot/fakechroot/tree/master/src
@@ -4736,27 +4905,31 @@ void scrmfs_print_chunk_list(char* path)
  * -- fdopen
  * -- freopen
  *
+ * -- ungetc
  * fgetc
  * fputc
  * getc
  * putc
  * fgets
  * fputs
- * -- ungetc
+ * -- ungetwc
  * -- fgetwc
  * -- fputwc
  * -- getwc*
  * -- putwc*
  * -- fgetws
  * -- fputws
- * -- ungetwc
  * fread
  * fwrite
  *
  * -- fscanf
  * -- vfscanf
- * -- fprintf
- * -- vfprintf
+ * fprintf
+ * vfprintf
+ * -- fwscanf
+ * -- vfwscanf
+ * -- fwprintf
+ * -- vfwprintf
  *
  * fseek
  * fseeko
@@ -4778,7 +4951,7 @@ void scrmfs_print_chunk_list(char* path)
  * -- ftrylockfile
  * -- funlockfile
  *
- * - fopen64
+ * -- fopen64
  * -- freopen64
  * -- fseeko64
  * -- fgetpos64

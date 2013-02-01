@@ -47,6 +47,7 @@ typedef struct {
     int    fd;       /* file descriptor associated with stream */
     int    append;   /* whether file is opened in append mode */
     int    orient;   /* stream orientation, SCRMFS_STREAM_ORIENTATION_{NULL,BYTE,WIDE} */
+
     void*  buf;      /* pointer to buffer */
     int    buffree;  /* whether we need to free buffer */
     int    buftype;  /* _IOFBF fully buffered, _IOLBF line buffered, _IONBF unbuffered */
@@ -54,6 +55,10 @@ typedef struct {
     off_t  bufpos;   /* byte offset in file corresponding to start of buffer */
     size_t buflen;   /* number of bytes active in buffer */
     size_t bufdirty; /* whether data in buffer needs to be flushed */
+
+    unsigned char* ubuf; /* ungetc buffer (we store bytes from end) */
+    size_t ubufsize;     /* size of ungetc buffer in bytes */
+    size_t ubuflen;      /* number of active bytes in buffer */
 } scrmfs_stream_t;
 
 /* linked list of chunk information given to an external library wanting
