@@ -1,3 +1,6 @@
+#ifndef SCRMFS_STACK_H
+#define SCRMFS_STACK_H
+
 /* implements a fixed-size stack which stores integer values in range
  * of 0 to size-1, entire structure stored in an int array of size+2
  *   int size
@@ -26,3 +29,5 @@ int scrmfs_stack_pop(void* start);
 
 /* pushes item onto free stack */
 void scrmfs_stack_push(void* start, int value);
+
+#endif /* SCRMFS_STACK_H */

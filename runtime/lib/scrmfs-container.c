@@ -1,7 +1,6 @@
 
 #include "scrmfs-runtime-config.h"
-#include "scrmfs-defs.h"
-#include "scrmfs-file.h"
+#include "scrmfs-internal.h"
 #include <stdio.h>
 
 #ifdef HAVE_CONTAINER_LIB

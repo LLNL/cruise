@@ -61,11 +61,27 @@ lib/scrmfs-container.o: lib/scrmfs-container.c
 lib/scrmfs-container.po: lib/scrmfs-container.c
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
 
-lib/scrmfs-posix.o: lib/scrmfs-posix.c lib/scrmfs-container.h scrmfs-file.h
-	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c lib/scrmfs-posix.c -o $@
 
-lib/scrmfs-posix.po: lib/scrmfs-posix.c lib/scrmfs-container.c scrmfs-file.h
-	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-posix.c -o $@
+lib/scrmfs.o: lib/scrmfs.c lib/scrmfs.h lib/scrmfs-internal.h lib/scrmfs-container.h scrmfs-file.h
+	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c lib/scrmfs.c -o $@
+
+lib/scrmfs.po: lib/scrmfs.c lib/scrmfs.h lib/scrmfs-internal.h lib/scrmfs-container.c scrmfs-file.h
+	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs.c -o $@
+
+
+lib/scrmfs-sysio.o: lib/scrmfs-sysio.c lib/scrmfs-internal.h lib/scrmfs-sysio.h scrmfs-file.h
+	$(CC) $(CFLAGS) -c lib/scrmfs-sysio.c -o $@
+
+lib/scrmfs-sysio.po: lib/scrmfs-sysio.c lib/scrmfs-internal.h lib/scrmfs-sysio.h scrmfs-file.h
+	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-sysio.c -o $@
+
+
+lib/scrmfs-stdio.o: lib/scrmfs-stdio.c lib/scrmfs-internal.h lib/scrmfs-stdio.h scrmfs-file.h
+	$(CC) $(CFLAGS) -c lib/scrmfs-stdio.c -o $@
+
+lib/scrmfs-stdio.po: lib/scrmfs-stdio.c lib/scrmfs-internal.h lib/scrmfs-stdio.h scrmfs-file.h
+	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-stdio.c -o $@
+
 
 lib/lookup3.o: lib/lookup3.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -73,11 +89,13 @@ lib/lookup3.o: lib/lookup3.c
 lib/lookup3.po: lib/lookup3.c
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
+
 lib/lookup8.o: lib/lookup8.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 lib/lookup8.po: lib/lookup8.c
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
+
 
 lib/scrmfs-stack.o: lib/scrmfs-stack.c lib/scrmfs-stack.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -89,10 +107,10 @@ lib/scrmfs-stack.po: lib/scrmfs-stack.c lib/scrmfs-stack.h
 %.i: %.c
 	$(CC) -E $(CFLAGS) -c $< -o $@
 
-lib/libscrmfs-posix.a: lib/scrmfs-posix.o lib/lookup3.o lib/lookup8.o lib/scrmfs-container.o lib/scrmfs-stack.o 
+lib/libscrmfs-posix.a: lib/scrmfs.o lib/scrmfs-sysio.o lib/scrmfs-stdio.o lib/lookup3.o lib/lookup8.o lib/scrmfs-container.o lib/scrmfs-stack.o 
 	ar rcs $@ $^
 
-lib/libscrmfs.so: lib/scrmfs-posix.po lib/lookup3.po lib/lookup8.po lib/scrmfs-container.po lib/scrmfs-stack.po
+lib/libscrmfs.so: lib/scrmfs.po lib/scrmfs-sysio.po lib/scrmfs-stdio.po lib/lookup3.po lib/lookup8.po lib/scrmfs-container.po lib/scrmfs-stack.po
 	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) $(CONTAINER_LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz $(CONTAINER_LIBS)
 
 install:: all
