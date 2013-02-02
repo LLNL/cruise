@@ -25,10 +25,10 @@ SCRMFS_LDFLAGS = $(LDFLAGS) $(NUMA_LDFLAGS) $(CONTAINER_LDFLAGS)
 PRE_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --pre-ld-flags`)
 POST_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --post-ld-flags`)
 
-all: test1 test_writeread test_truncate test_fopen test_fprintf test_memcpy test_ramdisk
+all: test1 test_writeread test_truncate test_fopen test_fprintf test_ungetc test_scanf test_memcpy test_ramdisk
 
 clean: 
-	rm -f *.o test1 test1_container test_writeread test_truncate test_fopen test_fprintf test_memcpy test_ramdisk
+	rm -f *.o test1 test1_container test_writeread test_truncate test_fopen test_fprintf test_ungetc test_scanf test_memcpy test_ramdisk
 
 test1: test1.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test1.c -o test1 $(SCRMFS_LDFLAGS) $(SCRMFS_LIBS) $(POST_SCRMFS_FLAGS) 
@@ -44,6 +44,12 @@ test_fopen: test_fopen.c
 
 test_fprintf: test_fprintf.c
 	$(MPICC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test_fprintf.c -o test_fprintf $(SCRMFS_LDFLAGS) $(SCRMFS_LIBS) $(POST_SCRMFS_FLAGS)
+
+test_ungetc: test_ungetc.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test_ungetc.c -o test_ungetc $(SCRMFS_LDFLAGS) $(SCRMFS_LIBS) $(POST_SCRMFS_FLAGS) 
+
+test_scanf: test_scanf.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(PRE_SCRMFS_FLAGS) test_scanf.c -o test_scanf $(SCRMFS_LDFLAGS) $(SCRMFS_LIBS) $(POST_SCRMFS_FLAGS) 
 
 test_memcpy: test_memcpy.c
 	$(MPICC) $(CFLAGS) $(INCLUDES) test_memcpy.c -o test_memcpy $(LDFLAGS) $(LIBS)

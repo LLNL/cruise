@@ -59,6 +59,9 @@ typedef struct {
     unsigned char* ubuf; /* ungetc buffer (we store bytes from end) */
     size_t ubufsize;     /* size of ungetc buffer in bytes */
     size_t ubuflen;      /* number of active bytes in buffer */
+
+    unsigned char* _p; /* pointer to character in buffer */
+    size_t         _r; /* number of bytes left at pointer */
 } scrmfs_stream_t;
 
 /* linked list of chunk information given to an external library wanting
