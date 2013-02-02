@@ -1056,7 +1056,7 @@ int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
         rc = scrmfs_fid_store_read_container(fid, pos, buf, count);
     } else {
         /* unknown storage type */
-        rc = SCRMFS_FAILURE;
+        rc = SCRMFS_ERR_IO;
     }
 
     return rc;
@@ -1086,7 +1086,7 @@ int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
         rc = scrmfs_fid_store_write_container(fid, pos, buf, count);
     } else {
         /* unknown storage type */
-        rc = SCRMFS_FAILURE;
+        rc = SCRMFS_ERR_IO;
     }
 
     return rc;
