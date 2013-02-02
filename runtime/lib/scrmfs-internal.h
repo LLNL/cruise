@@ -164,21 +164,27 @@ typedef struct {
 } scrmfs_container_t;
 #endif /* HAVE_CONTAINER_LIB */
 
+/* TODO: make this an enum */
 #define CHUNK_LOCATION_NULL      0
 #define CHUNK_LOCATION_MEMFS     1
 #define CHUNK_LOCATION_CONTAINER 2
 #define CHUNK_LOCATION_SPILLOVER 3
 
 typedef struct {
-    int location;
-    off_t id;
+    int location; /* CHUNK_LOCATION specifies how chunk is stored */
+    off_t id;     /* physical id of chunk in its respective storage */
 } scrmfs_chunkmeta_t;
 
+#define FILE_STORAGE_NULL        0
+#define FILE_STORAGE_FIXED_CHUNK 1
+#define FILE_STORAGE_CONTAINER   2
+
 typedef struct {
-    off_t size;   /* current file size */
-    off_t chunks; /* number of chunks currently allocated to file */
+    off_t size;                     /* current file size */
+    off_t chunks;                   /* number of chunks allocated to file */
     scrmfs_chunkmeta_t* chunk_meta; /* meta data for chunks */
-    int is_dir;  /* is this file a directory */
+    int is_dir;                     /* is this file a directory */
+    int storage;                    /* FILE_STORAGE specifies file data management */
     pthread_spinlock_t fspinlock;
     enum flock_enum flock_status;
     #ifdef HAVE_CONTAINER_LIB
@@ -189,8 +195,9 @@ typedef struct {
 
 /* path to fid lookup struct */
 typedef struct {
-    int in_use;
+    int in_use; /* flag incidating whether slot is in use */
     const char filename[SCRMFS_MAX_FILENAME];
+                /* full path and name of file */
 } scrmfs_filename_t;
 
 

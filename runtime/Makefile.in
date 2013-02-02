@@ -62,24 +62,24 @@ lib/scrmfs-container.po: lib/scrmfs-container.c
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
 
 
-lib/scrmfs.o: lib/scrmfs.c lib/scrmfs.h lib/scrmfs-internal.h lib/scrmfs-container.h scrmfs-file.h
+lib/scrmfs.o: lib/scrmfs.c lib/scrmfs.h lib/scrmfs-internal.h lib/scrmfs-container.h
 	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c lib/scrmfs.c -o $@
 
-lib/scrmfs.po: lib/scrmfs.c lib/scrmfs.h lib/scrmfs-internal.h lib/scrmfs-container.c scrmfs-file.h
+lib/scrmfs.po: lib/scrmfs.c lib/scrmfs.h lib/scrmfs-internal.h lib/scrmfs-container.c
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs.c -o $@
 
 
-lib/scrmfs-sysio.o: lib/scrmfs-sysio.c lib/scrmfs-internal.h lib/scrmfs-sysio.h scrmfs-file.h
+lib/scrmfs-sysio.o: lib/scrmfs-sysio.c lib/scrmfs-internal.h lib/scrmfs-sysio.h
 	$(CC) $(CFLAGS) -c lib/scrmfs-sysio.c -o $@
 
-lib/scrmfs-sysio.po: lib/scrmfs-sysio.c lib/scrmfs-internal.h lib/scrmfs-sysio.h scrmfs-file.h
+lib/scrmfs-sysio.po: lib/scrmfs-sysio.c lib/scrmfs-internal.h lib/scrmfs-sysio.h
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-sysio.c -o $@
 
 
-lib/scrmfs-stdio.o: lib/scrmfs-stdio.c lib/scrmfs-internal.h lib/scrmfs-stdio.h scrmfs-file.h
+lib/scrmfs-stdio.o: lib/scrmfs-stdio.c lib/scrmfs-internal.h lib/scrmfs-stdio.h
 	$(CC) $(CFLAGS) -c lib/scrmfs-stdio.c -o $@
 
-lib/scrmfs-stdio.po: lib/scrmfs-stdio.c lib/scrmfs-internal.h lib/scrmfs-stdio.h scrmfs-file.h
+lib/scrmfs-stdio.po: lib/scrmfs-stdio.c lib/scrmfs-internal.h lib/scrmfs-stdio.h
 	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-stdio.c -o $@
 
 
