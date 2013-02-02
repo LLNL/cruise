@@ -114,12 +114,6 @@
 typedef int64_t off64_t;
 #endif
 
-enum flock_enum {
-    UNLOCKED,
-    EX_LOCKED,
-    SH_LOCKED
-};
-
 /* structure to represent file descriptors */
 typedef struct {
     off_t pos;   /* current file pointer */
@@ -164,6 +158,17 @@ typedef struct {
 } scrmfs_container_t;
 #endif /* HAVE_CONTAINER_LIB */
 
+enum flock_enum {
+    UNLOCKED,
+    EX_LOCKED,
+    SH_LOCKED
+};
+
+/* TODO: make this an enum */
+#define FILE_STORAGE_NULL        0
+#define FILE_STORAGE_FIXED_CHUNK 1
+#define FILE_STORAGE_CONTAINER   2
+
 /* TODO: make this an enum */
 #define CHUNK_LOCATION_NULL      0
 #define CHUNK_LOCATION_MEMFS     1
@@ -175,18 +180,17 @@ typedef struct {
     off_t id;     /* physical id of chunk in its respective storage */
 } scrmfs_chunkmeta_t;
 
-#define FILE_STORAGE_NULL        0
-#define FILE_STORAGE_FIXED_CHUNK 1
-#define FILE_STORAGE_CONTAINER   2
-
 typedef struct {
     off_t size;                     /* current file size */
+    int is_dir;                     /* is this file a directory */
+    pthread_spinlock_t fspinlock;   /* file lock variable */
+    enum flock_enum flock_status;   /* file lock status */
+
+    int storage;                    /* FILE_STORAGE specifies file data management */
+
     off_t chunks;                   /* number of chunks allocated to file */
     scrmfs_chunkmeta_t* chunk_meta; /* meta data for chunks */
-    int is_dir;                     /* is this file a directory */
-    int storage;                    /* FILE_STORAGE specifies file data management */
-    pthread_spinlock_t fspinlock;
-    enum flock_enum flock_status;
+
     #ifdef HAVE_CONTAINER_LIB
     scrmfs_container_t container_data;
     char * filename;

@@ -539,11 +539,11 @@ int SCRMFS_DECL(creat)(const char* path, mode_t mode)
         }
 
         /* TODO: allocate a free file descriptor and associate it with fid */
-        /* set in_use flag and file pointer */
+        /* set in_use flag and file pointer, flags include O_WRONLY */
         scrmfs_fd_t* filedesc = &(scrmfs_fds[fid]);
         filedesc->pos   = pos;
-        filedesc->read  = mode & (O_RDONLY | O_RDWR);
-        filedesc->write = mode & (O_WRONLY | O_RDWR);
+        filedesc->read  = 0;
+        filedesc->write = 1;
         debug("SCRMFS_open generated fd %d for file %s\n", fid, path);    
 
         /* don't conflict with active system fds that range from 0 - (fd_limit) */
@@ -600,8 +600,8 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
         /* set in_use flag and file pointer */
         scrmfs_fd_t* filedesc = &(scrmfs_fds[fid]);
         filedesc->pos   = pos;
-        filedesc->read  = mode & (O_RDONLY | O_RDWR);
-        filedesc->write = mode & (O_WRONLY | O_RDWR);
+        filedesc->read  = ((flags & O_RDONLY) == O_RDONLY) || ((flags & O_RDWR) == O_RDWR);
+        filedesc->write = ((flags & O_WRONLY) == O_WRONLY) || ((flags & O_RDWR) == O_RDWR);
         debug("SCRMFS_open generated fd %d for file %s\n", fid, path);    
 
         /* don't conflict with active system fds that range from 0 - (fd_limit) */

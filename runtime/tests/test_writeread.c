@@ -47,15 +47,15 @@ int reliable_read(int fd, void* buf, size_t size)
         /* print an error and try again */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Error reading: read(%d, %p, %ld) errno=%d @ %s:%d\n",
-                rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
+        printf("%d on %s: ERROR: Error reading: read(%d, %p, %ld) errno=%d %s @ %s:%d\n",
+                rank, host, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
         );
       } else {
         /* too many failed retries, give up */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Giving up read: read(%d, %p, %ld) errno=%d @ %s:%d\n",
-                rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
+        printf("%d on %s: ERROR: Giving up read: read(%d, %p, %ld) errno=%d %s @ %s:%d\n",
+                rank, host, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
         );
         MPI_Abort(MPI_COMM_WORLD, 0);
       }
@@ -96,15 +96,15 @@ int reliable_write(int fd, const void* buf, size_t size)
         /* print an error and try again */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) errno=%d @ %s:%d\n",
-                rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
+        printf("%d on %s: ERROR: Error writing: write(%d, %p, %ld) errno=%d %s @ %s:%d\n",
+                rank, host, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
         );
       } else {
         /* too many failed retries, give up */
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         gethostname(host, sizeof(host));
-        printf("%d on %s: ERROR: Giving up write: write(%d, %p, %ld) errno=%d @ %s:%d\n",
-                rank, host, fd, (char*) buf + n, size - n, errno, __FILE__, __LINE__
+        printf("%d on %s: ERROR: Giving up write: write(%d, %p, %ld) errno=%d %s @ %s:%d\n",
+                rank, host, fd, (char*) buf + n, size - n, errno, strerror(errno), __FILE__, __LINE__
         );
         MPI_Abort(MPI_COMM_WORLD, 0);
       }

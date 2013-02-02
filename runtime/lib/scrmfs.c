@@ -509,32 +509,9 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
     }
   #ifdef HAVE_CONTAINER_LIB
     else if (scrmfs_use_containers) {
-        /* I'm using the same infrastructure as memfs (chunks) because
-           it just makes life easier, and I think cleaner. If the size of the container
-           is not big enough, we extend it by the size of a chunk */
-        scrmfs_stack_lock();
-        int id = scrmfs_stack_pop(free_chunk_stack);
-        scrmfs_stack_unlock();
-
-        if (id < 0) {
-            /* out of space */
-            fprintf(stderr, "Failed to allocate chunk (%d)\n", id);
-            return SCRMFS_ERR_NOSPC;
-        }
-        scrmfs_filemeta_t* file_meta = scrmfs_get_meta_from_fid(fid);
-        if(file_meta->container_data.container_size < scrmfs_chunk_size + file_meta->size){
-           //TODO extend container not implemented yet. always returns out of space
-           cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle );
-           int ret = scrmfs_container_extend(cs_set_handle, ch, scrmfs_chunk_size);
-           if (ret != SCRMFS_SUCCESS){
-              return ret;
-           }
-           file_meta->container_data.container_size += scrmfs_chunk_size;
-        }
-      
-        /* allocate chunk from containers */
-        chunk_meta->location = CHUNK_LOCATION_CONTAINER;
-        chunk_meta->id = id;
+        /* unknown chunk type */
+        debug("chunks not stored in containers\n");
+        return SCRMFS_ERR_IO;
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -565,9 +542,9 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
     }
   #ifdef HAVE_CONTAINER_LIB
     else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
-        scrmfs_stack_lock();
-        scrmfs_stack_push(free_chunk_stack, id);
-        scrmfs_stack_unlock();
+        /* unknown chunk type */
+        debug("chunks not stored in containers\n");
+        return SCRMFS_ERR_IO;
     }
   #endif /* HAVE_CONTAINER_LIB */
     else {
@@ -680,10 +657,14 @@ static int scrmfs_fid_store_alloc(int fid)
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
     if (scrmfs_use_memfs || scrmfs_use_spillover) {
+        /* we used fixed-size chunk storage for memfs and spillover */
         meta->storage = FILE_STORAGE_FIXED_CHUNK;
     }
   #ifdef HAVE_CONTAINER_LIB
     else if (scrmfs_use_containers) {
+        /* record that we're using containers to store this file */
+        meta->storage = SCRMFS_STORAGE_CONTAINER;
+
         /* create container and associate it with file */
         cs_container_handle_t ch;
         size_t size = scrmfs_chunk_size;
@@ -698,9 +679,6 @@ static int scrmfs_fid_store_alloc(int fid)
         file_meta->filename = (char*)malloc(strlen(path)+1);
         strcpy(file_meta->filename, path);
         debug("creation of container succeeded size: %d\n", size);
-
-        /* record that we're using containers to store this file */
-        meta->storage = SCRMFS_STORAGE_CONTAINER;
     }
   #endif  //have containers
 
@@ -729,15 +707,59 @@ static int scrmfs_fid_store_free(int fid)
     return SCRMFS_SUCCESS;
 }
 
-/* TODO: scrmfs_fid_store_extend_fixed / extend_container */
+/* if length is greater than reserved space, reserve space up to length */
+static int scrmfs_fid_store_fixed_extend(int fid, scrmfs_filemeta_t* meta, off_t length)
+{
+    /* determine whether we need to allocate more chunks */
+    off_t maxsize = meta->chunks << scrmfs_chunk_bits;
+    if (length > maxsize) {
+        /* compute number of additional bytes we need */
+        off_t additional = length - maxsize;
+        while (additional > 0) {
+            /* check that we don't overrun max number of chunks for file */
+            if (meta->chunks == scrmfs_max_chunks) {
+                debug("failed to allocate chunk\n");
+                return SCRMFS_ERR_NOSPC;
+            }
+
+            /* allocate a new chunk */
+            int rc = scrmfs_chunk_alloc(fid, meta, meta->chunks);
+            if (rc != SCRMFS_SUCCESS) {
+                debug("failed to allocate chunk\n");
+                return SCRMFS_ERR_NOSPC;
+            }
+
+            /* increase chunk count and subtract bytes from the number we need */
+            meta->chunks++;
+            additional -= scrmfs_chunk_size;
+        }
+    }
+
+    return SCRMFS_SUCCESS;
+}
+
+/* if length is shorter than reserved space, give back space down to length */
+static int scrmfs_fid_store_fixed_shrink(int fid, scrmfs_filemeta_t* meta, off_t length)
+{
+    /* determine the number of chunks to leave after truncating */
+    off_t num_chunks = 0;
+    if (length > 0) {
+        num_chunks = (length >> scrmfs_chunk_bits) + 1;
+    }
+
+    /* clear off any extra chunks */
+    while (meta->chunks > num_chunks) {
+        meta->chunks--;
+        scrmfs_chunk_free(fid, meta, meta->chunks);
+    }
+
+    return SCRMFS_SUCCESS;
+}
 
 /* read data from file stored as fixed-size chunks */
-static int scrmfs_fid_store_read_fixed(int fid, off_t pos, void* buf, size_t count)
+static int scrmfs_fid_store_fixed_read(int fid, scrmfs_filemeta_t* meta, off_t pos, void* buf, size_t count)
 {
     int rc;
-
-    /* get meta for this file id */
-    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
     /* get pointer to position within first chunk */
     int chunk_id = pos >> scrmfs_chunk_bits;
@@ -778,34 +800,10 @@ static int scrmfs_fid_store_read_fixed(int fid, off_t pos, void* buf, size_t cou
     return rc;
 }
 
-/* read data from file stored as a container */
-static int scrmfs_fid_store_read_container(int fid, off_t pos, void* buf, size_t count)
-{
-  #ifdef HAVE_CONTAINER_LIB
-    /* get meta for this file id */
-    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-
-    /* get handle for container */
-    cs_container_handle_t ch = meta->container_data.cs_container_handle;
-
-    /* read chunk from containers */
-    int ret = scrmfs_container_read(ch, buf, count, chunk_offset);
-    if (ret != SCRMFS_SUCCESS){
-        fprintf(stderr, "Container read failed\n");
-        return ret;
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-
-    return SCRMFS_SUCCESS;
-}
-
 /* write data to file stored as fixed-size chunks */
-static int scrmfs_fid_store_write_fixed(int fid, off_t pos, const void* buf, size_t count)
+static int scrmfs_fid_store_fixed_write(int fid, scrmfs_filemeta_t* meta, off_t pos, const void* buf, size_t count)
 {
     int rc;
-
-    /* get meta for this file id */
-    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
     /* get pointer to position within first chunk */
     int chunk_id = pos >> scrmfs_chunk_bits;
@@ -847,13 +845,56 @@ static int scrmfs_fid_store_write_fixed(int fid, off_t pos, const void* buf, siz
     return rc;
 }
 
-/* write data to file stored as container */
-static int scrmfs_fid_store_write_container(int fid, off_t pos, const void* buf, size_t count)
+/* if length is greater than reserved space, reserve space up to length */
+static int scrmfs_fid_store_container_extend(int fid, scrmfs_filemeta_t* file_meta, off_t length)
 {
   #ifdef HAVE_CONTAINER_LIB
-    /* get meta for this file id */
-    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+    /* I'm using the same infrastructure as memfs (chunks) because
+     * it just makes life easier, and I think cleaner. If the size of the container
+     * is not big enough, we extend it by the size of a chunk */
+    if(file_meta->container_data.container_size < scrmfs_chunk_size + file_meta->size){
+       //TODO extend container not implemented yet. always returns out of space
+       cs_container_handle_t* ch = &(file_meta->container_data.cs_container_handle);
+       int ret = scrmfs_container_extend(cs_set_handle, ch, scrmfs_chunk_size);
+       if (ret != SCRMFS_SUCCESS) {
+          return ret;
+       }
+       file_meta->container_data.container_size += scrmfs_chunk_size;
+    }
+  #endif /* HAVE_CONTAINER_LIB */
 
+    return SCRMFS_SUCCESS;
+}
+
+/* if length is less than reserved space, give up space down to length */
+static int scrmfs_fid_store_container_shrink(int fid, scrmfs_filemeta_t* file_meta, off_t length)
+{
+    /* TODO: shrink container space */
+    return SCRMFS_SUCCESS;
+}
+
+/* read data from file stored as a container */
+static int scrmfs_fid_store_container_read(int fid, scrmfs_filemeta_t* meta, off_t pos, void* buf, size_t count)
+{
+  #ifdef HAVE_CONTAINER_LIB
+    /* get handle for container */
+    cs_container_handle_t ch = meta->container_data.cs_container_handle;
+
+    /* read chunk from containers */
+    int ret = scrmfs_container_read(ch, buf, count, chunk_offset);
+    if (ret != SCRMFS_SUCCESS){
+        fprintf(stderr, "Container read failed\n");
+        return ret;
+    }
+  #endif /* HAVE_CONTAINER_LIB */
+
+    return SCRMFS_SUCCESS;
+}
+
+/* write data to file stored as container */
+static int scrmfs_fid_store_container_write(int fid, scrmfs_filemeta_t* meta, off_t pos, const void* buf, size_t count)
+{
+  #ifdef HAVE_CONTAINER_LIB
     /* get handle for container */
     cs_container_handle_t ch = meta->container_data.cs_container_handle;
 
@@ -1050,10 +1091,10 @@ int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
     /* determine storage type to read file data */
     if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
         /* file stored in fixed-size chunks */
-        rc = scrmfs_fid_store_read_fixed(fid, pos, buf, count);
+        rc = scrmfs_fid_store_fixed_read(fid, meta, pos, buf, count);
     } else if (meta->storage == FILE_STORAGE_CONTAINER) {
         /* file stored in container */
-        rc = scrmfs_fid_store_read_container(fid, pos, buf, count);
+        rc = scrmfs_fid_store_fixed_read(fid, meta, pos, buf, count);
     } else {
         /* unknown storage type */
         rc = SCRMFS_ERR_IO;
@@ -1080,10 +1121,10 @@ int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
     /* determine storage type to write file data */
     if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
         /* file stored in fixed-size chunks */
-        rc = scrmfs_fid_store_write_fixed(fid, pos, buf, count);
+        rc = scrmfs_fid_store_fixed_write(fid, meta, pos, buf, count);
     } else if (meta->storage == FILE_STORAGE_CONTAINER) {
         /* file stored in container */
-        rc = scrmfs_fid_store_write_container(fid, pos, buf, count);
+        rc = scrmfs_fid_store_fixed_write(fid, meta, pos, buf, count);
     } else {
         /* unknown storage type */
         rc = SCRMFS_ERR_IO;
@@ -1142,38 +1183,53 @@ int scrmfs_fid_write_zero(int fid, off_t pos, off_t count)
  * length bytes */
 int scrmfs_fid_extend(int fid, off_t length)
 {
+    int rc;
+
     /* get meta data for this file */
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
 
-    /* if we write past the end of the file, we need to update the
-     * file size, and we may need to allocate more chunks */
+    /* determine file storage type */
+    if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
+        /* file stored in fixed-size chunks */
+        rc = scrmfs_fid_store_fixed_extend(fid, meta, length);
+    } else if (meta->storage == FILE_STORAGE_CONTAINER) {
+        /* file stored in container */
+        rc = scrmfs_fid_store_container_extend(fid, meta, length);
+    } else {
+        /* unknown storage type */
+        rc = SCRMFS_ERR_IO;
+    }
+
+    /* TODO: move this statement elsewhere */
+    /* increase file size up to length */
     if (length > meta->size) {
-        /* TODO: check that we don't overrun the max number of chunks for a file */
-
-        /* determine whether we need to allocate more chunks */
-        off_t maxsize = meta->chunks << scrmfs_chunk_bits;
-        if (length > maxsize) {
-            /* compute number of additional bytes we need */
-            off_t additional = length - maxsize;
-            while (additional > 0) {
-                /* allocate a new chunk */
-                int rc = scrmfs_chunk_alloc(fid, meta, meta->chunks);
-                if (rc != SCRMFS_SUCCESS) {
-                    debug("failed to allocate chunk\n");
-                    return SCRMFS_ERR_NOSPC;
-                }
-
-                /* increase chunk count and subtract bytes from the number we need */
-                meta->chunks++;
-                additional -= scrmfs_chunk_size;
-            }
-        }
-
-        /* we have storage to extend file so update its size */
         meta->size = length;
     }
 
-    return SCRMFS_SUCCESS;
+    return rc;
+}
+
+/* if length is less than reserved space, give back space down to length */
+int scrmfs_fid_shrink(int fid, off_t length)
+{
+    int rc;
+
+    /* get meta data for this file */
+    scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
+
+    /* determine file storage type */
+    if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
+        /* file stored in fixed-size chunks */
+        rc = scrmfs_fid_store_fixed_shrink(fid, meta, length);
+    } else if (meta->storage == FILE_STORAGE_CONTAINER) {
+        /* file stored in container */
+        rc = scrmfs_fid_store_container_shrink(fid, meta, length);
+    } else {
+        /* unknown storage type */
+        rc = SCRMFS_ERR_IO;
+    }
+
+    return rc;
 }
 
 /* truncate file id to given length, frees resources if length is
@@ -1191,15 +1247,9 @@ int scrmfs_fid_truncate(int fid, off_t length)
      * allocate new space and zero fill it if bigger */
     if (length < size) {
         /* determine the number of chunks to leave after truncating */
-        off_t num_chunks = 0;
-        if (length > 0) {
-            num_chunks = (length >> scrmfs_chunk_bits) + 1;
-        }
-
-        /* clear off any extra chunks */
-        while (meta->chunks > num_chunks) {
-            meta->chunks--;
-            scrmfs_chunk_free(fid, meta, meta->chunks);
+        int shrink_rc = scrmfs_fid_shrink(fid, length);
+        if (shrink_rc != SCRMFS_SUCCESS) {
+            return shrink_rc;
         }
     } else if (length > size) {
         /* file size has been extended, allocate space */
