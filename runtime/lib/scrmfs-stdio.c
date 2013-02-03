@@ -1405,13 +1405,16 @@ int SCRMFS_DECL(fscanf)(FILE *stream, const char* format, ...)
     }
 }
 
+/* need to declare this before calling it */
+static int __svfscanf(scrmfs_stream_t *fp, const char *fmt0, va_list ap);
+
 int SCRMFS_DECL(vfscanf)(FILE *stream, const char* format, va_list ap)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
         va_list args;
         va_copy(args, ap);
-        int ret = __svfscanf(stream, format, args);
+        int ret = __svfscanf((scrmfs_stream_t*)stream, format, args);
         va_end(args);
         return ret;
     } else {
@@ -1956,7 +1959,7 @@ static int __srefill(scrmfs_stream_t* stream)
 
     /* associate buffer with stream if we need to */
     if (s->buf == NULL) {
-        int setvbuf_rc = scrmfs_setvbuf(stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
+        int setvbuf_rc = scrmfs_setvbuf((FILE*)stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
         if (setvbuf_rc != SCRMFS_SUCCESS) {
             /* ERROR: failed to associate buffer */
             s->err = 1;

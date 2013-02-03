@@ -260,8 +260,6 @@ scrmfs_fd_t* scrmfs_get_filedesc_from_fd(int fd);
  * otherwise return NULL */
 inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid);
 
-scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid);
-
 /* given an SCRMFS error code, return corresponding errno code */
 int scrmfs_err_map_to_errno(int rc);
 
