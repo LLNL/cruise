@@ -26,6 +26,7 @@
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sched.h>
 
 #include "scrmfs-internal.h"
 
@@ -1502,10 +1503,59 @@ static int scrmfs_get_spillblock(size_t size, const char *path)
 static void* scrmfs_superblock_shmget(size_t size, key_t key)
 {
     void *scr_shmblock = NULL;
+    int scr_shmblock_shmid;
 
-    /* TODO:improve error-propogation */
-    //int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU | SHM_HUGETLB);
-    int scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
+    debug("Key for superblock = %x\n", key);
+
+#ifdef ENABLE_NUMA_POLICY
+    /* if user requested to use 1 shm/process along with NUMA optimizations */
+    if ( key != IPC_PRIVATE ) {
+        numa_exit_on_error = 1;
+        /* check to see if NUMA control capability is available */
+        if (numa_available() >= 0 ) {
+            int max_numa_nodes = numa_max_node() + 1;
+            debug("Max. number of NUMA nodes = %d\n",max_numa_nodes);
+            int num_cores = sysconf(_SC_NPROCESSORS_CONF);
+            int my_core, i, pref_numa_bank = -1;
+
+            /* scan through the CPU set to see which core the current process is bound to */
+            /* TODO: can alternatively read from the proc filesystem (/proc/self*) */
+            cpu_set_t myset;
+            CPU_ZERO(&myset);
+            sched_getaffinity(0, sizeof(myset), &myset);
+            for(  i = 0; i < num_cores; i++ ) {
+                if ( CPU_ISSET(i, &myset) ) {
+                    my_core = i;
+                }
+            }
+            if( my_core < 0 ) {
+                debug("Not able to get current core affinity\n");
+                return NULL;
+            }
+            debug("Process running on core %d\n",my_core);
+
+            /* find out which NUMA bank this core belongs to */
+            // numa_preferred doesn't work as needed, returns 0 always. placeholder only.
+            pref_numa_bank = numa_preferred();
+            debug("Preferred NUMA bank for core %d is %d\n", my_core, pref_numa_bank);
+
+            /* create/attach to respective shmblock*/
+            scr_shmblock_shmid = shmget( (key+pref_numa_bank), size, IPC_CREAT | IPC_EXCL | S_IRWXU);
+            
+        } else {
+            debug("NUMA support unavailable!\n");
+            return NULL;
+        }
+    } else {
+        /* each process has its own block. use one of the other NUMA policies (scrmfs_numa_policy) instead */
+        scr_shmblock_shmid = shmget( key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
+    }
+#else
+    /* when NUMA optimizations are turned off, just let the kernel allocate pages as it desires */
+    /* TODO: Add Huge-Pages support */
+    scr_shmblock_shmid = shmget(key, size, IPC_CREAT | IPC_EXCL | S_IRWXU);
+#endif
+
     if (scr_shmblock_shmid < 0) {
         if (errno == EEXIST) {
             /* superblock already exists, attach to it */
@@ -1531,27 +1581,22 @@ static void* scrmfs_superblock_shmget(size_t size, key_t key)
         }
         debug("Superblock created at %p!\n",scr_shmblock);
 
+
 #ifdef ENABLE_NUMA_POLICY
-        numa_exit_on_error = 1;
-        /* check to see if NUMA control capability is available */
-        if (numa_available() < 0 ) {
-            debug("NUMA support unavailable!\n");
-        } else {
-            /* if support available, set NUMA policy for scr_shmblock */
-            if ( scrmfs_numa_bank >= 0 ) {
-                /* specifically allocate pages from user-set bank */
-                numa_tonode_memory(scr_shmblock, size, scrmfs_numa_bank);
-            } else if ( strcmp(scrmfs_numa_policy,"interleaved") == 0) {
-                /* interleave the shared-memory segment
-                 * across all memory banks when all process share 1-superblock */
-                debug("Interleaving superblock across all memory banks\n");
-                numa_interleave_memory(scr_shmblock, size, numa_all_nodes_ptr);
-            } else if( strcmp(scrmfs_numa_policy,"local") == 0) {
-               /* each process has its own superblock, let it be allocated from
-                * the closest memory bank */
-                debug("Assigning memory from closest bank\n");
-                numa_setlocal_memory(scr_shmblock, size);
-            }
+        /* set NUMA policy for scr_shmblock */
+        if ( scrmfs_numa_bank >= 0 ) {
+            /* specifically allocate pages from user-set bank */
+            numa_tonode_memory(scr_shmblock, size, scrmfs_numa_bank);
+        } else if ( strcmp(scrmfs_numa_policy,"interleaved") == 0) {
+            /* interleave the shared-memory segment
+             * across all memory banks when all process share 1-superblock */
+            debug("Interleaving superblock across all memory banks\n");
+            numa_interleave_memory(scr_shmblock, size, numa_all_nodes_ptr);
+        } else if( strcmp(scrmfs_numa_policy,"local") == 0) {
+            /* each process has its own superblock, let it be allocated from
+             * the closest memory bank */
+            debug("Assigning memory from closest bank\n");
+            numa_setlocal_memory(scr_shmblock, size);
         }
 #endif
         /* init our global variables to point to spots in superblock */
