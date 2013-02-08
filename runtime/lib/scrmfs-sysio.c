@@ -650,9 +650,8 @@ int SCRMFS_WRAP(open64)(const char* path, int flags, ...)
 
 off_t SCRMFS_WRAP(lseek)(int fd, off_t offset, int whence)
 {
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* TODO: check that fd is actually in use */
 
         /* get the file id for this file descriptor */
@@ -706,10 +705,8 @@ off_t SCRMFS_WRAP(lseek)(int fd, off_t offset, int whence)
 
 off64_t SCRMFS_WRAP(lseek64)(int fd, off64_t offset, int whence)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -723,10 +720,8 @@ off64_t SCRMFS_WRAP(lseek64)(int fd, off64_t offset, int whence)
 
 int SCRMFS_WRAP(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* check that the file descriptor is valid */
         int fid = scrmfs_get_fid_from_fd(fd);
         if (fid < 0) {
@@ -772,9 +767,8 @@ int SCRMFS_WRAP(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
 
 ssize_t SCRMFS_WRAP(read)(int fd, void *buf, size_t count)
 {
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get pointer to file descriptor structure */
         scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
         if (filedesc == NULL) {
@@ -808,10 +802,8 @@ ssize_t SCRMFS_WRAP(write)(int fd, const void *buf, size_t count)
 {
     ssize_t ret;
 
-    /* check file descriptor to determine whether we should pick off this call */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get pointer to file descriptor structure */
         scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
         if (filedesc == NULL) {
@@ -842,10 +834,8 @@ ssize_t SCRMFS_WRAP(write)(int fd, const void *buf, size_t count)
 
 ssize_t SCRMFS_WRAP(readv)(int fd, const struct iovec *iov, int iovcnt)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -859,10 +849,8 @@ ssize_t SCRMFS_WRAP(readv)(int fd, const struct iovec *iov, int iovcnt)
 
 ssize_t SCRMFS_WRAP(writev)(int fd, const struct iovec *iov, int iovcnt)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -879,10 +867,8 @@ ssize_t SCRMFS_WRAP(pread)(int fd, void *buf, size_t count, off_t offset)
     /* equivalent to read(), except that it shall read from a given
      * position in the file without changing the file pointer */
 
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get pointer to file descriptor structure */
         scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
         if (filedesc == NULL) {
@@ -910,10 +896,8 @@ ssize_t SCRMFS_WRAP(pread)(int fd, void *buf, size_t count, off_t offset)
 
 ssize_t SCRMFS_WRAP(pread64)(int fd, void *buf, size_t count, off64_t offset)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -930,10 +914,8 @@ ssize_t SCRMFS_WRAP(pwrite)(int fd, const void *buf, size_t count, off_t offset)
     /* equivalent to write(), except that it writes into a given
      * position without changing the file pointer */
 
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get pointer to file descriptor structure */
         scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
         if (filedesc == NULL) {
@@ -960,10 +942,8 @@ ssize_t SCRMFS_WRAP(pwrite)(int fd, const void *buf, size_t count, off_t offset)
 
 ssize_t SCRMFS_WRAP(pwrite64)(int fd, const void *buf, size_t count, off64_t offset)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -977,10 +957,8 @@ ssize_t SCRMFS_WRAP(pwrite64)(int fd, const void *buf, size_t count, off64_t off
 
 int SCRMFS_WRAP(ftruncate)(int fd, off_t length)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
         if (fid < 0) {
@@ -1013,9 +991,8 @@ int SCRMFS_WRAP(ftruncate)(int fd, off_t length)
 
 int SCRMFS_WRAP(fsync)(int fd)
 {
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
         if (fid < 0) {
@@ -1037,10 +1014,8 @@ int SCRMFS_WRAP(fsync)(int fd)
 
 int SCRMFS_WRAP(fdatasync)(int fd)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -1054,10 +1029,10 @@ int SCRMFS_WRAP(fdatasync)(int fd)
 
 int SCRMFS_WRAP(flock)(int fd, int operation)
 {
-    int intercept;
     int ret;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
      // KMM I removed the locking code because it was causing
      // hangs
       /*
@@ -1101,10 +1076,8 @@ int SCRMFS_WRAP(flock)(int fd, int operation)
 void* SCRMFS_WRAP(mmap)(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* get the file id for this file descriptor */
         int fid = scrmfs_get_fid_from_fd(fd);
         if (fid < 0) {
@@ -1179,10 +1152,8 @@ int SCRMFS_WRAP(msync)(void *addr, size_t length, int flags)
 void* SCRMFS_WRAP(mmap64)(void *addr, size_t length, int prot, int flags,
     int fd, off64_t offset)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = ENOSYS;
@@ -1196,10 +1167,8 @@ void* SCRMFS_WRAP(mmap64)(void *addr, size_t length, int prot, int flags,
 
 int SCRMFS_WRAP(__fxstat)(int vers, int fd, struct stat *buf)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -1213,10 +1182,8 @@ int SCRMFS_WRAP(__fxstat)(int vers, int fd, struct stat *buf)
 
 int SCRMFS_WRAP(__fxstat64)(int vers, int fd, struct stat64 *buf)
 {
-    /* check whether we should intercept this path */
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         /* ERROR: fn not yet supported */
         fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
         errno = EBADF;
@@ -1230,9 +1197,8 @@ int SCRMFS_WRAP(__fxstat64)(int vers, int fd, struct stat64 *buf)
 
 int SCRMFS_WRAP(close)(int fd)
 {
-    int intercept;
-    scrmfs_intercept_fd(&fd, &intercept);
-    if (intercept) {
+    /* check whether we should intercept this file descriptor */
+    if (scrmfs_intercept_fd(&fd)) {
         debug("closing fd %d\n", fd);
 
         /* TODO: what to do if underlying file has been deleted? */

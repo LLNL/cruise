@@ -254,7 +254,7 @@ int scrmfs_intercept_path(const char* path);
 
 /* given an fd, return 1 if we should intercept this file, 0 otherwise,
  * convert fd to new fd value if needed */
-void scrmfs_intercept_fd(int* fd, int* intercept);
+int scrmfs_intercept_fd(int* fd);
 
 /* given a FILE*, returns 1 if we should intercept this file,
  * 0 otherwise */

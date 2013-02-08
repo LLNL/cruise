@@ -288,7 +288,7 @@ static inline int scrmfs_stack_unlock()
 /* sets flag if the path is a special path */
 inline int scrmfs_intercept_path(const char* path)
 {
-    /* initialize our globals if we haven't already */
+    /* don't intecept anything until we're initialized */
     if (! scrmfs_initialized) {
       return 0;
     }
@@ -302,39 +302,36 @@ inline int scrmfs_intercept_path(const char* path)
 
 /* given an fd, return 1 if we should intercept this file, 0 otherwise,
  * convert fd to new fd value if needed */
-inline void scrmfs_intercept_fd(int* fd, int* intercept)
+inline int scrmfs_intercept_fd(int* fd)
 {
     int oldfd = *fd;
 
-    /* initialize our globals if we haven't already */
+    /* don't intecept anything until we're initialized */
     if (! scrmfs_initialized) {
-        *intercept = 0;
-        return;
+        return 0;
     }
 
     if (oldfd < scrmfs_fd_limit) {
         /* this fd is a real system fd, so leave it as is */
-        *intercept = 0;
+        return 0;
     } else if (oldfd < 0) {
         /* this is an invalid fd, so we should not intercept it */
-        *intercept = 0;
+        return 0;
     } else {
         /* this is an fd we generated and returned to the user,
          * so intercept the call and shift the fd */
         int newfd = oldfd - scrmfs_fd_limit;
         *fd = newfd;
-        *intercept = 1;
         debug("Changing fd from exposed %d to internal %d\n", oldfd, newfd);
+        return 1;
     }
-
-    return;
 }
 
 /* given an fd, return 1 if we should intercept this file, 0 otherwise,
  * convert fd to new fd value if needed */
 inline int scrmfs_intercept_stream(FILE* stream)
 {
-    /* initialize our globals if we haven't already */
+    /* don't intecept anything until we're initialized */
     if (! scrmfs_initialized) {
         return 0;
     }
