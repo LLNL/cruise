@@ -44,12 +44,33 @@ lib::
 	@mkdir -p $@
 
 HEADERS = \
+  lib/scrmfs-stack.h \
   lib/scrmfs-fixed.h \
   lib/scrmfs-container.h \
   lib/scrmfs-sysio.h \
   lib/scrmfs-stdio.h \
   lib/scrmfs-internal.h \
   lib/scrmfs.h
+
+OBJS = \
+  lib/lookup3.o \
+  lib/lookup8.o \
+  lib/scrmfs-stack.o \
+  lib/scrmfs-fixed.o \
+  lib/scrmfs-container.o \
+  lib/scrmfs-sysio.o \
+  lib/scrmfs-stdio.o \
+  lib/scrmfs.o
+
+POBJS = \
+  lib/lookup3.po \
+  lib/lookup8.po \
+  lib/scrmfs-stack.po \
+  lib/scrmfs-fixed.po \
+  lib/scrmfs-container.po \
+  lib/scrmfs-sysio.po \
+  lib/scrmfs-stdio.po \
+  lib/scrmfs.po
 
 #lib/scrmfs-mpi-io.o: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS) -c $< -o $@
@@ -122,10 +143,10 @@ lib/scrmfs-stack.po: lib/scrmfs-stack.c $(HEADERS)
 %.i: %.c
 	$(CC) -E $(CFLAGS) -c $< -o $@
 
-lib/libscrmfs-posix.a: lib/scrmfs.o lib/scrmfs-sysio.o lib/scrmfs-stdio.o lib/lookup3.o lib/lookup8.o lib/scrmfs-fixed.o lib/scrmfs-container.o lib/scrmfs-stack.o 
+lib/libscrmfs-posix.a: $(OBJS)
 	ar rcs $@ $^
 
-lib/libscrmfs.so: lib/scrmfs.po lib/scrmfs-sysio.po lib/scrmfs-stdio.po lib/lookup3.po lib/lookup8.po lib/scrmfs-fixed.po lib/scrmfs-container.po lib/scrmfs-stack.po
+lib/libscrmfs.so: $(POBJS)
 	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) $(CONTAINER_LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz $(CONTAINER_LIBS)
 
 install:: all
