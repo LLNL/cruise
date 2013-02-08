@@ -9,6 +9,9 @@ use strict;
 # hand-wrote gnulibc list from
 # http://www.gnu.org/software/libc/manual/html_node/I_002fO-Overview.html#I_002fO-Overview
 #
+# hand-wrote cstdio list from
+# http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
+#
 # hand-wrote scrmfs unsupported list (wrapped calls that aren't supported)
 #
 # commands to build scrmfs list
@@ -17,6 +20,8 @@ use strict;
 
 my $fakechroot_list  = "fakechroot_list.txt";
 my $gnulibc_list     = "gnulibc_list.txt";
+my $cstdio_list      = "cstdio_list.txt";
+my $posix_list       = "posix_list.txt";
 my $unsupported_list = "scrmfs_unsupported_list.txt";
 my $scrmfs_list      = "scrmfs_list.txt";
 
@@ -62,6 +67,32 @@ while (my $line = <IN>) {
 }
 close(IN);
 
+open(IN, $cstdio_list) || die "failed to open $cstdio_list\n";
+while (my $line = <IN>) {
+  # drop trailing newline
+  chomp $line;
+
+  # skip if starts with # or is empty
+  if ($line =~ /^#/ or not $line) {
+      next;
+  }
+
+  # (space) leading integer (space) function name
+  my $fn = undef;
+  if ($line =~ /^\s*\d+\s*(.*?)\s*$/) {
+    $fn = $1;
+  } else {
+    next;
+  }
+
+  # chop white space
+  $fn =~ s/\s*//g;
+#print "cstdio: $fn\n";
+
+  $any_libc{$fn} = 1;
+}
+close(IN);
+
 open(IN, $unsupported_list) || die "failed to open $unsupported_list\n";
 while (my $line = <IN>) {
   # drop trailing newline
@@ -74,7 +105,7 @@ while (my $line = <IN>) {
   if ($line =~ /^#/ or not $line) {
       next;
   }
-print "unsupported: $line\n";
+#print "unsupported: $line\n";
 
   $unsupported{$line} = 1;
 }
@@ -97,7 +128,7 @@ while (my $line = <IN>) {
 
   # chop white space
   $fn =~ s/\s*//g;
-print "wrapped: $fn\n";
+#print "wrapped: $fn\n";
 
   $scrmfs{$fn} = 1;
 }
