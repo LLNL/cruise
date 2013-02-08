@@ -20,11 +20,15 @@
 #include <libgen.h>
 #include <limits.h>
 
-/* TODO: move common includes to another file */
-#include "scrmfs-defs.h"
-
 #include "utlist.h"
 #include "uthash.h"
+
+/* -------------------------------
+ * Defines and types
+ * ------------------------------- */
+
+/* TODO: move common includes to another file */
+#include "scrmfs-defs.h"
 
 //#define SCRMFS_DEBUG
 #ifdef SCRMFS_DEBUG
@@ -204,6 +208,10 @@ typedef struct {
                 /* full path and name of file */
 } scrmfs_filename_t;
 
+/* -------------------------------
+ * Common includes
+ * ------------------------------- */
+
 /* TODO: move common includes to another file */
 #include "scrmfs.h"
 #include "scrmfs-stack.h"
@@ -211,6 +219,10 @@ typedef struct {
 #include "scrmfs-container.h"
 #include "scrmfs-sysio.h"
 #include "scrmfs-stdio.h"
+
+/* -------------------------------
+ * Global varaible declarations
+ * ------------------------------- */
 
 /* keep track of what we've initialized */
 extern int scrmfs_initialized;
@@ -236,6 +248,10 @@ extern void* free_chunk_stack;
 extern void* free_spillchunk_stack;
 extern char* scrmfs_chunks;
 int scrmfs_spilloverblock;
+
+/* -------------------------------
+ * Common functions
+ * ------------------------------- */
 
 /* single function to route all unsupported wrapper calls through */
 int scrmfs_unsupported(const char* fn_name, const char* file, int line, const char* fmt, ...);
@@ -283,8 +299,6 @@ inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid);
 
 /* given an SCRMFS error code, return corresponding errno code */
 int scrmfs_err_map_to_errno(int rc);
-
-
 
 /* checks to see if fid is a directory
  * returns 1 for yes
