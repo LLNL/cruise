@@ -106,4 +106,62 @@ int scrmfs_container_write(cs_container_handle_t ch, void * buf, size_t count, o
 
 }
 
+/* if length is greater than reserved space, reserve space up to length */
+int scrmfs_fid_store_container_extend(int fid, scrmfs_filemeta_t* meta, off_t length)
+{
+    /* I'm using the same infrastructure as memfs (chunks) because
+     * it just makes life easier, and I think cleaner. If the size of the container
+     * is not big enough, we extend it by the size of a chunk */
+    if(meta->container_data.container_size < scrmfs_chunk_size + meta->size){
+       //TODO extend container not implemented yet. always returns out of space
+       cs_container_handle_t* ch = &(meta->container_data.cs_container_handle);
+       int ret = scrmfs_container_extend(cs_set_handle, ch, scrmfs_chunk_size);
+       if (ret != SCRMFS_SUCCESS) {
+          return ret;
+       }
+       meta->container_data.container_size += scrmfs_chunk_size;
+    }
+
+    return SCRMFS_SUCCESS;
+}
+
+/* if length is less than reserved space, give up space down to length */
+int scrmfs_fid_store_container_shrink(int fid, scrmfs_filemeta_t* meta, off_t length)
+{
+    /* TODO: shrink container space */
+    return SCRMFS_SUCCESS;
+}
+
+/* read data from file stored as a container */
+int scrmfs_fid_store_container_read(int fid, scrmfs_filemeta_t* meta, off_t pos, void* buf, size_t count)
+{
+    /* get handle for container */
+    cs_container_handle_t ch = meta->container_data.cs_container_handle;
+
+    /* read chunk from containers */
+    int ret = scrmfs_container_read(ch, buf, count, chunk_offset);
+    if (ret != SCRMFS_SUCCESS){
+        fprintf(stderr, "Container read failed\n");
+        return ret;
+    }
+
+    return SCRMFS_SUCCESS;
+}
+
+/* write data to file stored as container */
+int scrmfs_fid_store_container_write(int fid, scrmfs_filemeta_t* meta, off_t pos, const void* buf, size_t count)
+{
+    /* get handle for container */
+    cs_container_handle_t ch = meta->container_data.cs_container_handle;
+
+    /* write data to container */
+    int ret = scrmfs_container_write(ch, buf, count, chunk_offset);
+    if (ret != SCRMFS_SUCCESS){
+        fprintf(stderr, "container write failed for single container write: %d\n");
+        return ret;
+    }
+
+    return SCRMFS_SUCCESS;
+}
+
 #endif /* HAVE_CONTAINER_LIB */

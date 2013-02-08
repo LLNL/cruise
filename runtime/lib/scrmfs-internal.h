@@ -20,12 +20,8 @@
 #include <libgen.h>
 #include <limits.h>
 
-#include "scrmfs.h"
-//#include "scrmfs-file.h"
+/* TODO: move common includes to another file */
 #include "scrmfs-defs.h"
-#include "scrmfs-sysio.h"
-#include "scrmfs-stdio.h"
-#include "scrmfs-stack.h"
 
 #include "utlist.h"
 #include "uthash.h"
@@ -62,10 +58,10 @@
       static ret (*__real_ ## name)args = NULL;
 
     /* our open wrapper assumes the name of open() */
-    #define SCRMFS_WRAP(__name) __name
+    #define SCRMFS_WRAP(name) name
 
     /* the address of the real open call is stored in __real_open variable */
-    #define SCRMFS_REAL(__name) __real ## __name
+    #define SCRMFS_REAL(name) __real_ ## name
 
     /* if __real_open is still NULL, call dlsym to lookup address of real
      * function and record it */
@@ -95,10 +91,10 @@
       extern ret __real_ ## name args;
 
     /* we define our wrapper function as __wrap_open instead of open */
-    #define SCRMFS_WRAP(__name) __wrap_ ## __name
+    #define SCRMFS_WRAP(name) __wrap_ ## name
 
-    /* the real open call is simply open() */
-    #define SCRMFS_REAL(__name) __name
+    /* the linker maps the open call to __real_open() */
+    #define SCRMFS_REAL(name) __real_ ## name
 
     /* no need to look up the address of the real function */
     #define MAP_OR_FAIL(func)
@@ -162,13 +158,6 @@ typedef struct {
     size_t         _r; /* number of bytes left at pointer */
 } scrmfs_stream_t;
 
-#ifdef HAVE_CONTAINER_LIB
-typedef struct {
-     cs_container_handle_t*  cs_container_handle;
-     off_t container_size;
-} scrmfs_container_t;
-#endif /* HAVE_CONTAINER_LIB */
-
 enum flock_enum {
     UNLOCKED,
     EX_LOCKED,
@@ -215,7 +204,13 @@ typedef struct {
                 /* full path and name of file */
 } scrmfs_filename_t;
 
-
+/* TODO: move common includes to another file */
+#include "scrmfs.h"
+#include "scrmfs-stack.h"
+#include "scrmfs-fixed.h"
+#include "scrmfs-container.h"
+#include "scrmfs-sysio.h"
+#include "scrmfs-stdio.h"
 
 /* keep track of what we've initialized */
 extern int scrmfs_initialized;
@@ -234,6 +229,14 @@ extern rlim_t scrmfs_fd_limit;
 /* array of file streams */
 extern scrmfs_stream_t scrmfs_streams[SCRMFS_MAX_FILEDESCS];
 
+extern int scrmfs_use_memfs;
+extern int scrmfs_use_spillover;
+
+extern void* free_chunk_stack;
+extern void* free_spillchunk_stack;
+extern char* scrmfs_chunks;
+int scrmfs_spilloverblock;
+
 /* single function to route all unsupported wrapper calls through */
 int scrmfs_unsupported(const char* fn_name, const char* file, int line, const char* fmt, ...);
 
@@ -248,6 +251,10 @@ int scrmfs_would_overflow_long(long a, long b);
 /* given an input mode, mask it with umask and return, can specify
  * an input mode==0 to specify all read/write bits */
 mode_t scrmfs_getmode(mode_t perms);
+
+int scrmfs_stack_lock();
+
+int scrmfs_stack_unlock();
 
 /* sets flag if the path is a special path */
 int scrmfs_intercept_path(const char* path);
