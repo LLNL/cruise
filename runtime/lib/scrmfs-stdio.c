@@ -1,5 +1,6 @@
 #include "scrmfs-runtime-config.h"
 #include <stdio.h>
+#include <wchar.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -27,10 +28,19 @@ static int scrmfs_fpos_enabled = 1; /* whether we can use fgetpos/fsetpos */
  * POSIX wrappers: file streams
  * --------------------------------------- */
 
+/* Known Problems:
+ *  - does not support wide character calls
+ *  - does not support wide cahracter formatting
+ *  - hard coded to use U.S. Locale (decimal point)
+ *  - if putc/getc are macros we can't wrap them
+ *  - streams are not locked
+ *    http://www.gnu.org/software/libc/manual/html_node/Streams-and-Threads.html#Streams-and-Threads
+ *  - does not handle %as like GNU C */
+
 /*
  * FreeBSD http://www.freebsd.org/
  *   svn co svn://svn.freebsd.org/base/head/lib/libc/ freebsd_libc.svn
- *
+ *`
  * Bionic libc BSD from google
  * https://github.com/android/platform_bionic/blob/master/libc/docs/OVERVIEW.TXT
  *
@@ -40,94 +50,130 @@ static int scrmfs_fpos_enabled = 1; /* whether we can use fgetpos/fsetpos */
  * http://pubs.opengroup.org/onlinepubs/009695399/
  * http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf (7.19)
  * https://github.com/fakechroot/fakechroot/tree/master/src
- *
- * fopen
- * -- fdopen
- * -- freopen
- *
- * ungetc
- * fgetc
- * fputc
- * getc
- * putc
- * fgets
- * fputs
- * -- ungetwc
- * -- fgetwc
- * -- fputwc
- * -- getwc*
- * -- putwc*
- * -- fgetws
- * -- fputws
- * fread
- * fwrite
- *
- * fscanf
- * vfscanf
- * fprintf
- * vfprintf
- * -- fwscanf
- * -- vfwscanf
- * -- fwprintf
- * -- vfwprintf
- *
- * fseek
- * fseeko
- * ftell
- * ftello
- * rewind
- * fsetpos
- * fgetpos
- *
- * setvbuf
- * setbuf
- *
- * fflush
- * feof
- * ferror
- * clearerr
- * fileno
- * -- flockfile
- * -- ftrylockfile
- * -- funlockfile
- *
- * -- fopen64
- * -- freopen64
- * -- fseeko64
- * -- fgetpos64
- * -- fsetpos64
- * -- ftello64
  */
 
-SCRMFS_FORWARD_DECL(fopen, FILE*, (const char *path, const char *mode));
-SCRMFS_FORWARD_DECL(setvbuf, int, (FILE *stream, char* buf, int type, size_t size));
-SCRMFS_FORWARD_DECL(setbuf, void*, (FILE *stream, char* buf));
-SCRMFS_FORWARD_DECL(ungetc, int, (int c, FILE *stream));
-SCRMFS_FORWARD_DECL(fgetc, int, (FILE *stream));
-SCRMFS_FORWARD_DECL(fputc, int, (int c, FILE *stream));
-SCRMFS_FORWARD_DECL(getc, int, (FILE *stream));
-SCRMFS_FORWARD_DECL(putc, int, (int c, FILE *stream));
-SCRMFS_FORWARD_DECL(fgets, char*, (char* s, int n, FILE* stream));
-SCRMFS_FORWARD_DECL(fputs, int, (const char* s, FILE* stream));
-SCRMFS_FORWARD_DECL(fread, size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
-SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
-SCRMFS_FORWARD_DECL(fprintf, int, (FILE* stream, const char* format, ...));
+/* http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf 7.19 */
+
+/* TODO: add "scrmfs_unsupported" call to report details of unsupported fns */
+
+SCRMFS_FORWARD_DECL(fclose,  int,   (FILE *stream));
+SCRMFS_FORWARD_DECL(fflush,  int,   (FILE *stream));
+SCRMFS_FORWARD_DECL(fopen,   FILE*, (const char *path, const char *mode));
+SCRMFS_FORWARD_DECL(freopen, FILE*, (const char *path, const char *mode, FILE *stream));
+SCRMFS_FORWARD_DECL(setbuf,  void*, (FILE *stream, char* buf));
+SCRMFS_FORWARD_DECL(setvbuf, int,   (FILE *stream, char* buf, int type, size_t size));
+
+SCRMFS_FORWARD_DECL(fprintf,  int, (FILE* stream, const char* format, ...));
+SCRMFS_FORWARD_DECL(fscanf,   int, (FILE* stream, const char* format, ...));
 SCRMFS_FORWARD_DECL(vfprintf, int, (FILE* stream, const char* format, va_list ap));
-SCRMFS_FORWARD_DECL(fscanf, int, (FILE* stream, const char* format, ...));
-SCRMFS_FORWARD_DECL(vfscanf, int, (FILE* stream, const char* format, va_list ap));
-SCRMFS_FORWARD_DECL(fseek,  int, (FILE *stream, long offset,  int whence));
-SCRMFS_FORWARD_DECL(fseeko, int, (FILE *stream, off_t offset, int whence));
-SCRMFS_FORWARD_DECL(ftell,  long,  (FILE *stream));
-SCRMFS_FORWARD_DECL(ftello, off_t, (FILE *stream));
-SCRMFS_FORWARD_DECL(rewind, void, (FILE *stream));
-SCRMFS_FORWARD_DECL(fgetpos, int, (FILE *stream, fpos_t* pos));
-SCRMFS_FORWARD_DECL(fsetpos, int, (FILE *stream, const fpos_t* pos));
-SCRMFS_FORWARD_DECL(fflush, int, (FILE *stream));
-SCRMFS_FORWARD_DECL(feof, int, (FILE *stream));
-SCRMFS_FORWARD_DECL(ferror, int, (FILE *stream));
+SCRMFS_FORWARD_DECL(vfscanf,  int, (FILE* stream, const char* format, va_list ap));
+
+SCRMFS_FORWARD_DECL(fgetc,  int,   (FILE *stream));
+SCRMFS_FORWARD_DECL(fgets,  char*, (char* s, int n, FILE* stream));
+SCRMFS_FORWARD_DECL(fputc,  int,   (int c, FILE *stream));
+SCRMFS_FORWARD_DECL(fputs,  int,   (const char* s, FILE* stream));
+SCRMFS_FORWARD_DECL(getc,   int,   (FILE *stream));
+SCRMFS_FORWARD_DECL(putc,   int,   (int c, FILE *stream));
+SCRMFS_FORWARD_DECL(ungetc, int,   (int c, FILE *stream));
+
+SCRMFS_FORWARD_DECL(fread,  size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
+SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
+
+SCRMFS_FORWARD_DECL(fgetpos, int,  (FILE *stream, fpos_t* pos));
+SCRMFS_FORWARD_DECL(fseek,   int,  (FILE *stream, long offset,  int whence));
+SCRMFS_FORWARD_DECL(fsetpos, int,  (FILE *stream, const fpos_t* pos));
+SCRMFS_FORWARD_DECL(ftell,   long, (FILE *stream));
+SCRMFS_FORWARD_DECL(rewind,  void, (FILE *stream));
+
 SCRMFS_FORWARD_DECL(clearerr, void, (FILE *stream));
-SCRMFS_FORWARD_DECL(fileno, int, (FILE *stream));
-SCRMFS_FORWARD_DECL(fclose, int, (FILE *stream));
+SCRMFS_FORWARD_DECL(feof,     int,  (FILE *stream));
+SCRMFS_FORWARD_DECL(ferror,   int,  (FILE *stream));
+
+SCRMFS_FORWARD_DECL(fseeko, int,   (FILE *stream, off_t offset, int whence));
+SCRMFS_FORWARD_DECL(ftello, off_t, (FILE *stream));
+SCRMFS_FORWARD_DECL(fileno, int,   (FILE *stream));
+
+/* http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf 7.24 */
+
+SCRMFS_FORWARD_DECL(fwprintf,  int,      (FILE *stream, const wchar_t* format, ...));
+SCRMFS_FORWARD_DECL(fwscanf,   int,      (FILE *stream, const wchar_t* format, ...));
+SCRMFS_FORWARD_DECL(vfwprintf, int,      (FILE *stream, const wchar_t* format, va_list arg));
+SCRMFS_FORWARD_DECL(vfwscanf,  int,      (FILE *stream, const wchar_t* format, va_list arg));
+SCRMFS_FORWARD_DECL(fgetwc,    wint_t,   (FILE *stream));
+SCRMFS_FORWARD_DECL(fgetws,    wchar_t*, (wchar_t* s, int n, FILE *stream));
+SCRMFS_FORWARD_DECL(fputwc,    wint_t,   (wchar_t wc, FILE *stream));
+SCRMFS_FORWARD_DECL(fputws,    int,      (const wchar_t* s, FILE *stream));
+SCRMFS_FORWARD_DECL(fwide,     int,      (FILE *stream, int mode));
+SCRMFS_FORWARD_DECL(getwc,     wint_t,   (FILE *stream));
+SCRMFS_FORWARD_DECL(putwc,     wint_t,   (wchar_t c, FILE *stream));
+SCRMFS_FORWARD_DECL(ungetwc,   wint_t,   (wint_t c, FILE *stream));
+
+/* given a stream, return file name or NULL if invalid */
+static const char* scrmfs_stream_name(FILE* fp)
+{
+    /* convert to scrmfs_stream_t pointer */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) fp;
+
+    /* get name of file */
+    const char* name = NULL;
+    int fid = scrmfs_get_fid_from_fd(s->fd);
+    if (fid >= 0) {
+        name = scrmfs_filelist[fid].filename;
+    }
+    return name;
+}
+
+int scrmfs_unsupported_stream(
+  FILE* fp,
+  const char* wrap_fn,
+  const char* wrap_file,
+  int         wrap_line,
+  const char* format,
+  ...)
+{
+    /* convert to scrmfs_stream_t pointer */
+    scrmfs_stream_t* s = (scrmfs_stream_t*) fp;
+
+    /* get name of file */
+    const char* name = scrmfs_stream_name(fp);
+
+    /* get file position */
+    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    off_t pos = filedesc->pos;
+
+    /* determine length of string to hold formatted args */
+    va_list args1;
+    va_start(args1, format);
+    int strlen = vsnprintf(NULL, 0, format, args1);
+    va_end(args1);
+
+    /* allocate memory for string */
+    int chars = strlen + 1;
+    char* str = (char*) malloc(chars);
+    if (str == NULL) {
+        /* Error */
+    }
+
+    /* create the string */
+    va_list args2;
+    va_start(args2, format);
+    vsnprintf(str, chars, format, args2);
+    va_end(args2);
+
+    /* print message */
+    va_list args;
+    va_start(args, format);
+    int rc = scrmfs_unsupported(
+      wrap_fn, wrap_file, wrap_line,
+      "file %s pos %lu msg %s", name, (unsigned long) pos, str
+    );
+    va_end(args);
+
+    /* free the string */
+    free(str);
+
+    return rc;
+}
 
 #if 0
 static int scrmfs_stream_alloc(int fd)
@@ -192,6 +238,9 @@ static int scrmfs_stream_set_pointers(scrmfs_stream_t* s)
 
     return SCRMFS_SUCCESS;
 }
+
+/* TODO: support other modes as listed in
+ * http://www.gnu.org/software/libc/manual/html_node/Opening-Streams.html#Opening-Streams */
 
 /* given a mode like "r", "wb+", or "a+" return flags read, write,
  * append, and plus to indicate which were set,
@@ -931,6 +980,25 @@ FILE* SCRMFS_DECL(fopen)(const char *path, const char *mode)
     } else {
         MAP_OR_FAIL(fopen);
         FILE* ret = __real_fopen(path, mode);
+        return ret;
+    }
+}
+
+FILE* SCRMFS_DECL(freopen)(const char *path, const char *mode, FILE *stream)
+{
+    /* check whether we should intercept this path */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "new file %s", path);
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return NULL;
+    } else {
+        MAP_OR_FAIL(freopen);
+        FILE* ret = __real_freopen(path, mode, stream);
         return ret;
     }
 }
@@ -1810,6 +1878,250 @@ int SCRMFS_DECL(fclose)(FILE *stream)
     }
 }
 
+
+
+int SCRMFS_DECL(fwprintf)(FILE *stream, const wchar_t* format, ...)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return -1;
+    } else {
+        va_list args;
+        va_start(args, format);
+        MAP_OR_FAIL(vfwprintf);
+        int ret = __real_vfwprintf(stream, format, args);
+        va_end(args);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fwscanf)(FILE *stream, const wchar_t* format, ...)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return EOF;
+    } else {
+        va_list args;
+        va_start(args, format);
+        MAP_OR_FAIL(vfwscanf);
+        int ret = __real_vfwscanf(stream, format, args);
+        va_end(args);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return -1;
+    } else {
+        va_list args;
+        va_copy(args, arg);
+        MAP_OR_FAIL(vfwprintf);
+        int ret = __real_vfwprintf(stream, format, args);
+        va_end(args);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return EOF;
+    } else {
+        va_list args;
+        va_copy(args, arg);
+        MAP_OR_FAIL(vfwscanf);
+        int ret = __real_vfwscanf(stream, format, args);
+        va_end(args);
+        return ret;
+    }
+}
+
+wint_t SCRMFS_DECL(fgetwc)(FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return WEOF;
+    } else {
+        MAP_OR_FAIL(fgetwc);
+        wint_t ret = __real_fgetwc(stream);
+        return ret;
+    }
+}
+
+wchar_t* SCRMFS_DECL(fgetws)(wchar_t* s, int n, FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return NULL;
+    } else {
+        MAP_OR_FAIL(fgetws);
+        wchar_t* ret = __real_fgetws(s, n, stream);
+        return ret;
+    }
+}
+
+wint_t SCRMFS_DECL(fputwc)(wchar_t wc, FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return WEOF;
+    } else {
+        MAP_OR_FAIL(fputwc);
+        wint_t ret = __real_fputwc(wc, stream);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fputws)(const wchar_t* s, FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return -1;
+    } else {
+        MAP_OR_FAIL(fputws);
+        int ret = __real_fputws(s, stream);
+        return ret;
+    }
+}
+
+int SCRMFS_DECL(fwide)(FILE *stream, int mode)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return 0;
+    } else {
+        MAP_OR_FAIL(fwide);
+        int ret = __real_fwide(stream, mode);
+        return ret;
+    }
+}
+
+wint_t SCRMFS_DECL(getwc)(FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return WEOF;
+    } else {
+        MAP_OR_FAIL(getwc);
+        wint_t ret = __real_getwc(stream);
+        return ret;
+    }
+}
+
+wint_t SCRMFS_DECL(putwc)(wchar_t c, FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return WEOF;
+    } else {
+        MAP_OR_FAIL(putwc);
+        wint_t ret = __real_putwc(c, stream);
+        return ret;
+    }
+}
+
+wint_t SCRMFS_DECL(ungetwc)(wint_t c, FILE *stream)
+{
+    /* check whether we should intercept this stream */
+    if (scrmfs_intercept_stream(stream)) {
+        /* return file descriptor associated with stream */
+        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+
+        /* lookup stream */
+        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        s->err = 1;
+        errno = EIO;
+        return WEOF;
+    } else {
+        MAP_OR_FAIL(ungetwc);
+        wint_t ret = __real_ungetwc(c, stream);
+        return ret;
+    }
+}
+
+
+
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -2605,6 +2917,7 @@ literal:
 			if (flags & LONG) {
 //ATM				nr = convert_wchar(fp, GETARG(wchar_t *),
 //				    width, locale);
+                                scrmfs_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
 			} else {
 				nr = convert_char(fp, GETARG(char *), width);
 			}
@@ -2619,6 +2932,7 @@ literal:
 			if (flags & LONG) {
 //ATM				nr = convert_wccl(fp, GETARG(wchar_t *), width,
 //				    ccltab, locale);
+                                scrmfs_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
 			} else {
 				nr = convert_ccl(fp, GETARG(char *), width,
 				    ccltab);
@@ -2638,6 +2952,7 @@ literal:
 			if (flags & LONG) {
 //ATM				nr = convert_wstring(fp, GETARG(wchar_t *),
 //				    width, locale);
+                                scrmfs_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
 			} else {
 				nr = convert_string(fp, GETARG(char *), width);
 			}

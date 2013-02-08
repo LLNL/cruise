@@ -114,6 +114,44 @@ static key_t  scrmfs_mount_shmget_key = 0;
 /* mutex to lock stack operations */
 pthread_mutex_t scrmfs_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/* single function to route all unsupported wrapper calls through */
+int scrmfs_vunsupported(
+  const char* fn_name,
+  const char* file,
+  int line,
+  const char* fmt,
+  va_list args)
+{
+    /* print a message about where in the CRUISE code we are */
+    printf("UNSUPPORTED: %s() at %s:%d: ", fn_name, file, line);
+
+    /* print string with more info about call, e.g., param values */
+    va_list args2;
+    va_copy(args2, args);
+    vprintf(fmt, args2);
+    va_end(args2);
+
+    /* TODO: optionally abort */
+
+    return SCRMFS_SUCCESS;
+}
+
+/* single function to route all unsupported wrapper calls through */
+int scrmfs_unsupported(
+  const char* fn_name,
+  const char* file,
+  int line,
+  const char* fmt,
+  ...)
+{
+    /* print string with more info about call, e.g., param values */
+    va_list args;
+    va_start(args, fmt);
+    int rc = scrmfs_vunsupported(fn_name, file, line, fmt, args);
+    va_end(args);
+    return rc;
+}
+
 /* given an SCRMFS error code, return corresponding errno code */
 int scrmfs_err_map_to_errno(int rc)
 {

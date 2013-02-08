@@ -37,6 +37,11 @@
     #define debug(fmt, args... )
 #endif
 
+/* define a macro to capture function name, file name, and line number
+ * along with user-defined string */
+#define SCRMFS_UNSUPPORTED(fmt, args...) \
+      scrmfs_unsupported(__func__, __FILE__, __LINE__, fmt, ##args)
+
 #ifdef SCRMFS_PRELOAD
 
     /* ===================================================================
@@ -58,6 +63,9 @@
 
     /* our open wrapper assumes the name of open() */
     #define SCRMFS_DECL(__name) __name
+
+    /* our open wrapper assumes the name of open() */
+    #define SCRMFS_DECL2(name,ret,args) ret name args
 
     /* if __real_open is still NULL, call dlsym to lookup address of real
      * function and record it */
@@ -88,6 +96,9 @@
 
     /* we define our wrapper function as __wrap_open instead of open */
     #define SCRMFS_DECL(__name) __wrap_ ## __name
+
+    /* we define our wrapper function as __wrap_open instead of open */
+    #define SCRMFS_DECL2(name,ret,args) ret __wrap_ ## name args
 
     /* no need to look up the address of the real function */
     #define MAP_OR_FAIL(func)
@@ -222,6 +233,9 @@ extern rlim_t scrmfs_fd_limit;
 
 /* array of file streams */
 extern scrmfs_stream_t scrmfs_streams[SCRMFS_MAX_FILEDESCS];
+
+/* single function to route all unsupported wrapper calls through */
+int scrmfs_unsupported(const char* fn_name, const char* file, int line, const char* fmt, ...);
 
 /* returns 1 if two input parameters will overflow their type when
  * added together */

@@ -131,7 +131,7 @@ int check_buffer(char* buf, size_t size, int rank, int ckpt)
   for(i=0; i < size; i++) {
     char c = 'a' + (char)((rank + ckpt + i) & 32);
     if (buf[i] != c) {
-      printf("check failed at byte %d, should be %c is %c\n", i, c, buf[i]);
+      printf("check failed at byte %d, should be %c is %c\n", (int)i, c, buf[i]);
       return 0;
     }
   }
