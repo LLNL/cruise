@@ -25,55 +25,55 @@
  * POSIX wrappers: paths
  * --------------------------------------- */
 
-SCRMFS_FORWARD_DECL(access, int, (const char *pathname, int mode));
-SCRMFS_FORWARD_DECL(mkdir, int, (const char *path, mode_t mode));
-SCRMFS_FORWARD_DECL(rmdir, int, (const char *path));
-SCRMFS_FORWARD_DECL(unlink, int, (const char *path));
-SCRMFS_FORWARD_DECL(remove, int, (const char *path));
-SCRMFS_FORWARD_DECL(rename, int, (const char *oldpath, const char *newpath));
-SCRMFS_FORWARD_DECL(truncate, int, (const char *path, off_t length));
-SCRMFS_FORWARD_DECL(stat, int,( const char *path, struct stat *buf));
-SCRMFS_FORWARD_DECL(__lxstat, int, (int vers, const char* path, struct stat *buf));
-SCRMFS_FORWARD_DECL(__lxstat64, int, (int vers, const char* path, struct stat64 *buf));
-SCRMFS_FORWARD_DECL(__xstat, int, (int vers, const char* path, struct stat *buf));
-SCRMFS_FORWARD_DECL(__xstat64, int, (int vers, const char* path, struct stat64 *buf));
+SCRMFS_DECL(access, int, (const char *pathname, int mode));
+SCRMFS_DECL(mkdir, int, (const char *path, mode_t mode));
+SCRMFS_DECL(rmdir, int, (const char *path));
+SCRMFS_DECL(unlink, int, (const char *path));
+SCRMFS_DECL(remove, int, (const char *path));
+SCRMFS_DECL(rename, int, (const char *oldpath, const char *newpath));
+SCRMFS_DECL(truncate, int, (const char *path, off_t length));
+SCRMFS_DECL(stat, int,( const char *path, struct stat *buf));
+SCRMFS_DECL(__lxstat, int, (int vers, const char* path, struct stat *buf));
+SCRMFS_DECL(__lxstat64, int, (int vers, const char* path, struct stat64 *buf));
+SCRMFS_DECL(__xstat, int, (int vers, const char* path, struct stat *buf));
+SCRMFS_DECL(__xstat64, int, (int vers, const char* path, struct stat64 *buf));
 
 /* ---------------------------------------
  * POSIX wrappers: file descriptors
  * --------------------------------------- */
 
-SCRMFS_FORWARD_DECL(creat, int, (const char* path, mode_t mode));
-SCRMFS_FORWARD_DECL(creat64, int, (const char* path, mode_t mode));
-SCRMFS_FORWARD_DECL(open, int, (const char *path, int flags, ...));
-SCRMFS_FORWARD_DECL(open64, int, (const char *path, int flags, ...));
-SCRMFS_FORWARD_DECL(read, ssize_t, (int fd, void *buf, size_t count));
-SCRMFS_FORWARD_DECL(write, ssize_t, (int fd, const void *buf, size_t count));
-SCRMFS_FORWARD_DECL(readv, ssize_t, (int fd, const struct iovec *iov, int iovcnt));
-SCRMFS_FORWARD_DECL(writev, ssize_t, (int fd, const struct iovec *iov, int iovcnt));
-SCRMFS_FORWARD_DECL(pread, ssize_t, (int fd, void *buf, size_t count, off_t offset));
-SCRMFS_FORWARD_DECL(pread64, ssize_t, (int fd, void *buf, size_t count, off64_t offset));
-SCRMFS_FORWARD_DECL(pwrite, ssize_t, (int fd, const void *buf, size_t count, off_t offset));
-SCRMFS_FORWARD_DECL(pwrite64, ssize_t, (int fd, const void *buf, size_t count, off64_t offset));
-SCRMFS_FORWARD_DECL(posix_fadvise, int, (int fd, off_t offset, off_t len, int advice));
-SCRMFS_FORWARD_DECL(lseek, off_t, (int fd, off_t offset, int whence));
-SCRMFS_FORWARD_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
-SCRMFS_FORWARD_DECL(ftruncate, int, (int fd, off_t length));
-SCRMFS_FORWARD_DECL(fsync, int, (int fd));
-SCRMFS_FORWARD_DECL(fdatasync, int, (int fd));
-SCRMFS_FORWARD_DECL(flock, int, (int fd, int operation));
-SCRMFS_FORWARD_DECL(mmap, void*, (void *addr, size_t length, int prot, int flags, int fd, off_t offset));
-SCRMFS_FORWARD_DECL(mmap64, void*, (void *addr, size_t length, int prot, int flags, int fd, off64_t offset));
-SCRMFS_FORWARD_DECL(munmap, int,(void *addr, size_t length));
-SCRMFS_FORWARD_DECL(msync, int, (void *addr, size_t length, int flags));
-SCRMFS_FORWARD_DECL(__fxstat, int, (int vers, int fd, struct stat *buf));
-SCRMFS_FORWARD_DECL(__fxstat64, int, (int vers, int fd, struct stat64 *buf));
-SCRMFS_FORWARD_DECL(close, int, (int fd));
+SCRMFS_DECL(creat, int, (const char* path, mode_t mode));
+SCRMFS_DECL(creat64, int, (const char* path, mode_t mode));
+SCRMFS_DECL(open, int, (const char *path, int flags, ...));
+SCRMFS_DECL(open64, int, (const char *path, int flags, ...));
+SCRMFS_DECL(read, ssize_t, (int fd, void *buf, size_t count));
+SCRMFS_DECL(write, ssize_t, (int fd, const void *buf, size_t count));
+SCRMFS_DECL(readv, ssize_t, (int fd, const struct iovec *iov, int iovcnt));
+SCRMFS_DECL(writev, ssize_t, (int fd, const struct iovec *iov, int iovcnt));
+SCRMFS_DECL(pread, ssize_t, (int fd, void *buf, size_t count, off_t offset));
+SCRMFS_DECL(pread64, ssize_t, (int fd, void *buf, size_t count, off64_t offset));
+SCRMFS_DECL(pwrite, ssize_t, (int fd, const void *buf, size_t count, off_t offset));
+SCRMFS_DECL(pwrite64, ssize_t, (int fd, const void *buf, size_t count, off64_t offset));
+SCRMFS_DECL(posix_fadvise, int, (int fd, off_t offset, off_t len, int advice));
+SCRMFS_DECL(lseek, off_t, (int fd, off_t offset, int whence));
+SCRMFS_DECL(lseek64, off64_t, (int fd, off64_t offset, int whence));
+SCRMFS_DECL(ftruncate, int, (int fd, off_t length));
+SCRMFS_DECL(fsync, int, (int fd));
+SCRMFS_DECL(fdatasync, int, (int fd));
+SCRMFS_DECL(flock, int, (int fd, int operation));
+SCRMFS_DECL(mmap, void*, (void *addr, size_t length, int prot, int flags, int fd, off_t offset));
+SCRMFS_DECL(mmap64, void*, (void *addr, size_t length, int prot, int flags, int fd, off64_t offset));
+SCRMFS_DECL(munmap, int,(void *addr, size_t length));
+SCRMFS_DECL(msync, int, (void *addr, size_t length, int flags));
+SCRMFS_DECL(__fxstat, int, (int vers, int fd, struct stat *buf));
+SCRMFS_DECL(__fxstat64, int, (int vers, int fd, struct stat64 *buf));
+SCRMFS_DECL(close, int, (int fd));
 
 /* ---------------------------------------
  * POSIX wrappers: paths
  * --------------------------------------- */
 
-int SCRMFS_DECL(access)(const char *path, int mode)
+int SCRMFS_WRAP(access)(const char *path, int mode)
 {
     /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -90,13 +90,13 @@ int SCRMFS_DECL(access)(const char *path, int mode)
     } else {
         debug("access: calling MAP_OR_FAIL, %s\n", path);
         MAP_OR_FAIL(access);
-        int ret = __real_access(path, mode);
+        int ret = SCRMFS_REAL(access)(path, mode);
         debug("access: returning __real_access %d,%s\n", ret, path);
         return ret;
     }
 }
 
-int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
+int SCRMFS_WRAP(mkdir)(const char *path, mode_t mode)
 {
     /* Support for directories is very limited at this time
      * mkdir simply puts an entry into the filelist for the
@@ -116,12 +116,12 @@ int SCRMFS_DECL(mkdir)(const char *path, mode_t mode)
         return 0;
     } else {
         MAP_OR_FAIL(mkdir);
-        int ret = __real_mkdir(path, mode);
+        int ret = SCRMFS_REAL(mkdir)(path, mode);
         return ret;
     }
 }
 
-int SCRMFS_DECL(rmdir)(const char *path)
+int SCRMFS_WRAP(rmdir)(const char *path)
 {
     /* determine whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -155,12 +155,12 @@ int SCRMFS_DECL(rmdir)(const char *path)
         return 0;
     } else {
         MAP_OR_FAIL(rmdir);
-        int ret = __real_rmdir(path);
+        int ret = SCRMFS_REAL(rmdir)(path);
         return ret;
     }
 }
 
-int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
+int SCRMFS_WRAP(rename)(const char *oldpath, const char *newpath)
 {
     /* TODO: allow oldpath / newpath to split across memfs and normal
      * linux fs, which means we'll need to do a read / write */
@@ -213,12 +213,12 @@ int SCRMFS_DECL(rename)(const char *oldpath, const char *newpath)
 
         /* both files are normal linux files, delegate to system call */
         MAP_OR_FAIL(rename);
-        int ret = __real_rename(oldpath,newpath);
+        int ret = SCRMFS_REAL(rename)(oldpath,newpath);
         return ret;
     }
 }
 
-int SCRMFS_DECL(truncate)(const char* path, off_t length)
+int SCRMFS_WRAP(truncate)(const char* path, off_t length)
 {
     /* determine whether we should intercept this path or not */
     if (scrmfs_intercept_path(path)) {
@@ -242,12 +242,12 @@ int SCRMFS_DECL(truncate)(const char* path, off_t length)
         return 0;
     } else {
         MAP_OR_FAIL(truncate);
-        int ret = __real_truncate(path, length);
+        int ret = SCRMFS_REAL(truncate)(path, length);
         return ret;
     }
 }
 
-int SCRMFS_DECL(unlink)(const char *path)
+int SCRMFS_WRAP(unlink)(const char *path)
 {
     /* determine whether we should intercept this path or not */
     if (scrmfs_intercept_path(path)) {
@@ -274,12 +274,12 @@ int SCRMFS_DECL(unlink)(const char *path)
         return 0;
     } else {
         MAP_OR_FAIL(unlink);
-        int ret = __real_unlink(path);
+        int ret = SCRMFS_REAL(unlink)(path);
         return ret;
     }
 }
 
-int SCRMFS_DECL(remove)(const char *path)
+int SCRMFS_WRAP(remove)(const char *path)
 {
     /* determine whether we should intercept this path or not */
     if (scrmfs_intercept_path(path)) {
@@ -308,12 +308,12 @@ int SCRMFS_DECL(remove)(const char *path)
         return 0;
     } else {
         MAP_OR_FAIL(remove);
-        int ret = __real_remove(path);
+        int ret = SCRMFS_REAL(remove)(path);
         return ret;
     }
 }
 
-int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
+int SCRMFS_WRAP(stat)( const char *path, struct stat *buf)
 {
     debug("stat was called for %s....\n",path);
     if (scrmfs_intercept_path(path)) {
@@ -328,12 +328,12 @@ int SCRMFS_DECL(stat)( const char *path, struct stat *buf)
         return 0;
     } else {
         MAP_OR_FAIL(stat);
-        int ret = __real_stat(path, buf);
+        int ret = SCRMFS_REAL(stat)(path, buf);
         return ret;
     }
 } 
 
-int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
+int SCRMFS_WRAP(__xstat)(int vers, const char *path, struct stat *buf)
 {
     debug("xstat was called for %s....\n",path);
     if (scrmfs_intercept_path(path)) {
@@ -351,12 +351,12 @@ int SCRMFS_DECL(__xstat)(int vers, const char *path, struct stat *buf)
         return 0;
     } else { 
         MAP_OR_FAIL(__xstat);
-        int ret = __real___xstat(vers, path, buf);
+        int ret = SCRMFS_REAL(__xstat)(vers, path, buf);
         return ret;
     }
 }
 
-int SCRMFS_DECL(__xstat64)(int vers, const char *path, struct stat64 *buf)
+int SCRMFS_WRAP(__xstat64)(int vers, const char *path, struct stat64 *buf)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -366,12 +366,12 @@ int SCRMFS_DECL(__xstat64)(int vers, const char *path, struct stat64 *buf)
         return -1;
     } else {
         MAP_OR_FAIL(__xstat64);
-        int ret = __real___xstat64(vers, path, buf);
+        int ret = SCRMFS_REAL(__xstat64)(vers, path, buf);
         return ret;
     }
 }
 
-int SCRMFS_DECL(__lxstat)(int vers, const char *path, struct stat *buf)
+int SCRMFS_WRAP(__lxstat)(int vers, const char *path, struct stat *buf)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -381,12 +381,12 @@ int SCRMFS_DECL(__lxstat)(int vers, const char *path, struct stat *buf)
         return -1;
     } else {
         MAP_OR_FAIL(__lxstat);
-        int ret = __real___lxstat(vers, path, buf);
+        int ret = SCRMFS_REAL(__lxstat)(vers, path, buf);
         return ret;
     }
 }
 
-int SCRMFS_DECL(__lxstat64)(int vers, const char *path, struct stat64 *buf)
+int SCRMFS_WRAP(__lxstat64)(int vers, const char *path, struct stat64 *buf)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -396,7 +396,7 @@ int SCRMFS_DECL(__lxstat64)(int vers, const char *path, struct stat64 *buf)
         return -1;
     } else {
         MAP_OR_FAIL(__lxstat64);
-        int ret = __real___lxstat64(vers, path, buf);
+        int ret = SCRMFS_REAL(__lxstat64)(vers, path, buf);
         return ret;
     }
 }
@@ -521,7 +521,7 @@ int scrmfs_fd_write(int fd, off_t pos, const void* buf, size_t count)
     return write_rc;
 }
 
-int SCRMFS_DECL(creat)(const char* path, mode_t mode)
+int SCRMFS_WRAP(creat)(const char* path, mode_t mode)
 {
     /* equivalent to open(path, O_WRONLY|O_CREAT|O_TRUNC, mode) */
 
@@ -551,12 +551,12 @@ int SCRMFS_DECL(creat)(const char* path, mode_t mode)
         return ret;
     } else {
         MAP_OR_FAIL(creat);
-        int ret = __real_creat(path, mode);
+        int ret = SCRMFS_REAL(creat)(path, mode);
         return ret ;
     }
 }
 
-int SCRMFS_DECL(creat64)(const char* path, mode_t mode)
+int SCRMFS_WRAP(creat64)(const char* path, mode_t mode)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -565,12 +565,12 @@ int SCRMFS_DECL(creat64)(const char* path, mode_t mode)
         return -1;
     } else {
         MAP_OR_FAIL(creat64);
-        int ret = __real_creat64(path, mode);
+        int ret = SCRMFS_REAL(creat64)(path, mode);
         return ret;
     }
 }
 
-int SCRMFS_DECL(open)(const char *path, int flags, ...)
+int SCRMFS_WRAP(open)(const char *path, int flags, ...)
 {
     int ret;
 
@@ -610,15 +610,15 @@ int SCRMFS_DECL(open)(const char *path, int flags, ...)
     } else {
         MAP_OR_FAIL(open);
         if (flags & O_CREAT) {
-            ret = __real_open(path, flags, mode);
+            ret = SCRMFS_REAL(open)(path, flags, mode);
         } else {
-            ret = __real_open(path, flags);
+            ret = SCRMFS_REAL(open)(path, flags);
         }
         return ret;
     }
 }
 
-int SCRMFS_DECL(open64)(const char* path, int flags, ...)
+int SCRMFS_WRAP(open64)(const char* path, int flags, ...)
 {
     int ret;
 
@@ -639,16 +639,16 @@ int SCRMFS_DECL(open64)(const char* path, int flags, ...)
     } else {
         MAP_OR_FAIL(open64);
         if (flags & O_CREAT) {
-            ret = __real_open64(path, flags, mode);
+            ret = SCRMFS_REAL(open64)(path, flags, mode);
         } else {
-            ret = __real_open64(path, flags);
+            ret = SCRMFS_REAL(open64)(path, flags);
         }
     }
 
     return ret;
 }
 
-off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
+off_t SCRMFS_WRAP(lseek)(int fd, off_t offset, int whence)
 {
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
@@ -699,12 +699,12 @@ off_t SCRMFS_DECL(lseek)(int fd, off_t offset, int whence)
         return current_pos;
     } else {
         MAP_OR_FAIL(lseek);
-        off_t ret = __real_lseek(fd, offset, whence);
+        off_t ret = SCRMFS_REAL(lseek)(fd, offset, whence);
         return ret;
     }
 }
 
-off64_t SCRMFS_DECL(lseek64)(int fd, off64_t offset, int whence)
+off64_t SCRMFS_WRAP(lseek64)(int fd, off64_t offset, int whence)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -716,12 +716,12 @@ off64_t SCRMFS_DECL(lseek64)(int fd, off64_t offset, int whence)
         return (off64_t)-1;
     } else {
       MAP_OR_FAIL(lseek64);
-      off64_t ret = __real_lseek64(fd, offset, whence);
+      off64_t ret = SCRMFS_REAL(lseek64)(fd, offset, whence);
       return ret;
     }
 }
 
-int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
+int SCRMFS_WRAP(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -765,12 +765,12 @@ int SCRMFS_DECL(posix_fadvise)(int fd, off_t offset, off_t len, int advice)
         return 0;
     } else {
       MAP_OR_FAIL(posix_fadvise);
-      int ret = __real_posix_fadvise(fd, offset, len, advice);
+      int ret = SCRMFS_REAL(posix_fadvise)(fd, offset, len, advice);
       return ret;
     }
 }
 
-ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
+ssize_t SCRMFS_WRAP(read)(int fd, void *buf, size_t count)
 {
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
@@ -798,13 +798,13 @@ ssize_t SCRMFS_DECL(read)(int fd, void *buf, size_t count)
         return (ssize_t) retcount;
     } else {
         MAP_OR_FAIL(read);
-        ssize_t ret = __real_read(fd, buf, count);
+        ssize_t ret = SCRMFS_REAL(read)(fd, buf, count);
         return ret;
     }
 }
 
 /* TODO: find right place to msync spillover mapping */
-ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
+ssize_t SCRMFS_WRAP(write)(int fd, const void *buf, size_t count)
 {
     ssize_t ret;
 
@@ -834,13 +834,13 @@ ssize_t SCRMFS_DECL(write)(int fd, const void *buf, size_t count)
         ret = count;
     } else {
         MAP_OR_FAIL(write);
-        ret = __real_write(fd, buf, count);
+        ret = SCRMFS_REAL(write)(fd, buf, count);
     }
 
     return ret;
 }
 
-ssize_t SCRMFS_DECL(readv)(int fd, const struct iovec *iov, int iovcnt)
+ssize_t SCRMFS_WRAP(readv)(int fd, const struct iovec *iov, int iovcnt)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -852,12 +852,12 @@ ssize_t SCRMFS_DECL(readv)(int fd, const struct iovec *iov, int iovcnt)
         return -1;
     } else {
         MAP_OR_FAIL(readv);
-        ssize_t ret = __real_readv(fd, iov, iovcnt);
+        ssize_t ret = SCRMFS_REAL(readv)(fd, iov, iovcnt);
         return ret;
     }
 }
 
-ssize_t SCRMFS_DECL(writev)(int fd, const struct iovec *iov, int iovcnt)
+ssize_t SCRMFS_WRAP(writev)(int fd, const struct iovec *iov, int iovcnt)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -869,12 +869,12 @@ ssize_t SCRMFS_DECL(writev)(int fd, const struct iovec *iov, int iovcnt)
         return -1;
     } else {
         MAP_OR_FAIL(writev);
-        ssize_t ret = __real_writev(fd, iov, iovcnt);
+        ssize_t ret = SCRMFS_REAL(writev)(fd, iov, iovcnt);
         return ret;
     }
 }
 
-ssize_t SCRMFS_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
+ssize_t SCRMFS_WRAP(pread)(int fd, void *buf, size_t count, off_t offset)
 {
     /* equivalent to read(), except that it shall read from a given
      * position in the file without changing the file pointer */
@@ -903,12 +903,12 @@ ssize_t SCRMFS_DECL(pread)(int fd, void *buf, size_t count, off_t offset)
         return (ssize_t) retcount;
     } else {
         MAP_OR_FAIL(pread);
-        ssize_t ret = __real_pread(fd, buf, count, offset);
+        ssize_t ret = SCRMFS_REAL(pread)(fd, buf, count, offset);
         return ret;
     }
 }
 
-ssize_t SCRMFS_DECL(pread64)(int fd, void *buf, size_t count, off64_t offset)
+ssize_t SCRMFS_WRAP(pread64)(int fd, void *buf, size_t count, off64_t offset)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -920,12 +920,12 @@ ssize_t SCRMFS_DECL(pread64)(int fd, void *buf, size_t count, off64_t offset)
         return -1;
     } else {
         MAP_OR_FAIL(pread64);
-        ssize_t ret = __real_pread64(fd, buf, count, offset);
+        ssize_t ret = SCRMFS_REAL(pread64)(fd, buf, count, offset);
         return ret;
     }
 }
 
-ssize_t SCRMFS_DECL(pwrite)(int fd, const void *buf, size_t count, off_t offset)
+ssize_t SCRMFS_WRAP(pwrite)(int fd, const void *buf, size_t count, off_t offset)
 {
     /* equivalent to write(), except that it writes into a given
      * position without changing the file pointer */
@@ -953,12 +953,12 @@ ssize_t SCRMFS_DECL(pwrite)(int fd, const void *buf, size_t count, off_t offset)
         return (ssize_t) count;
     } else {
         MAP_OR_FAIL(pwrite);
-        ssize_t ret = __real_pwrite(fd, buf, count, offset);
+        ssize_t ret = SCRMFS_REAL(pwrite)(fd, buf, count, offset);
         return ret;
     }
 }
 
-ssize_t SCRMFS_DECL(pwrite64)(int fd, const void *buf, size_t count, off64_t offset)
+ssize_t SCRMFS_WRAP(pwrite64)(int fd, const void *buf, size_t count, off64_t offset)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -970,12 +970,12 @@ ssize_t SCRMFS_DECL(pwrite64)(int fd, const void *buf, size_t count, off64_t off
         return -1;
     } else {
         MAP_OR_FAIL(pwrite64);
-        ssize_t ret = __real_pwrite64(fd, buf, count, offset);
+        ssize_t ret = SCRMFS_REAL(pwrite64)(fd, buf, count, offset);
         return ret;
     }
 }
 
-int SCRMFS_DECL(ftruncate)(int fd, off_t length)
+int SCRMFS_WRAP(ftruncate)(int fd, off_t length)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -1006,12 +1006,12 @@ int SCRMFS_DECL(ftruncate)(int fd, off_t length)
         return 0;
     } else {
         MAP_OR_FAIL(ftruncate);
-        int ret = __real_ftruncate(fd, length);
+        int ret = SCRMFS_REAL(ftruncate)(fd, length);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fsync)(int fd)
+int SCRMFS_WRAP(fsync)(int fd)
 {
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
@@ -1030,12 +1030,12 @@ int SCRMFS_DECL(fsync)(int fd)
         return 0;
     } else {
         MAP_OR_FAIL(fsync);
-        int ret = __real_fsync(fd);
+        int ret = SCRMFS_REAL(fsync)(fd);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fdatasync)(int fd)
+int SCRMFS_WRAP(fdatasync)(int fd)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -1047,12 +1047,12 @@ int SCRMFS_DECL(fdatasync)(int fd)
         return -1;
     } else {
         MAP_OR_FAIL(fdatasync);
-        int ret = __real_fdatasync(fd);
+        int ret = SCRMFS_REAL(fdatasync)(fd);
         return ret;
     }
 }
 
-int SCRMFS_DECL(flock)(int fd, int operation)
+int SCRMFS_WRAP(flock)(int fd, int operation)
 {
     int intercept;
     int ret;
@@ -1092,13 +1092,13 @@ int SCRMFS_DECL(flock)(int fd, int operation)
         return 0;
     } else {
         MAP_OR_FAIL(flock);
-        ret = __real_flock(fd,operation);
+        ret = SCRMFS_REAL(flock)(fd,operation);
         return ret;
     }
 }
 
 /* TODO: handle different flags */
-void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
+void* SCRMFS_WRAP(mmap)(void *addr, size_t length, int prot, int flags,
     int fd, off_t offset)
 {
     /* check whether we should intercept this path */
@@ -1155,19 +1155,19 @@ void* SCRMFS_DECL(mmap)(void *addr, size_t length, int prot, int flags,
         return addr;
     } else {
         MAP_OR_FAIL(mmap);
-        void* ret = __real_mmap(addr, length, prot, flags, fd, offset);
+        void* ret = SCRMFS_REAL(mmap)(addr, length, prot, flags, fd, offset);
         return ret;
     }
 }
 
-int SCRMFS_DECL(munmap)(void *addr, size_t length)
+int SCRMFS_WRAP(munmap)(void *addr, size_t length)
 {
     fprintf(stderr, "Function not yet supported @ %s:%d\n", __FILE__, __LINE__);
     errno = ENOSYS;
     return ENODEV;
 }
 
-int SCRMFS_DECL(msync)(void *addr, size_t length, int flags)
+int SCRMFS_WRAP(msync)(void *addr, size_t length, int flags)
 {
     /* TODO: need to keep track of all the mmaps that are linked to
      * a given file before this function can be implemented*/
@@ -1176,7 +1176,7 @@ int SCRMFS_DECL(msync)(void *addr, size_t length, int flags)
     return ENOMEM;
 }
 
-void* SCRMFS_DECL(mmap64)(void *addr, size_t length, int prot, int flags,
+void* SCRMFS_WRAP(mmap64)(void *addr, size_t length, int prot, int flags,
     int fd, off64_t offset)
 {
     /* check whether we should intercept this path */
@@ -1189,12 +1189,12 @@ void* SCRMFS_DECL(mmap64)(void *addr, size_t length, int prot, int flags,
         return MAP_FAILED;
     } else {
         MAP_OR_FAIL(mmap64);
-        void* ret = __real_mmap64(addr, length, prot, flags, fd, offset);
+        void* ret = SCRMFS_REAL(mmap64)(addr, length, prot, flags, fd, offset);
         return ret;
     }
 }
 
-int SCRMFS_DECL(__fxstat)(int vers, int fd, struct stat *buf)
+int SCRMFS_WRAP(__fxstat)(int vers, int fd, struct stat *buf)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -1206,12 +1206,12 @@ int SCRMFS_DECL(__fxstat)(int vers, int fd, struct stat *buf)
         return -1;
     } else {
         MAP_OR_FAIL(__fxstat);
-        int ret = __real___fxstat(vers, fd, buf);
+        int ret = SCRMFS_REAL(__fxstat)(vers, fd, buf);
         return ret;
     }
 }
 
-int SCRMFS_DECL(__fxstat64)(int vers, int fd, struct stat64 *buf)
+int SCRMFS_WRAP(__fxstat64)(int vers, int fd, struct stat64 *buf)
 {
     /* check whether we should intercept this path */
     int intercept;
@@ -1223,12 +1223,12 @@ int SCRMFS_DECL(__fxstat64)(int vers, int fd, struct stat64 *buf)
         return -1;
     } else {
         MAP_OR_FAIL(__fxstat64);
-        int ret = __real___fxstat64(vers, fd, buf);
+        int ret = SCRMFS_REAL(__fxstat64)(vers, fd, buf);
         return ret;
     }
 }
 
-int SCRMFS_DECL(close)(int fd)
+int SCRMFS_WRAP(close)(int fd)
 {
     int intercept;
     scrmfs_intercept_fd(&fd, &intercept);
@@ -1256,7 +1256,7 @@ int SCRMFS_DECL(close)(int fd)
         return 0;
     } else {
         MAP_OR_FAIL(close);
-        int ret = __real_close(fd);
+        int ret = SCRMFS_REAL(close)(fd);
         return ret;
     }
 }

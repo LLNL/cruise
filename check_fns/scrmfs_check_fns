@@ -15,7 +15,7 @@ use strict;
 # hand-wrote scrmfs unsupported list (wrapped calls that aren't supported)
 #
 # commands to build scrmfs list
-#   grep SCRMFS_DECL ../runtime/lib/*.c > scrmfs_list.txt
+#   grep SCRMFS_WRAP ../runtime/lib/*.c > scrmfs_list.txt
 
 
 my $fakechroot_list  = "fakechroot_list.txt";
@@ -118,9 +118,7 @@ while (my $line = <IN>) {
 
   # pick off item in parens in SCRMFS_DELC(fn_name)
   my $fn = undef;
-  if ($line =~ /SCRMFS_DECL\((.*?)\)/) {
-    $fn = $1;
-  } elsif ($line =~ /SCRMFS_DECL2\((.*?),/) {
+  if ($line =~ /SCRMFS_WRAP\((.*?)\)/) {
     $fn = $1;
   } else {
     next;

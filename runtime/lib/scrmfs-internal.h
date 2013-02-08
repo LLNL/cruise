@@ -58,14 +58,14 @@
 
     /* define a static variable called __real_open to record address of
      * real open call and initialize it to NULL */
-    #define SCRMFS_FORWARD_DECL(name,ret,args) \
+    #define SCRMFS_DECL(name,ret,args) \
       static ret (*__real_ ## name)args = NULL;
 
     /* our open wrapper assumes the name of open() */
-    #define SCRMFS_DECL(__name) __name
+    #define SCRMFS_WRAP(__name) __name
 
-    /* our open wrapper assumes the name of open() */
-    #define SCRMFS_DECL2(name,ret,args) ret name args
+    /* the address of the real open call is stored in __real_open variable */
+    #define SCRMFS_REAL(__name) __real ## __name
 
     /* if __real_open is still NULL, call dlsym to lookup address of real
      * function and record it */
@@ -91,14 +91,14 @@
     /* we don't need a variable to record the address of the real function,
      * just declare the existence of __real_open so the compiler knows the
      * prototype of this function (linker will provide it) */
-    #define SCRMFS_FORWARD_DECL(name,ret,args) \
+    #define SCRMFS_DECL(name,ret,args) \
       extern ret __real_ ## name args;
 
     /* we define our wrapper function as __wrap_open instead of open */
-    #define SCRMFS_DECL(__name) __wrap_ ## __name
+    #define SCRMFS_WRAP(__name) __wrap_ ## __name
 
-    /* we define our wrapper function as __wrap_open instead of open */
-    #define SCRMFS_DECL2(name,ret,args) ret __wrap_ ## name args
+    /* the real open call is simply open() */
+    #define SCRMFS_REAL(__name) __name
 
     /* no need to look up the address of the real function */
     #define MAP_OR_FAIL(func)

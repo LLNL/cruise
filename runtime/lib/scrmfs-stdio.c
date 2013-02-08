@@ -56,57 +56,57 @@ static int scrmfs_fpos_enabled = 1; /* whether we can use fgetpos/fsetpos */
 
 /* TODO: add "scrmfs_unsupported" call to report details of unsupported fns */
 
-SCRMFS_FORWARD_DECL(fclose,  int,   (FILE *stream));
-SCRMFS_FORWARD_DECL(fflush,  int,   (FILE *stream));
-SCRMFS_FORWARD_DECL(fopen,   FILE*, (const char *path, const char *mode));
-SCRMFS_FORWARD_DECL(freopen, FILE*, (const char *path, const char *mode, FILE *stream));
-SCRMFS_FORWARD_DECL(setbuf,  void*, (FILE *stream, char* buf));
-SCRMFS_FORWARD_DECL(setvbuf, int,   (FILE *stream, char* buf, int type, size_t size));
+SCRMFS_DECL(fclose,  int,   (FILE *stream));
+SCRMFS_DECL(fflush,  int,   (FILE *stream));
+SCRMFS_DECL(fopen,   FILE*, (const char *path, const char *mode));
+SCRMFS_DECL(freopen, FILE*, (const char *path, const char *mode, FILE *stream));
+SCRMFS_DECL(setbuf,  void*, (FILE *stream, char* buf));
+SCRMFS_DECL(setvbuf, int,   (FILE *stream, char* buf, int type, size_t size));
 
-SCRMFS_FORWARD_DECL(fprintf,  int, (FILE* stream, const char* format, ...));
-SCRMFS_FORWARD_DECL(fscanf,   int, (FILE* stream, const char* format, ...));
-SCRMFS_FORWARD_DECL(vfprintf, int, (FILE* stream, const char* format, va_list ap));
-SCRMFS_FORWARD_DECL(vfscanf,  int, (FILE* stream, const char* format, va_list ap));
+SCRMFS_DECL(fprintf,  int, (FILE* stream, const char* format, ...));
+SCRMFS_DECL(fscanf,   int, (FILE* stream, const char* format, ...));
+SCRMFS_DECL(vfprintf, int, (FILE* stream, const char* format, va_list ap));
+SCRMFS_DECL(vfscanf,  int, (FILE* stream, const char* format, va_list ap));
 
-SCRMFS_FORWARD_DECL(fgetc,  int,   (FILE *stream));
-SCRMFS_FORWARD_DECL(fgets,  char*, (char* s, int n, FILE* stream));
-SCRMFS_FORWARD_DECL(fputc,  int,   (int c, FILE *stream));
-SCRMFS_FORWARD_DECL(fputs,  int,   (const char* s, FILE* stream));
-SCRMFS_FORWARD_DECL(getc,   int,   (FILE *stream));
-SCRMFS_FORWARD_DECL(putc,   int,   (int c, FILE *stream));
-SCRMFS_FORWARD_DECL(ungetc, int,   (int c, FILE *stream));
+SCRMFS_DECL(fgetc,  int,   (FILE *stream));
+SCRMFS_DECL(fgets,  char*, (char* s, int n, FILE* stream));
+SCRMFS_DECL(fputc,  int,   (int c, FILE *stream));
+SCRMFS_DECL(fputs,  int,   (const char* s, FILE* stream));
+SCRMFS_DECL(getc,   int,   (FILE *stream));
+SCRMFS_DECL(putc,   int,   (int c, FILE *stream));
+SCRMFS_DECL(ungetc, int,   (int c, FILE *stream));
 
-SCRMFS_FORWARD_DECL(fread,  size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
-SCRMFS_FORWARD_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
+SCRMFS_DECL(fread,  size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
+SCRMFS_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
 
-SCRMFS_FORWARD_DECL(fgetpos, int,  (FILE *stream, fpos_t* pos));
-SCRMFS_FORWARD_DECL(fseek,   int,  (FILE *stream, long offset,  int whence));
-SCRMFS_FORWARD_DECL(fsetpos, int,  (FILE *stream, const fpos_t* pos));
-SCRMFS_FORWARD_DECL(ftell,   long, (FILE *stream));
-SCRMFS_FORWARD_DECL(rewind,  void, (FILE *stream));
+SCRMFS_DECL(fgetpos, int,  (FILE *stream, fpos_t* pos));
+SCRMFS_DECL(fseek,   int,  (FILE *stream, long offset,  int whence));
+SCRMFS_DECL(fsetpos, int,  (FILE *stream, const fpos_t* pos));
+SCRMFS_DECL(ftell,   long, (FILE *stream));
+SCRMFS_DECL(rewind,  void, (FILE *stream));
 
-SCRMFS_FORWARD_DECL(clearerr, void, (FILE *stream));
-SCRMFS_FORWARD_DECL(feof,     int,  (FILE *stream));
-SCRMFS_FORWARD_DECL(ferror,   int,  (FILE *stream));
+SCRMFS_DECL(clearerr, void, (FILE *stream));
+SCRMFS_DECL(feof,     int,  (FILE *stream));
+SCRMFS_DECL(ferror,   int,  (FILE *stream));
 
-SCRMFS_FORWARD_DECL(fseeko, int,   (FILE *stream, off_t offset, int whence));
-SCRMFS_FORWARD_DECL(ftello, off_t, (FILE *stream));
-SCRMFS_FORWARD_DECL(fileno, int,   (FILE *stream));
+SCRMFS_DECL(fseeko, int,   (FILE *stream, off_t offset, int whence));
+SCRMFS_DECL(ftello, off_t, (FILE *stream));
+SCRMFS_DECL(fileno, int,   (FILE *stream));
 
 /* http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf 7.24 */
 
-SCRMFS_FORWARD_DECL(fwprintf,  int,      (FILE *stream, const wchar_t* format, ...));
-SCRMFS_FORWARD_DECL(fwscanf,   int,      (FILE *stream, const wchar_t* format, ...));
-SCRMFS_FORWARD_DECL(vfwprintf, int,      (FILE *stream, const wchar_t* format, va_list arg));
-SCRMFS_FORWARD_DECL(vfwscanf,  int,      (FILE *stream, const wchar_t* format, va_list arg));
-SCRMFS_FORWARD_DECL(fgetwc,    wint_t,   (FILE *stream));
-SCRMFS_FORWARD_DECL(fgetws,    wchar_t*, (wchar_t* s, int n, FILE *stream));
-SCRMFS_FORWARD_DECL(fputwc,    wint_t,   (wchar_t wc, FILE *stream));
-SCRMFS_FORWARD_DECL(fputws,    int,      (const wchar_t* s, FILE *stream));
-SCRMFS_FORWARD_DECL(fwide,     int,      (FILE *stream, int mode));
-SCRMFS_FORWARD_DECL(getwc,     wint_t,   (FILE *stream));
-SCRMFS_FORWARD_DECL(putwc,     wint_t,   (wchar_t c, FILE *stream));
-SCRMFS_FORWARD_DECL(ungetwc,   wint_t,   (wint_t c, FILE *stream));
+SCRMFS_DECL(fwprintf,  int,      (FILE *stream, const wchar_t* format, ...));
+SCRMFS_DECL(fwscanf,   int,      (FILE *stream, const wchar_t* format, ...));
+SCRMFS_DECL(vfwprintf, int,      (FILE *stream, const wchar_t* format, va_list arg));
+SCRMFS_DECL(vfwscanf,  int,      (FILE *stream, const wchar_t* format, va_list arg));
+SCRMFS_DECL(fgetwc,    wint_t,   (FILE *stream));
+SCRMFS_DECL(fgetws,    wchar_t*, (wchar_t* s, int n, FILE *stream));
+SCRMFS_DECL(fputwc,    wint_t,   (wchar_t wc, FILE *stream));
+SCRMFS_DECL(fputws,    int,      (const wchar_t* s, FILE *stream));
+SCRMFS_DECL(fwide,     int,      (FILE *stream, int mode));
+SCRMFS_DECL(getwc,     wint_t,   (FILE *stream));
+SCRMFS_DECL(putwc,     wint_t,   (wchar_t c, FILE *stream));
+SCRMFS_DECL(ungetwc,   wint_t,   (wint_t c, FILE *stream));
 
 /* given a stream, return file name or NULL if invalid */
 static const char* scrmfs_stream_name(FILE* fp)
@@ -966,7 +966,7 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
     return 0;
 }
 
-FILE* SCRMFS_DECL(fopen)(const char *path, const char *mode)
+FILE* SCRMFS_WRAP(fopen)(const char *path, const char *mode)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_path(path)) {
@@ -979,12 +979,12 @@ FILE* SCRMFS_DECL(fopen)(const char *path, const char *mode)
         return stream;
     } else {
         MAP_OR_FAIL(fopen);
-        FILE* ret = __real_fopen(path, mode);
+        FILE* ret = SCRMFS_REAL(fopen)(path, mode);
         return ret;
     }
 }
 
-FILE* SCRMFS_DECL(freopen)(const char *path, const char *mode, FILE *stream)
+FILE* SCRMFS_WRAP(freopen)(const char *path, const char *mode, FILE *stream)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_stream(stream)) {
@@ -998,12 +998,12 @@ FILE* SCRMFS_DECL(freopen)(const char *path, const char *mode, FILE *stream)
         return NULL;
     } else {
         MAP_OR_FAIL(freopen);
-        FILE* ret = __real_freopen(path, mode, stream);
+        FILE* ret = SCRMFS_REAL(freopen)(path, mode, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(setvbuf)(FILE* stream, char* buf, int type, size_t size)
+int SCRMFS_WRAP(setvbuf)(FILE* stream, char* buf, int type, size_t size)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_stream(stream)) {
@@ -1015,12 +1015,12 @@ int SCRMFS_DECL(setvbuf)(FILE* stream, char* buf, int type, size_t size)
         return 0;
     } else {
         MAP_OR_FAIL(setvbuf);
-        int ret = __real_setvbuf(stream, buf, type, size);
+        int ret = SCRMFS_REAL(setvbuf)(stream, buf, type, size);
         return ret;
     }
 }
 
-void SCRMFS_DECL(setbuf)(FILE* stream, char* buf)
+void SCRMFS_WRAP(setbuf)(FILE* stream, char* buf)
 {
     /* check whether we should intercept this path */
     if (scrmfs_intercept_stream(stream)) {
@@ -1032,12 +1032,12 @@ void SCRMFS_DECL(setbuf)(FILE* stream, char* buf)
         return;
     } else {
         MAP_OR_FAIL(setbuf);
-        __real_setbuf(stream, buf);
+        SCRMFS_REAL(setbuf)(stream, buf);
         return;
     }
 }
 
-int SCRMFS_DECL(ungetc)(int c, FILE *stream)
+int SCRMFS_WRAP(ungetc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1120,12 +1120,12 @@ int SCRMFS_DECL(ungetc)(int c, FILE *stream)
         return (int) uc;
     } else {
         MAP_OR_FAIL(ungetc);
-        int ret = __real_ungetc(c, stream);
+        int ret = SCRMFS_REAL(ungetc)(c, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fgetc)(FILE *stream)
+int SCRMFS_WRAP(fgetc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1144,12 +1144,12 @@ int SCRMFS_DECL(fgetc)(FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(fgetc);
-        int ret = __real_fgetc(stream);
+        int ret = SCRMFS_REAL(fgetc)(stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fputc)(int c, FILE *stream)
+int SCRMFS_WRAP(fputc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1167,12 +1167,12 @@ int SCRMFS_DECL(fputc)(int c, FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(fputc);
-        int ret = __real_fputc(c, stream);
+        int ret = SCRMFS_REAL(fputc)(c, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(getc)(FILE *stream)
+int SCRMFS_WRAP(getc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1191,12 +1191,12 @@ int SCRMFS_DECL(getc)(FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(getc);
-        int ret = __real_getc(stream);
+        int ret = SCRMFS_REAL(getc)(stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(putc)(int c, FILE *stream)
+int SCRMFS_WRAP(putc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1214,12 +1214,12 @@ int SCRMFS_DECL(putc)(int c, FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(putc);
-        int ret = __real_putc(c, stream);
+        int ret = SCRMFS_REAL(putc)(c, stream);
         return ret;
     }
 }
 
-char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
+char* SCRMFS_WRAP(fgets)(char* s, int n, FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1276,12 +1276,12 @@ char* SCRMFS_DECL(fgets)(char* s, int n, FILE* stream)
         return s;
     } else {
         MAP_OR_FAIL(fgets);
-        char* ret = __real_fgets(s, n, stream);
+        char* ret = SCRMFS_REAL(fgets)(s, n, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fputs)(const char* s, FILE* stream)
+int SCRMFS_WRAP(fputs)(const char* s, FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1302,12 +1302,12 @@ int SCRMFS_DECL(fputs)(const char* s, FILE* stream)
         return 0;
     } else {
         MAP_OR_FAIL(fputs);
-        int ret = __real_fputs(s, stream);
+        int ret = SCRMFS_REAL(fputs)(s, stream);
         return ret;
     }
 }
 
-size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
+size_t SCRMFS_WRAP(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1339,12 +1339,12 @@ size_t SCRMFS_DECL(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
         }
     } else {
         MAP_OR_FAIL(fread);
-        size_t ret = __real_fread(ptr, size, nitems, stream);
+        size_t ret = SCRMFS_REAL(fread)(ptr, size, nitems, stream);
         return ret;
     }
 }
 
-size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *stream)
+size_t SCRMFS_WRAP(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1369,32 +1369,32 @@ size_t SCRMFS_DECL(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
         return nitems;
     } else {
         MAP_OR_FAIL(fwrite);
-        size_t ret = __real_fwrite(ptr, size, nitems, stream);
+        size_t ret = SCRMFS_REAL(fwrite)(ptr, size, nitems, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fprintf)(FILE *stream, const char* format, ...)
+int SCRMFS_WRAP(fprintf)(FILE *stream, const char* format, ...)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
         /* delegate work to vfprintf */
         va_list args;
         va_start(args, format);
-        int ret = SCRMFS_DECL(vfprintf)(stream, format, args);
+        int ret = SCRMFS_WRAP(vfprintf)(stream, format, args);
         va_end(args);
         return ret;
     } else {
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfprintf);
-        int ret = __real_vfprintf(stream, format, args);
+        int ret = SCRMFS_REAL(vfprintf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_DECL(vfprintf)(FILE *stream, const char* format, va_list ap)
+int SCRMFS_WRAP(vfprintf)(FILE *stream, const char* format, va_list ap)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1447,27 +1447,27 @@ int SCRMFS_DECL(vfprintf)(FILE *stream, const char* format, va_list ap)
         va_list ap2;
         va_copy(ap2, ap);
         MAP_OR_FAIL(vfprintf);
-        int ret = __real_vfprintf(stream, format, ap2);
+        int ret = SCRMFS_REAL(vfprintf)(stream, format, ap2);
         va_end(ap2);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fscanf)(FILE *stream, const char* format, ...)
+int SCRMFS_WRAP(fscanf)(FILE *stream, const char* format, ...)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
         /* delegate work to vfscanf */
         va_list args;
         va_start(args, format);
-        int ret = SCRMFS_DECL(vfscanf)(stream, format, args);
+        int ret = SCRMFS_WRAP(vfscanf)(stream, format, args);
         va_end(args);
         return ret;
     } else {
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfscanf);
-        int ret = __real_vfscanf(stream, format, args);
+        int ret = SCRMFS_REAL(vfscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
@@ -1476,7 +1476,7 @@ int SCRMFS_DECL(fscanf)(FILE *stream, const char* format, ...)
 /* need to declare this before calling it */
 static int __svfscanf(scrmfs_stream_t *fp, const char *fmt0, va_list ap);
 
-int SCRMFS_DECL(vfscanf)(FILE *stream, const char* format, va_list ap)
+int SCRMFS_WRAP(vfscanf)(FILE *stream, const char* format, va_list ap)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1489,14 +1489,14 @@ int SCRMFS_DECL(vfscanf)(FILE *stream, const char* format, va_list ap)
         va_list args;
         va_copy(args, ap);
         MAP_OR_FAIL(vfscanf);
-        int ret = __real_vfscanf(stream, format, args);
+        int ret = SCRMFS_REAL(vfscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
 /* TODO: return error if new position overflows long */
-int SCRMFS_DECL(fseek)(FILE *stream, long offset, int whence)
+int SCRMFS_WRAP(fseek)(FILE *stream, long offset, int whence)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1505,12 +1505,12 @@ int SCRMFS_DECL(fseek)(FILE *stream, long offset, int whence)
         return rc;
     } else {
         MAP_OR_FAIL(fseek);
-        int ret = __real_fseek(stream, offset, whence);
+        int ret = SCRMFS_REAL(fseek)(stream, offset, whence);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fseeko)(FILE *stream, off_t offset, int whence)
+int SCRMFS_WRAP(fseeko)(FILE *stream, off_t offset, int whence)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1518,13 +1518,13 @@ int SCRMFS_DECL(fseeko)(FILE *stream, off_t offset, int whence)
         return rc;
     } else {
         MAP_OR_FAIL(fseeko);
-        int ret = __real_fseeko(stream, offset, whence);
+        int ret = SCRMFS_REAL(fseeko)(stream, offset, whence);
         return ret;
     }
 }
 
 /* TODO: set EOVERFLOW if position overflows long */
-long SCRMFS_DECL(ftell)(FILE *stream)
+long SCRMFS_WRAP(ftell)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1545,12 +1545,12 @@ long SCRMFS_DECL(ftell)(FILE *stream)
         return (long)current_pos;
     } else {
         MAP_OR_FAIL(ftell);
-        long ret = __real_ftell(stream);
+        long ret = SCRMFS_REAL(ftell)(stream);
         return ret;
     }
 }
 
-off_t SCRMFS_DECL(ftello)(FILE *stream)
+off_t SCRMFS_WRAP(ftello)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1571,14 +1571,14 @@ off_t SCRMFS_DECL(ftello)(FILE *stream)
         return current_pos;
     } else {
         MAP_OR_FAIL(ftello);
-        off_t ret = __real_ftello(stream);
+        off_t ret = SCRMFS_REAL(ftello)(stream);
         return ret;
     }
 }
 
 /* equivalent to fseek(stream, 0L, SEEK_SET) except shall also clear
  * error indicator */
-void SCRMFS_DECL(rewind)(FILE* stream)
+void SCRMFS_WRAP(rewind)(FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1601,7 +1601,7 @@ void SCRMFS_DECL(rewind)(FILE* stream)
         return;
     } else {
         MAP_OR_FAIL(rewind);
-        __real_rewind(stream);
+        SCRMFS_REAL(rewind)(stream);
         return;
     }
 }
@@ -1610,7 +1610,7 @@ struct scrmfs_fpos_t {
     off_t pos;
 };
 
-int SCRMFS_DECL(fgetpos)(FILE* stream, fpos_t* pos)
+int SCRMFS_WRAP(fgetpos)(FILE* stream, fpos_t* pos)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1650,12 +1650,12 @@ int SCRMFS_DECL(fgetpos)(FILE* stream, fpos_t* pos)
         return 0;
     } else {
         MAP_OR_FAIL(fgetpos);
-        int ret = __real_fgetpos(stream, pos);
+        int ret = SCRMFS_REAL(fgetpos)(stream, pos);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fsetpos)(FILE* stream, const fpos_t* pos)
+int SCRMFS_WRAP(fsetpos)(FILE* stream, const fpos_t* pos)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1688,12 +1688,12 @@ int SCRMFS_DECL(fsetpos)(FILE* stream, const fpos_t* pos)
         return 0;
     } else {
         MAP_OR_FAIL(fsetpos);
-        int ret = __real_fsetpos(stream, pos);
+        int ret = SCRMFS_REAL(fsetpos)(stream, pos);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fflush)(FILE* stream)
+int SCRMFS_WRAP(fflush)(FILE* stream)
 {
     /* if stream is NULL, flush output on all streams */
     if (stream == NULL) {
@@ -1701,7 +1701,7 @@ int SCRMFS_DECL(fflush)(FILE* stream)
          * important to do this in this order since it may set errno,
          * which could override our setting for scrmfs streams */
         MAP_OR_FAIL(fflush);
-        int ret = __real_fflush(NULL);
+        int ret = SCRMFS_REAL(fflush)(NULL);
 
         /* flush each active scrmfs stream */
         int fid;
@@ -1738,14 +1738,14 @@ int SCRMFS_DECL(fflush)(FILE* stream)
         return 0;
     } else {
         MAP_OR_FAIL(fflush);
-        int ret = __real_fflush(stream);
+        int ret = SCRMFS_REAL(fflush)(stream);
         return ret;
     }
 }
 
 /* return non-zero if and only if end-of-file indicator is set
  * for stream */
-int SCRMFS_DECL(feof)(FILE *stream)
+int SCRMFS_WRAP(feof)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1758,12 +1758,12 @@ int SCRMFS_DECL(feof)(FILE *stream)
         return ret;
     } else {
         MAP_OR_FAIL(feof);
-        int ret = __real_feof(stream);
+        int ret = SCRMFS_REAL(feof)(stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(ferror)(FILE* stream)
+int SCRMFS_WRAP(ferror)(FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1776,12 +1776,12 @@ int SCRMFS_DECL(ferror)(FILE* stream)
         return ret;
     } else {
         MAP_OR_FAIL(ferror);
-        int ret = __real_ferror(stream);
+        int ret = SCRMFS_REAL(ferror)(stream);
         return ret;
     }
 }
 
-void SCRMFS_DECL(clearerr)(FILE* stream)
+void SCRMFS_WRAP(clearerr)(FILE* stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1796,13 +1796,13 @@ void SCRMFS_DECL(clearerr)(FILE* stream)
         return;
     } else {
         MAP_OR_FAIL(clearerr);
-        __real_clearerr(stream);
+        SCRMFS_REAL(clearerr)(stream);
         return;
     }
 
 }
 
-int SCRMFS_DECL(fileno)(FILE *stream)
+int SCRMFS_WRAP(fileno)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1820,12 +1820,12 @@ int SCRMFS_DECL(fileno)(FILE *stream)
         return fd;
     } else {
         MAP_OR_FAIL(fileno);
-        int ret = __real_fileno(stream);
+        int ret = SCRMFS_REAL(fileno)(stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fclose)(FILE *stream)
+int SCRMFS_WRAP(fclose)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1873,14 +1873,14 @@ int SCRMFS_DECL(fclose)(FILE *stream)
         return 0;
     } else {
         MAP_OR_FAIL(fclose);
-        int ret = __real_fclose(stream);
+        int ret = SCRMFS_REAL(fclose)(stream);
         return ret;
     }
 }
 
 
 
-int SCRMFS_DECL(fwprintf)(FILE *stream, const wchar_t* format, ...)
+int SCRMFS_WRAP(fwprintf)(FILE *stream, const wchar_t* format, ...)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1896,13 +1896,13 @@ int SCRMFS_DECL(fwprintf)(FILE *stream, const wchar_t* format, ...)
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfwprintf);
-        int ret = __real_vfwprintf(stream, format, args);
+        int ret = SCRMFS_REAL(vfwprintf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fwscanf)(FILE *stream, const wchar_t* format, ...)
+int SCRMFS_WRAP(fwscanf)(FILE *stream, const wchar_t* format, ...)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1918,13 +1918,13 @@ int SCRMFS_DECL(fwscanf)(FILE *stream, const wchar_t* format, ...)
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfwscanf);
-        int ret = __real_vfwscanf(stream, format, args);
+        int ret = SCRMFS_REAL(vfwscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_DECL(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
+int SCRMFS_WRAP(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1940,13 +1940,13 @@ int SCRMFS_DECL(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
         va_list args;
         va_copy(args, arg);
         MAP_OR_FAIL(vfwprintf);
-        int ret = __real_vfwprintf(stream, format, args);
+        int ret = SCRMFS_REAL(vfwprintf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_DECL(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
+int SCRMFS_WRAP(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1962,13 +1962,13 @@ int SCRMFS_DECL(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
         va_list args;
         va_copy(args, arg);
         MAP_OR_FAIL(vfwscanf);
-        int ret = __real_vfwscanf(stream, format, args);
+        int ret = SCRMFS_REAL(vfwscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-wint_t SCRMFS_DECL(fgetwc)(FILE *stream)
+wint_t SCRMFS_WRAP(fgetwc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -1982,12 +1982,12 @@ wint_t SCRMFS_DECL(fgetwc)(FILE *stream)
         return WEOF;
     } else {
         MAP_OR_FAIL(fgetwc);
-        wint_t ret = __real_fgetwc(stream);
+        wint_t ret = SCRMFS_REAL(fgetwc)(stream);
         return ret;
     }
 }
 
-wchar_t* SCRMFS_DECL(fgetws)(wchar_t* s, int n, FILE *stream)
+wchar_t* SCRMFS_WRAP(fgetws)(wchar_t* s, int n, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2001,12 +2001,12 @@ wchar_t* SCRMFS_DECL(fgetws)(wchar_t* s, int n, FILE *stream)
         return NULL;
     } else {
         MAP_OR_FAIL(fgetws);
-        wchar_t* ret = __real_fgetws(s, n, stream);
+        wchar_t* ret = SCRMFS_REAL(fgetws)(s, n, stream);
         return ret;
     }
 }
 
-wint_t SCRMFS_DECL(fputwc)(wchar_t wc, FILE *stream)
+wint_t SCRMFS_WRAP(fputwc)(wchar_t wc, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2020,12 +2020,12 @@ wint_t SCRMFS_DECL(fputwc)(wchar_t wc, FILE *stream)
         return WEOF;
     } else {
         MAP_OR_FAIL(fputwc);
-        wint_t ret = __real_fputwc(wc, stream);
+        wint_t ret = SCRMFS_REAL(fputwc)(wc, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fputws)(const wchar_t* s, FILE *stream)
+int SCRMFS_WRAP(fputws)(const wchar_t* s, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2039,12 +2039,12 @@ int SCRMFS_DECL(fputws)(const wchar_t* s, FILE *stream)
         return -1;
     } else {
         MAP_OR_FAIL(fputws);
-        int ret = __real_fputws(s, stream);
+        int ret = SCRMFS_REAL(fputws)(s, stream);
         return ret;
     }
 }
 
-int SCRMFS_DECL(fwide)(FILE *stream, int mode)
+int SCRMFS_WRAP(fwide)(FILE *stream, int mode)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2058,12 +2058,12 @@ int SCRMFS_DECL(fwide)(FILE *stream, int mode)
         return 0;
     } else {
         MAP_OR_FAIL(fwide);
-        int ret = __real_fwide(stream, mode);
+        int ret = SCRMFS_REAL(fwide)(stream, mode);
         return ret;
     }
 }
 
-wint_t SCRMFS_DECL(getwc)(FILE *stream)
+wint_t SCRMFS_WRAP(getwc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2077,12 +2077,12 @@ wint_t SCRMFS_DECL(getwc)(FILE *stream)
         return WEOF;
     } else {
         MAP_OR_FAIL(getwc);
-        wint_t ret = __real_getwc(stream);
+        wint_t ret = SCRMFS_REAL(getwc)(stream);
         return ret;
     }
 }
 
-wint_t SCRMFS_DECL(putwc)(wchar_t c, FILE *stream)
+wint_t SCRMFS_WRAP(putwc)(wchar_t c, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2096,12 +2096,12 @@ wint_t SCRMFS_DECL(putwc)(wchar_t c, FILE *stream)
         return WEOF;
     } else {
         MAP_OR_FAIL(putwc);
-        wint_t ret = __real_putwc(c, stream);
+        wint_t ret = SCRMFS_REAL(putwc)(c, stream);
         return ret;
     }
 }
 
-wint_t SCRMFS_DECL(ungetwc)(wint_t c, FILE *stream)
+wint_t SCRMFS_WRAP(ungetwc)(wint_t c, FILE *stream)
 {
     /* check whether we should intercept this stream */
     if (scrmfs_intercept_stream(stream)) {
@@ -2115,7 +2115,7 @@ wint_t SCRMFS_DECL(ungetwc)(wint_t c, FILE *stream)
         return WEOF;
     } else {
         MAP_OR_FAIL(ungetwc);
-        wint_t ret = __real_ungetwc(c, stream);
+        wint_t ret = SCRMFS_REAL(ungetwc)(c, stream);
         return ret;
     }
 }
