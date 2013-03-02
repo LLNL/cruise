@@ -19,7 +19,7 @@
 #define __USE_GNU
 #include <pthread.h>
 
-#define ENABLE_NUMA_POLICY
+//#define ENABLE_NUMA_POLICY
 #ifdef ENABLE_NUMA_POLICY
 #include <numa.h>
 #endif
@@ -41,6 +41,7 @@
 #include <hwi/include/common/uci.h>
 #include <firmware/include/personality.h>
 #include <spi/include/kernel/memory.h>
+#include "mpi.h"
 #include <mpix.h>
 #endif /* MACHINE_BGQ */
 
@@ -61,12 +62,13 @@ static off_t scrmfs_min_offt;
 static off_t scrmfs_max_long;
 static off_t scrmfs_min_long;
 
-static int    scrmfs_max_files;  /* maximum number of files to store */
-static size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
-static int    scrmfs_chunk_bits; /* we set chunk size = 2^scrmfs_chunk_bits */
-static off_t  scrmfs_chunk_size; /* chunk size in bytes */
-static off_t  scrmfs_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
-static int    scrmfs_max_chunks; /* maximum number of chunks that fit in memory */
+/* TODO: moved these to fixed file */
+int    scrmfs_max_files;  /* maximum number of files to store */
+size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
+int    scrmfs_chunk_bits; /* we set chunk size = 2^scrmfs_chunk_bits */
+off_t  scrmfs_chunk_size; /* chunk size in bytes */
+off_t  scrmfs_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
+int    scrmfs_max_chunks; /* maximum number of chunks that fit in memory */
 
 static size_t scrmfs_spillover_size;  /* number of bytes in spillover to be used for chunk storage */
 static int    scrmfs_spillover_max_chunks; /* maximum number of chunks that fit in spillover storage */
@@ -394,7 +396,7 @@ inline scrmfs_fd_t* scrmfs_get_filedesc_from_fd(int fd)
 
 /* given a file id, return a pointer to the meta data,
  * otherwise return NULL */
-inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
+scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid)
 {
     /* check that the file id is within range of our array */
     if (fid >= 0 && fid < scrmfs_max_files) {
@@ -966,6 +968,10 @@ static void* scrmfs_init_pointers(void* superblock)
 {
     char* ptr = (char*) superblock;
 
+    /* jump over header (right now just a uint32_t to record
+     * magic value of 0xdeadbeef if initialized */
+    ptr += sizeof(uint32_t);
+
     /* stack to manage free file ids */
     free_fid_stack = ptr;
     ptr += scrmfs_stack_bytes(scrmfs_max_files);
@@ -1223,8 +1229,13 @@ static void* scrmfs_superblock_bgq(size_t size, const char* name)
     /* init our global variables to point to spots in superblock */
     scrmfs_init_pointers(shmptr);
 
-    /* initialize data structures within block */
-    scrmfs_init_structures();
+    /* initialize data structures within block if we haven't already */
+    uint32_t* header = (uint32_t*) shmptr;
+    uint32_t magic = *header;
+    if (magic != 0xdeadbeef) {
+      scrmfs_init_structures();
+      *header = 0xdeadbeef;
+    }
 
     return shmptr;
 }
@@ -1450,6 +1461,7 @@ static int scrmfs_init(int rank)
         /* determine the size of the superblock */
         /* generous allocation for chunk map (one file can take entire space)*/
         size_t superblock_size = 0;
+        superblock_size += sizeof(uint32_t); /* header: single uint32_t to hold 0xdeadbeef number of initialization */
         superblock_size += scrmfs_stack_bytes(scrmfs_max_files);         /* free file id stack */
         superblock_size += scrmfs_max_files * sizeof(scrmfs_filename_t); /* file name struct array */
         superblock_size += scrmfs_max_files * sizeof(scrmfs_filemeta_t); /* file meta data struct array */

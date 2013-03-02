@@ -21,13 +21,6 @@
 
 #include "scrmfs-internal.h"
 
-static int    scrmfs_max_files;  /* maximum number of files to store */
-static size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
-static int    scrmfs_chunk_bits; /* we set chunk size = 2^scrmfs_chunk_bits */
-static off_t  scrmfs_chunk_size; /* chunk size in bytes */
-static off_t  scrmfs_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
-static int    scrmfs_max_chunks; /* maximum number of chunks that fit in memory */
-
 /* given a file id and logical chunk id, return pointer to meta data
  * for specified chunk, return NULL if not found */
 static scrmfs_chunkmeta_t* scrmfs_get_chunkmeta(int fid, int cid)

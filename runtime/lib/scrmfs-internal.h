@@ -244,6 +244,13 @@ extern scrmfs_stream_t scrmfs_streams[SCRMFS_MAX_FILEDESCS];
 extern int scrmfs_use_memfs;
 extern int scrmfs_use_spillover;
 
+extern int    scrmfs_max_files;  /* maximum number of files to store */
+extern size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
+extern int    scrmfs_chunk_bits; /* we set chunk size = 2^scrmfs_chunk_bits */
+extern off_t  scrmfs_chunk_size; /* chunk size in bytes */
+extern off_t  scrmfs_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
+extern int    scrmfs_max_chunks; /* maximum number of chunks that fit in memory */
+
 extern void* free_chunk_stack;
 extern void* free_spillchunk_stack;
 extern char* scrmfs_chunks;
