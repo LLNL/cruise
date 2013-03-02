@@ -8,9 +8,8 @@ set -x
 ./prepare
 ./configure \
   --prefix=`pwd`/install \
-  --with-jobid-env=SLURM_JOBID \
   --enable-ld-preload \
-  CC=mpiicc CFLAGS="-O3" || exit 1
+  CC=mpiicc CFLAGS="-O3 -DENABLE_NUM_POLICY" || exit 1
 
 make clean || exit 1
 make || exit 1
