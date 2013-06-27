@@ -21,14 +21,6 @@ AC_TRY_COMPILE([#include <mpi.h>], [int ret = MPI_Init(0, (void*)0)],
     AC_MSG_ERROR(CC doesn't appear to be a valid MPI compiler.  See INSTALL document or try adding CC=mpicc to your configure command line.)
 )
 
-AC_ARG_WITH(zlib-for-mpi,,
-    AC_MSG_ERROR(with-zlib-for-mpi argument is deprecated.  Please see Darshan documentation.)
-)
-
-
-dnl runtime libraries require zlib
-CHECK_ZLIB
-
 CHECK_CONTAINER_LIB
 
 AC_ARG_ENABLE(cuserid, 
@@ -208,6 +200,7 @@ prefix=$savePrefix
 exec_prefix=$saveExecprefix
 
 # determine if the MPI library includes MPI-IO functions or not
+# CRUISE doesn't mandate this, but leaving it in here for future convenience
 AC_MSG_CHECKING(for MPI-IO support in MPI)
 AC_TRY_LINK([#include <mpi.h>], [
     MPI_Comm comm;
@@ -218,7 +211,7 @@ AC_TRY_LINK([#include <mpi.h>], [
     MPI_File_open(comm, filename, amode, info, &fh);
 ],
     AC_MSG_RESULT(yes),
-    AC_MSG_ERROR(Darshan requires a version of MPI with MPI-IO support)
+    AC_MSG_ERROR(CRUISE requires a version of MPI with MPI-IO support)
 )
 
 # determine if mpicc can create shared libraries that use MPI functions

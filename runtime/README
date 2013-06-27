@@ -21,18 +21,6 @@ use -q ic-11.1.046
   --enable-ld-preload \
   CC=mpiicc CFLAGS="-O3"
 
-
---with-mem-align=8
-
-	Really not needed, but the darshan build system that I use will
-	complain otherwise. 
-
---with-log-path
-
-	Again, really not needed. But there are some darshan logging macros
-	lying around in the code that are yet to be stripped out. Just
-	create an empty directory and pass it to this flag.
-
  --enable-ld-preload
 
 	This is needed to generate the .so lib that we will preload
