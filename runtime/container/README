@@ -1,7 +1,0 @@
-
-Use Boost.Interprocess
-
- -> mmap
- -> support locks, condition variable, mutex in shared memory (different region, not the flash)
-
-
