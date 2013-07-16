@@ -19,7 +19,6 @@
 #define __USE_GNU
 #include <pthread.h>
 
-//#define ENABLE_NUMA_POLICY
 #ifdef ENABLE_NUMA_POLICY
 #include <numa.h>
 #endif
@@ -29,11 +28,6 @@
 #include <sched.h>
 
 #include "scrmfs-internal.h"
-
-#ifdef HAVE_CONTAINER_LIB
-#include "container/src/container.h"
-#include "scrmfs-container.h"
-#endif /* HAVE_CONTAINER_LIB */
 
 #ifdef MACHINE_BGQ
 /* BG/Q to get personality and persistent memory */
@@ -54,7 +48,6 @@ static int scrmfs_fpos_enabled   = 1;  /* whether we can use fgetpos/fsetpos */
 int scrmfs_use_memfs      = 1;
 int scrmfs_use_spillover;
 static int scrmfs_use_single_shm = 0;
-static int scrmfs_use_containers;         /* set by env var SCRMFS_USE_CONTAINERS=1 */
 static int scrmfs_page_size      = 0;
 
 static off_t scrmfs_max_offt;
@@ -77,13 +70,6 @@ static int    scrmfs_spillover_max_chunks; /* maximum number of chunks that fit 
 static char scrmfs_numa_policy[10];
 static int scrmfs_numa_bank = -1;
 #endif
-
-#ifdef HAVE_CONTAINER_LIB
-static char scrmfs_container_info[100];   /* not sure what this is for */
-static cs_store_handle_t cs_store_handle; /* the container store handle */
-static cs_set_handle_t cs_set_handle;     /* the container set handle */
-static initial_container_size;
-#endif /* HAVE_CONTAINER_LIB */
 
 extern pthread_mutex_t scrmfs_stack_mutex;
 
@@ -421,27 +407,6 @@ static int scrmfs_fid_store_alloc(int fid)
         /* we used fixed-size chunk storage for memfs and spillover */
         meta->storage = FILE_STORAGE_FIXED_CHUNK;
     }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (scrmfs_use_containers) {
-        /* record that we're using containers to store this file */
-        meta->storage = SCRMFS_STORAGE_CONTAINER;
-
-        /* create container and associate it with file */
-        cs_container_handle_t ch;
-        size_t size = scrmfs_chunk_size;
-        //size_t size = 10000;
-        int ret = scrmfs_container_open(cs_set_handle, &ch, fid, size, path);
-        meta->container_data.cs_container_handle = ch;
-        if (ret != CS_SUCCESS) {
-            fprintf(stderr, "creation of container failed: %d\n", ret);
-            return SCRMFS_ERR_IO;
-        }
-        meta->container_data.container_size = initial_container_size;
-        meta->filename = (char*)malloc(strlen(path)+1);
-        strcpy(meta->filename, path);
-        debug("creation of container succeeded size: %d\n", size);
-    }
-  #endif /* HAVE_CONTAINER_LIB */
 
     return SCRMFS_SUCCESS;
 }
@@ -451,19 +416,6 @@ static int scrmfs_fid_store_free(int fid)
 {
     /* get meta data for this file */
     scrmfs_filemeta_t* meta = scrmfs_get_meta_from_fid(fid);
-
-  #ifdef HAVE_CONTAINER_LIB
-    if (meta->storage == SCRMFS_CONTAINER) {
-        int ret = cs_set_container_remove(cs_set_handle, meta->filename);
-        free(meta->filename);
-        meta->filename = NULL;
-        // removal of containers will always fail because it's not implemented yet
-        if (ret != CS_SUCCESS) {
-            //debug("Container remove failed\n");
-            return SCRMFS_FAILURE;
-        }
-    }
-  #endif /* HAVE_CONTAINER_LIB */
 
     return SCRMFS_SUCCESS;
 }
@@ -651,14 +603,7 @@ int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count)
     if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
         /* file stored in fixed-size chunks */
         rc = scrmfs_fid_store_fixed_read(fid, meta, pos, buf, count);
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (meta->storage == FILE_STORAGE_CONTAINER) {
-        /* file stored in container */
-        rc = scrmfs_fid_store_container_read(fid, meta, pos, buf, count);
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unknown storage type */
         rc = SCRMFS_ERR_IO;
     }
@@ -685,14 +630,7 @@ int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count)
     if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
         /* file stored in fixed-size chunks */
         rc = scrmfs_fid_store_fixed_write(fid, meta, pos, buf, count);
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (meta->storage == FILE_STORAGE_CONTAINER) {
-        /* file stored in container */
-        rc = scrmfs_fid_store_container_write(fid, meta, pos, buf, count);
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unknown storage type */
         rc = SCRMFS_ERR_IO;
     }
@@ -759,14 +697,7 @@ int scrmfs_fid_extend(int fid, off_t length)
     if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
         /* file stored in fixed-size chunks */
         rc = scrmfs_fid_store_fixed_extend(fid, meta, length);
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (meta->storage == FILE_STORAGE_CONTAINER) {
-        /* file stored in container */
-        rc = scrmfs_fid_store_container_extend(fid, meta, length);
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unknown storage type */
         rc = SCRMFS_ERR_IO;
     }
@@ -792,14 +723,7 @@ int scrmfs_fid_shrink(int fid, off_t length)
     if (meta->storage == FILE_STORAGE_FIXED_CHUNK) {
         /* file stored in fixed-size chunks */
         rc = scrmfs_fid_store_fixed_shrink(fid, meta, length);
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (meta->storage == FILE_STORAGE_CONTAINER) {
-        /* file stored in container */
-        rc = scrmfs_fid_store_container_shrink(fid, meta, length);
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unknown storage type */
         rc = SCRMFS_ERR_IO;
     }
@@ -1351,21 +1275,8 @@ static int scrmfs_init(int rank)
         scrmfs_max_long = LONG_MAX;
         scrmfs_min_long = LONG_MIN;
 
-        /* will we use containers or shared memory to store the files? */
-        scrmfs_use_containers = 0;
+        /* will we use spillover to store the files? */
         scrmfs_use_spillover = 0;
-
-#ifdef HAVE_CONTAINER_LIB
-        env = getenv("SCRMFS_USE_CONTAINERS");
-        if (env) {
-            int val = atoi(env);
-            if (val != 0) {
-                scrmfs_use_memfs = 0;
-                scrmfs_use_spillover = 0;
-                scrmfs_use_containers = 1;
-            }
-        }
-#endif /* HAVE_CONTAINER_LIB */
 
         env = getenv("SCRMFS_USE_SPILLOVER");
         if (env) {
@@ -1375,7 +1286,6 @@ static int scrmfs_init(int rank)
             }
         }
 
-        debug("are we using containers? %d\n", scrmfs_use_containers);
         debug("are we using spillover? %d\n", scrmfs_use_spillover);
 
         /* determine max number of files to store in file system */
@@ -1476,9 +1386,6 @@ static int scrmfs_init(int rank)
            superblock_size +=
                scrmfs_stack_bytes(scrmfs_spillover_max_chunks);     /* free spill over chunk stack */
         }
-        if (scrmfs_use_containers) {
-           /* nothing additional */
-        }
 
         /* get a superblock of persistent memory and initialize our
          * global variables for this block */
@@ -1507,19 +1414,6 @@ static int scrmfs_init(int rank)
                 return SCRMFS_FAILURE;
             }
         }
-
-      #ifdef HAVE_CONTAINER_LIB
-        /* initialize the container store */
-        if (scrmfs_use_containers) {
-           initial_container_size = scrmfs_chunk_size * scrmfs_max_chunks; 
-           int ret = scrmfs_container_init(scrmfs_container_info, &cs_store_handle, & cs_set_handle, initial_container_size, "cset1");
-           if (ret != SCRMFS_SUCCESS) {
-              fprintf(stderr, "failed to create container store\n");
-              return SCRMFS_FAILURE;
-           }
-           debug("successfully created container store with size %d\n", initial_container_size);
-        }
-      #endif /* HAVE_CONTAINER_LIB */
 
         /* remember that we've now initialized the library */
         scrmfs_initialized = 1;

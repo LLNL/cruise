@@ -171,13 +171,11 @@ enum flock_enum {
 /* TODO: make this an enum */
 #define FILE_STORAGE_NULL        0
 #define FILE_STORAGE_FIXED_CHUNK 1
-#define FILE_STORAGE_CONTAINER   2
 
 /* TODO: make this an enum */
 #define CHUNK_LOCATION_NULL      0
 #define CHUNK_LOCATION_MEMFS     1
-#define CHUNK_LOCATION_CONTAINER 2
-#define CHUNK_LOCATION_SPILLOVER 3
+#define CHUNK_LOCATION_SPILLOVER 2
 
 typedef struct {
     int location; /* CHUNK_LOCATION specifies how chunk is stored */
@@ -195,10 +193,6 @@ typedef struct {
     off_t chunks;                   /* number of chunks allocated to file */
     scrmfs_chunkmeta_t* chunk_meta; /* meta data for chunks */
 
-    #ifdef HAVE_CONTAINER_LIB
-    scrmfs_container_t container_data;
-    char * filename;
-    #endif /* HAVE_CONTAINER_LIB */
 } scrmfs_filemeta_t;
 
 /* path to fid lookup struct */
@@ -216,7 +210,6 @@ typedef struct {
 #include "scrmfs.h"
 #include "scrmfs-stack.h"
 #include "scrmfs-fixed.h"
-#include "scrmfs-container.h"
 #include "scrmfs-sysio.h"
 #include "scrmfs-stdio.h"
 

@@ -158,15 +158,7 @@ static int scrmfs_chunk_alloc(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         /* got one from spill over */
         chunk_meta->location = CHUNK_LOCATION_SPILLOVER;
         chunk_meta->id = id;
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (scrmfs_use_containers) {
-        /* unknown chunk type */
-        debug("chunks not stored in containers\n");
-        return SCRMFS_ERR_IO;
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* don't know how to allocate chunk */
         chunk_meta->location = CHUNK_LOCATION_NULL;
         return SCRMFS_ERR_IO;
@@ -191,15 +183,7 @@ static int scrmfs_chunk_free(int fid, scrmfs_filemeta_t* meta, int chunk_id)
         scrmfs_stack_unlock();
     } else if (chunk_meta->location == CHUNK_LOCATION_SPILLOVER) {
         /* TODO: free spill over chunk */
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
-        /* unknown chunk type */
-        debug("chunks not stored in containers\n");
-        return SCRMFS_ERR_IO;
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unkwown chunk location */
         debug("unknown chunk location %d\n", chunk_meta->location);
         return SCRMFS_ERR_IO;
@@ -234,15 +218,7 @@ static int scrmfs_chunk_read(
         off_t spill_offset = scrmfs_compute_spill_offset(meta, chunk_id, chunk_offset);
         ssize_t rc = pread(scrmfs_spilloverblock, buf, count, spill_offset);
         /* TODO: check return code for errors */
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
-        /* unknown chunk type */
-        debug("chunks not stored in containers\n");
-        return SCRMFS_ERR_IO;
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unknown chunk type */
         debug("unknown chunk type in read\n");
         return SCRMFS_ERR_IO;
@@ -280,15 +256,7 @@ static int scrmfs_chunk_write(
             perror("pwrite failed");
         }
         /* TODO: check return code for errors */
-    }
-  #ifdef HAVE_CONTAINER_LIB
-    else if (chunk_meta->location == CHUNK_LOCATION_CONTAINER) {
-        /* unknown chunk type */
-        debug("chunks not stored in containers\n");
-        return SCRMFS_ERR_IO;
-    }
-  #endif /* HAVE_CONTAINER_LIB */
-    else {
+    } else {
         /* unknown chunk type */
         debug("unknown chunk type in read\n");
         return SCRMFS_ERR_IO;
