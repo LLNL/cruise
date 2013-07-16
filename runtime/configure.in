@@ -21,7 +21,6 @@ AC_TRY_COMPILE([#include <mpi.h>], [int ret = MPI_Init(0, (void*)0)],
     AC_MSG_ERROR(CC doesn't appear to be a valid MPI compiler.  See INSTALL document or try adding CC=mpicc to your configure command line.)
 )
 
-CHECK_CONTAINER_LIB
 CHECK_NUMA
 
 AC_ARG_ENABLE(cuserid, 

@@ -14,12 +14,6 @@ LDFLAGS = @LDFLAGS@
 CC = @CC@
 LD = @LD@
 
-CONTAINER_HOME = ./container
-CONTAINER_INCS = -I$(CONTAINER_HOME)/include
-CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
-CONTAINER_LIBS = #-lcontainer
-#CONTAINER_LIBNAME = $(CONTAINER_HOME)/lib/libcontainer.a
-
 NUMA_LIBS = -lnuma
 
 
@@ -83,38 +77,38 @@ POBJS = \
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 lib/scrmfs-fixed.o: lib/scrmfs-fixed.c $(HEADERS)
-	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 lib/scrmfs-fixed.po: lib/scrmfs-fixed.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
 lib/scrmfs-container.o: lib/scrmfs-container.c $(HEADERS)
-	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 lib/scrmfs-container.po: lib/scrmfs-container.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c $< -o $@
+	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
 lib/scrmfs.o: lib/scrmfs.c $(HEADERS)
-	$(CC) $(CFLAGS) $(CONTAINER_INCS) -c lib/scrmfs.c -o $@
+	$(CC) $(CFLAGS) -c lib/scrmfs.c -o $@
 
 lib/scrmfs.po: lib/scrmfs.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs.c -o $@
+	$(CC) $(CFLAGS_SHARED) -c lib/scrmfs.c -o $@
 
 
 lib/scrmfs-sysio.o: lib/scrmfs-sysio.c $(HEADERS)
 	$(CC) $(CFLAGS) -c lib/scrmfs-sysio.c -o $@
 
 lib/scrmfs-sysio.po: lib/scrmfs-sysio.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-sysio.c -o $@
+	$(CC) $(CFLAGS_SHARED) -c lib/scrmfs-sysio.c -o $@
 
 
 lib/scrmfs-stdio.o: lib/scrmfs-stdio.c $(HEADERS)
 	$(CC) $(CFLAGS) -c lib/scrmfs-stdio.c -o $@
 
 lib/scrmfs-stdio.po: lib/scrmfs-stdio.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) $(CONTAINER_INCS) -c lib/scrmfs-stdio.c -o $@
+	$(CC) $(CFLAGS_SHARED) -c lib/scrmfs-stdio.c -o $@
 
 
 lib/lookup3.o: lib/lookup3.c
@@ -145,7 +139,7 @@ lib/libscrmfs-posix.a: $(OBJS)
 	ar rcs $@ $^
 
 lib/libscrmfs.so: $(POBJS)
-	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) $(CONTAINER_LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz $(CONTAINER_LIBS)
+	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
 
 install:: all
 	install -d $(libdir)
