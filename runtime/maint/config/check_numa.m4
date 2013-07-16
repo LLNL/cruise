@@ -29,10 +29,8 @@ AC_DEFUN([CHECK_NUMA],
 # Handle user hints
 #
 [AC_MSG_CHECKING(if numa is wanted )
-AC_ARG_WITH(numa,
-[  --with-numa=DIR      root directory path of libnuma installation [defaults to
-                        /usr/local or /usr if not found in /usr/local]
-  --without-numa        to disable NUMA-aware memory usage],
+AC_ARG_WITH([numa],
+[AS_HELP_STRING([--with-numa=DIR],[root directory path of libnuma installation (defaults to /usr/local or /usr if not found in /usr/local)])],
 [if test "$withval" != no ; then
   AC_MSG_RESULT(yes)
   if test -d "$withval"
