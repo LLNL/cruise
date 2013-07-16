@@ -9,18 +9,15 @@ CC = icc
 CFLAGS = -g -O0
 LIBS = -lpthread
 
-NUMA_HOME = ../numactl
-NUMA_INCS = -I$(NUMA_HOME)
-NUMA_LDFLAGS = -L$(NUMA_HOME)
 NUMA_LIBS = -lnuma
 
-CONTAINER_HOME = ../container
-CONTAINER_INCS = -I$(CONTAINER_HOME)/include
-CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
-CONTAINER_LIBS = -lcontainer 
+#CONTAINER_HOME = ../container
+#CONTAINER_INCS = -I$(CONTAINER_HOME)/include
+#CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
+#CONTAINER_LIBS = -lcontainer 
 
 SCRMFS_LIBS = $(LIBS) $(NUMA_LIBS) $(CONTAINER_LIBS)
-SCRMFS_LDFLAGS = $(LDFLAGS) $(NUMA_LDFLAGS) $(CONTAINER_LDFLAGS)
+SCRMFS_LDFLAGS = $(LDFLAGS) $(CONTAINER_LDFLAGS)
 
 PRE_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --pre-ld-flags`)
 POST_SCRMFS_FLAGS := $(shell echo `../install/bin/scrmfs-config --post-ld-flags`)

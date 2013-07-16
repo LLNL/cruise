@@ -26,9 +26,9 @@ AC_DEFUN([CHECK_CONTAINER_LIB],
 #
 [AC_MSG_CHECKING(if container-lib is wanted)
 AC_ARG_WITH(container-lib,
-[  --with-container-lib=DIR root directory path of container-lib installation [defaults to
+[  --with-container-lib=DIR     root directory path of container-lib installation [defaults to
                     /usr/local or /usr if not found in /usr/local]
-  --without-container-lib to disable container-lib usage completely],
+  --without-container-lib       to disable container-lib usage completely],
 [if test "$withval" != no ; then
   AC_MSG_RESULT(yes)
   if test -d "$withval"

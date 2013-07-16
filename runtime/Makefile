@@ -1,17 +1,17 @@
 all: lib/libscrmfs-posix.a
 
 DESTDIR =
-srcdir = @srcdir@
-prefix = @prefix@
-exec_prefix = @exec_prefix@
-datarootdir = $(DESTDIR)@datarootdir@
-includedir = $(DESTDIR)@includedir@
-mandir = $(DESTDIR)@mandir@
-sbindir = $(DESTDIR)@sbindir@
-bindir = $(DESTDIR)@bindir@
-libdir = $(DESTDIR)@libdir@
-LDFLAGS = @LDFLAGS@
-CC = @CC@
+srcdir = .
+prefix = /g/g92/rajachan/scrmfs/runtime/install
+exec_prefix = ${prefix}
+datarootdir = $(DESTDIR)${prefix}/share
+includedir = $(DESTDIR)${prefix}/include
+mandir = $(DESTDIR)${datarootdir}/man
+sbindir = $(DESTDIR)${exec_prefix}/sbin
+bindir = $(DESTDIR)${exec_prefix}/bin
+libdir = $(DESTDIR)${exec_prefix}/lib
+LDFLAGS =  -L/usr/lib
+CC = mpicc
 LD = @LD@
 
 CONTAINER_HOME = ./container
@@ -23,18 +23,18 @@ CONTAINER_LIBS = #-lcontainer
 NUMA_LIBS = -lnuma
 
 
-DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
+DISABLE_LDPRELOAD = 
 SCRMFS_LOG_FORMAT = $(srcdir)/../scrmfs-log-format.h
 
 ifndef DISABLE_LDPRELOAD
 all: lib/libscrmfs.so 
 endif
 
-VPATH = $(srcdir)
 
-CFLAGS = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE 
 
-CFLAGS_SHARED = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DSCRMFS_PRELOAD
+CFLAGS = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ -O3  -I/usr/include -D_LARGEFILE64_SOURCE 
+
+CFLAGS_SHARED = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ -O3  -I/usr/include -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DSCRMFS_PRELOAD
 
 LIBS = -lz @LIBBZ2@ $(NUMA_LIBS)
 
