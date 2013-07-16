@@ -38,7 +38,6 @@ lib::
 HEADERS = \
   lib/scrmfs-stack.h \
   lib/scrmfs-fixed.h \
-  lib/scrmfs-container.h \
   lib/scrmfs-sysio.h \
   lib/scrmfs-stdio.h \
   lib/scrmfs-internal.h \
@@ -49,7 +48,6 @@ OBJS = \
   lib/lookup8.o \
   lib/scrmfs-stack.o \
   lib/scrmfs-fixed.o \
-  lib/scrmfs-container.o \
   lib/scrmfs-sysio.o \
   lib/scrmfs-stdio.o \
   lib/scrmfs.o
@@ -59,7 +57,6 @@ POBJS = \
   lib/lookup8.po \
   lib/scrmfs-stack.po \
   lib/scrmfs-fixed.po \
-  lib/scrmfs-container.po \
   lib/scrmfs-sysio.po \
   lib/scrmfs-stdio.po \
   lib/scrmfs.po
@@ -80,13 +77,6 @@ lib/scrmfs-fixed.o: lib/scrmfs-fixed.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 lib/scrmfs-fixed.po: lib/scrmfs-fixed.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c $< -o $@
-
-
-lib/scrmfs-container.o: lib/scrmfs-container.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-lib/scrmfs-container.po: lib/scrmfs-container.c $(HEADERS)
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
