@@ -1,6 +1,0 @@
-[rajachan@ri intranode]$ for i in `seq 1 4`; do mpirun_rsh -np $i -hostfile ./hfile MV2_CPU_MAPPING=1:2:3:0 SCRMFS_USE_SINGLE_SHM=0 SCRMFS_NUMA_POLICY=interleaved SCRMFS_CHUNK_BITS=24 SCRMFS_CHUNK_MEM=512MB ./test_scrmfs 134217728 5 0 >> ./numactl/1-shm-interleaved  && ssh storage01 /home/rajachan/memfs/runtime/ipc_cleanup; done
-
-FileIO: Min 3093.91 MB/s	Max 3093.91 MB/s	Avg 3093.91 MB/s	Agg 3093.91 MB/s
-FileIO: Min 2558.37 MB/s	Max 2611.52 MB/s	Avg 2584.95 MB/s	Agg 5169.89 MB/s
-FileIO: Min 2087.43 MB/s	Max 2127.21 MB/s	Avg 2111.80 MB/s	Agg 6335.39 MB/s
-FileIO: Min 1694.58 MB/s	Max 1709.90 MB/s	Avg 1703.70 MB/s	Agg 6814.80 MB/s
