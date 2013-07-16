@@ -12,28 +12,28 @@ use strict;
 # hand-wrote cstdio list from
 # http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf
 #
-# hand-wrote scrmfs unsupported list (wrapped calls that aren't supported)
+# hand-wrote cruise unsupported list (wrapped calls that aren't supported)
 #
-# commands to build scrmfs list
-#   grep SCRMFS_WRAP ../runtime/lib/*.c > scrmfs_list.txt
+# commands to build cruise list
+#   grep CRUISE_WRAP ../runtime/lib/*.c > cruise_list.txt
 
 
 my $fakechroot_list  = "fakechroot_list.txt";
 my $gnulibc_list     = "gnulibc_list.txt";
 my $cstdio_list      = "cstdio_list.txt";
 my $posix_list       = "posix_list.txt";
-my $unsupported_list = "scrmfs_unsupported_list.txt";
-my $scrmfs_list      = "scrmfs_list.txt";
+my $unsupported_list = "cruise_unsupported_list.txt";
+my $cruise_list      = "cruise_list.txt";
 
 if (@ARGV != 1) {
-  print "Usage: scrmfs_check_fns <executable>\n";
+  print "Usage: cruise_check_fns <executable>\n";
   exit 1;
 }
 my $exe = shift @ARGV;
 
 my %any_libc = ();
 my %unsupported = ();
-my %scrmfs = ();
+my %cruise = ();
 
 open(IN, $fakechroot_list) || die "failed to open $fakechroot_list\n";
 while (my $line = <IN>) {
@@ -111,14 +111,14 @@ while (my $line = <IN>) {
 }
 close(IN);
 
-open(IN, $scrmfs_list) || die "failed to open $scrmfs_list\n";
+open(IN, $cruise_list) || die "failed to open $cruise_list\n";
 while (my $line = <IN>) {
   # drop trailing newline
   chomp $line;
 
-  # pick off item in parens in SCRMFS_DELC(fn_name)
+  # pick off item in parens in CRUISE_DELC(fn_name)
   my $fn = undef;
-  if ($line =~ /SCRMFS_WRAP\((.*?)\)/) {
+  if ($line =~ /CRUISE_WRAP\((.*?)\)/) {
     $fn = $1;
   } else {
     next;
@@ -128,7 +128,7 @@ while (my $line = <IN>) {
   $fn =~ s/\s*//g;
 #print "wrapped: $fn\n";
 
-  $scrmfs{$fn} = 1;
+  $cruise{$fn} = 1;
 }
 close(IN);
 
@@ -149,7 +149,7 @@ foreach my $line (@fns_list) {
   my $supported = 0;
   if (defined $any_libc{$fn}) {
     $used = 1;
-    if (defined $scrmfs{$fn} and not $unsupported{$fn}) {
+    if (defined $cruise{$fn} and not $unsupported{$fn}) {
       $supported = 1;
     }
   }

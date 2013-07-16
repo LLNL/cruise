@@ -1,21 +1,21 @@
 #!/bin/sh
 
 CP_WRAPPERS="@CP_WRAPPERS@"
-SCRMFS_LIB_PATH="@scrmfs_lib_path@"
-SCRMFS_LD_FLAGS="@LDFLAGS@"
+CRUISE_LIB_PATH="@cruise_lib_path@"
+CRUISE_LD_FLAGS="@LDFLAGS@"
 
 # NOTE:
-# - we deliberately list libscrmfs-mpi-io twice in the link command.  The
+# - we deliberately list libcruise-mpi-io twice in the link command.  The
 #   first is necessary to correctly use the MPI profiling interface.  The
 #   final one is necessary to give the linker a change to resolve indirect
 #   dependencies on PnetCDF and HDF5 symbols (if the app used a library which 
 #   in turn used one of those HLLs).
-PRE_LD_FLAGS="-L$SCRMFS_LIB_PATH $SCRMFS_LD_FLAGS -lz $CP_WRAPPERS"
-POST_LD_FLAGS="-L$SCRMFS_LIB_PATH -lscrmfs-posix"
+PRE_LD_FLAGS="-L$CRUISE_LIB_PATH $CRUISE_LD_FLAGS -lz $CP_WRAPPERS"
+POST_LD_FLAGS="-L$CRUISE_LIB_PATH -lcruise-posix"
 
 
 usage="\
-Usage: scrmfs-config [--pre-ld-flags] [--post-ld-flags]"
+Usage: cruise-config [--pre-ld-flags] [--post-ld-flags]"
 
 if test $# -eq 0; then
       echo "${usage}" 1>&2

@@ -1,5 +1,5 @@
-#ifndef SCRMFS_INTERNAL_H
-#define SCRMFS_INTERNAL_H
+#ifndef CRUISE_INTERNAL_H
+#define CRUISE_INTERNAL_H
 
 /* this is overkill to include all of these here, but just to get things working... */
 #include <stdio.h>
@@ -28,10 +28,10 @@
  * ------------------------------- */
 
 /* TODO: move common includes to another file */
-#include "scrmfs-defs.h"
+#include "cruise-defs.h"
 
-//#define SCRMFS_DEBUG
-#ifdef SCRMFS_DEBUG
+//#define CRUISE_DEBUG
+#ifdef CRUISE_DEBUG
     #define debug(fmt, args... )  printf("%s: "fmt, __func__, ##args)
 #else
     #define debug(fmt, args... )
@@ -39,10 +39,10 @@
 
 /* define a macro to capture function name, file name, and line number
  * along with user-defined string */
-#define SCRMFS_UNSUPPORTED(fmt, args...) \
-      scrmfs_unsupported(__func__, __FILE__, __LINE__, fmt, ##args)
+#define CRUISE_UNSUPPORTED(fmt, args...) \
+      cruise_unsupported(__func__, __FILE__, __LINE__, fmt, ##args)
 
-#ifdef SCRMFS_PRELOAD
+#ifdef CRUISE_PRELOAD
 
     /* ===================================================================
      * Using LD_PRELOAD to intercept
@@ -58,14 +58,14 @@
 
     /* define a static variable called __real_open to record address of
      * real open call and initialize it to NULL */
-    #define SCRMFS_DECL(name,ret,args) \
+    #define CRUISE_DECL(name,ret,args) \
       static ret (*__real_ ## name)args = NULL;
 
     /* our open wrapper assumes the name of open() */
-    #define SCRMFS_WRAP(name) name
+    #define CRUISE_WRAP(name) name
 
     /* the address of the real open call is stored in __real_open variable */
-    #define SCRMFS_REAL(name) __real_ ## name
+    #define CRUISE_REAL(name) __real_ ## name
 
     /* if __real_open is still NULL, call dlsym to lookup address of real
      * function and record it */
@@ -74,7 +74,7 @@
         { \
             __real_ ## func = dlsym(RTLD_NEXT, #func); \
             if(!(__real_ ## func)) { \
-               fprintf(stderr, "SCRMFS failed to map symbol: %s\n", #func); \
+               fprintf(stderr, "CRUISE failed to map symbol: %s\n", #func); \
                exit(1); \
            } \
         }
@@ -91,35 +91,35 @@
     /* we don't need a variable to record the address of the real function,
      * just declare the existence of __real_open so the compiler knows the
      * prototype of this function (linker will provide it) */
-    #define SCRMFS_DECL(name,ret,args) \
+    #define CRUISE_DECL(name,ret,args) \
       extern ret __real_ ## name args;
 
     /* we define our wrapper function as __wrap_open instead of open */
-    #define SCRMFS_WRAP(name) __wrap_ ## name
+    #define CRUISE_WRAP(name) __wrap_ ## name
 
     /* the linker maps the open call to __real_open() */
-    #define SCRMFS_REAL(name) __real_ ## name
+    #define CRUISE_REAL(name) __real_ ## name
 
     /* no need to look up the address of the real function */
     #define MAP_OR_FAIL(func)
 
 #endif
 
-#define SCRMFS_SUCCESS     0
-#define SCRMFS_FAILURE    -1
-#define SCRMFS_ERR_NOSPC  -2
-#define SCRMFS_ERR_IO     -3
-#define SCRMFS_ERR_NAMETOOLONG -4
-#define SCRMFS_ERR_NOENT  -5
-#define SCRMFS_ERR_EXIST  -6
-#define SCRMFS_ERR_NOTDIR -7
-#define SCRMFS_ERR_NFILE  -8
-#define SCRMFS_ERR_INVAL  -9
-#define SCRMFS_ERR_OVERFLOW -10
-#define SCRMFS_ERR_FBIG   -11
-#define SCRMFS_ERR_BADF   -12
-#define SCRMFS_ERR_ISDIR  -13
-#define SCRMFS_ERR_NOMEM  -14
+#define CRUISE_SUCCESS     0
+#define CRUISE_FAILURE    -1
+#define CRUISE_ERR_NOSPC  -2
+#define CRUISE_ERR_IO     -3
+#define CRUISE_ERR_NAMETOOLONG -4
+#define CRUISE_ERR_NOENT  -5
+#define CRUISE_ERR_EXIST  -6
+#define CRUISE_ERR_NOTDIR -7
+#define CRUISE_ERR_NFILE  -8
+#define CRUISE_ERR_INVAL  -9
+#define CRUISE_ERR_OVERFLOW -10
+#define CRUISE_ERR_FBIG   -11
+#define CRUISE_ERR_BADF   -12
+#define CRUISE_ERR_ISDIR  -13
+#define CRUISE_ERR_NOMEM  -14
 
 #ifndef HAVE_OFF64_T
 typedef int64_t off64_t;
@@ -130,12 +130,12 @@ typedef struct {
     off_t pos;   /* current file pointer */
     int   read;  /* whether file is opened for read */
     int   write; /* whether file is opened for write */
-} scrmfs_fd_t;
+} cruise_fd_t;
 
-enum scrmfs_stream_orientation {
-    SCRMFS_STREAM_ORIENTATION_NULL = 0,
-    SCRMFS_STREAM_ORIENTATION_BYTE,
-    SCRMFS_STREAM_ORIENTATION_WIDE,
+enum cruise_stream_orientation {
+    CRUISE_STREAM_ORIENTATION_NULL = 0,
+    CRUISE_STREAM_ORIENTATION_BYTE,
+    CRUISE_STREAM_ORIENTATION_WIDE,
 };
 
 /* structure to represent FILE* streams */
@@ -144,7 +144,7 @@ typedef struct {
     int    eof;      /* stream end-of-file indicator flag */
     int    fd;       /* file descriptor associated with stream */
     int    append;   /* whether file is opened in append mode */
-    int    orient;   /* stream orientation, SCRMFS_STREAM_ORIENTATION_{NULL,BYTE,WIDE} */
+    int    orient;   /* stream orientation, CRUISE_STREAM_ORIENTATION_{NULL,BYTE,WIDE} */
 
     void*  buf;      /* pointer to buffer */
     int    buffree;  /* whether we need to free buffer */
@@ -160,7 +160,7 @@ typedef struct {
 
     unsigned char* _p; /* pointer to character in buffer */
     size_t         _r; /* number of bytes left at pointer */
-} scrmfs_stream_t;
+} cruise_stream_t;
 
 enum flock_enum {
     UNLOCKED,
@@ -180,7 +180,7 @@ enum flock_enum {
 typedef struct {
     int location; /* CHUNK_LOCATION specifies how chunk is stored */
     off_t id;     /* physical id of chunk in its respective storage */
-} scrmfs_chunkmeta_t;
+} cruise_chunkmeta_t;
 
 typedef struct {
     off_t size;                     /* current file size */
@@ -191,119 +191,119 @@ typedef struct {
     int storage;                    /* FILE_STORAGE specifies file data management */
 
     off_t chunks;                   /* number of chunks allocated to file */
-    scrmfs_chunkmeta_t* chunk_meta; /* meta data for chunks */
+    cruise_chunkmeta_t* chunk_meta; /* meta data for chunks */
 
-} scrmfs_filemeta_t;
+} cruise_filemeta_t;
 
 /* path to fid lookup struct */
 typedef struct {
     int in_use; /* flag incidating whether slot is in use */
-    const char filename[SCRMFS_MAX_FILENAME];
+    const char filename[CRUISE_MAX_FILENAME];
                 /* full path and name of file */
-} scrmfs_filename_t;
+} cruise_filename_t;
 
 /* -------------------------------
  * Common includes
  * ------------------------------- */
 
 /* TODO: move common includes to another file */
-#include "scrmfs.h"
-#include "scrmfs-stack.h"
-#include "scrmfs-fixed.h"
-#include "scrmfs-sysio.h"
-#include "scrmfs-stdio.h"
+#include "cruise.h"
+#include "cruise-stack.h"
+#include "cruise-fixed.h"
+#include "cruise-sysio.h"
+#include "cruise-stdio.h"
 
 /* -------------------------------
  * Global varaible declarations
  * ------------------------------- */
 
 /* keep track of what we've initialized */
-extern int scrmfs_initialized;
+extern int cruise_initialized;
 
 /* list of file names */
-extern scrmfs_filename_t* scrmfs_filelist;
+extern cruise_filename_t* cruise_filelist;
 
 /* mount directory */
-extern char*  scrmfs_mount_prefix;
-extern size_t scrmfs_mount_prefixlen;
+extern char*  cruise_mount_prefix;
+extern size_t cruise_mount_prefixlen;
 
 /* array of file descriptors */
-extern scrmfs_fd_t scrmfs_fds[SCRMFS_MAX_FILEDESCS];
-extern rlim_t scrmfs_fd_limit;
+extern cruise_fd_t cruise_fds[CRUISE_MAX_FILEDESCS];
+extern rlim_t cruise_fd_limit;
 
 /* array of file streams */
-extern scrmfs_stream_t scrmfs_streams[SCRMFS_MAX_FILEDESCS];
+extern cruise_stream_t cruise_streams[CRUISE_MAX_FILEDESCS];
 
-extern int scrmfs_use_memfs;
-extern int scrmfs_use_spillover;
+extern int cruise_use_memfs;
+extern int cruise_use_spillover;
 
-extern int    scrmfs_max_files;  /* maximum number of files to store */
-extern size_t scrmfs_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
-extern int    scrmfs_chunk_bits; /* we set chunk size = 2^scrmfs_chunk_bits */
-extern off_t  scrmfs_chunk_size; /* chunk size in bytes */
-extern off_t  scrmfs_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
-extern int    scrmfs_max_chunks; /* maximum number of chunks that fit in memory */
+extern int    cruise_max_files;  /* maximum number of files to store */
+extern size_t cruise_chunk_mem;  /* number of bytes in memory to be used for chunk storage */
+extern int    cruise_chunk_bits; /* we set chunk size = 2^cruise_chunk_bits */
+extern off_t  cruise_chunk_size; /* chunk size in bytes */
+extern off_t  cruise_chunk_mask; /* mask applied to logical offset to determine physical offset within chunk */
+extern int    cruise_max_chunks; /* maximum number of chunks that fit in memory */
 
 extern void* free_chunk_stack;
 extern void* free_spillchunk_stack;
-extern char* scrmfs_chunks;
-int scrmfs_spilloverblock;
+extern char* cruise_chunks;
+int cruise_spilloverblock;
 
 /* -------------------------------
  * Common functions
  * ------------------------------- */
 
 /* single function to route all unsupported wrapper calls through */
-int scrmfs_unsupported(const char* fn_name, const char* file, int line, const char* fmt, ...);
+int cruise_unsupported(const char* fn_name, const char* file, int line, const char* fmt, ...);
 
 /* returns 1 if two input parameters will overflow their type when
  * added together */
-int scrmfs_would_overflow_offt(off_t a, off_t b);
+int cruise_would_overflow_offt(off_t a, off_t b);
 
 /* returns 1 if two input parameters will overflow their type when
  * added together */
-int scrmfs_would_overflow_long(long a, long b);
+int cruise_would_overflow_long(long a, long b);
 
 /* given an input mode, mask it with umask and return, can specify
  * an input mode==0 to specify all read/write bits */
-mode_t scrmfs_getmode(mode_t perms);
+mode_t cruise_getmode(mode_t perms);
 
-int scrmfs_stack_lock();
+int cruise_stack_lock();
 
-int scrmfs_stack_unlock();
+int cruise_stack_unlock();
 
 /* sets flag if the path is a special path */
-int scrmfs_intercept_path(const char* path);
+int cruise_intercept_path(const char* path);
 
 /* given an fd, return 1 if we should intercept this file, 0 otherwise,
  * convert fd to new fd value if needed */
-int scrmfs_intercept_fd(int* fd);
+int cruise_intercept_fd(int* fd);
 
 /* given a FILE*, returns 1 if we should intercept this file,
  * 0 otherwise */
-int scrmfs_intercept_stream(FILE* stream);
+int cruise_intercept_stream(FILE* stream);
 
 /* given a path, return the file id */
-int scrmfs_get_fid_from_path(const char* path);
+int cruise_get_fid_from_path(const char* path);
 
 /* given a file descriptor, return the file id */
-int scrmfs_get_fid_from_fd(int fd);
+int cruise_get_fid_from_fd(int fd);
 
 /* return address of file descriptor structure or NULL if fd is out
  * of range */
-scrmfs_fd_t* scrmfs_get_filedesc_from_fd(int fd);
+cruise_fd_t* cruise_get_filedesc_from_fd(int fd);
 
 /* given a file id, return a pointer to the meta data,
  * otherwise return NULL */
-inline scrmfs_filemeta_t* scrmfs_get_meta_from_fid(int fid);
+inline cruise_filemeta_t* cruise_get_meta_from_fid(int fid);
 
-/* given an SCRMFS error code, return corresponding errno code */
-int scrmfs_err_map_to_errno(int rc);
+/* given an CRUISE error code, return corresponding errno code */
+int cruise_err_map_to_errno(int rc);
 
 /* checks to see if fid is a directory
  * returns 1 for yes
  * returns 0 for no */
-int scrmfs_fid_is_dir(int fid);
+int cruise_fid_is_dir(int fid);
 
 /* checks to see if a directory is empty
  * assumes that check for is_dir has already been made
@@ -311,61 +311,61 @@ int scrmfs_fid_is_dir(int fid);
  * e.g. ../dirname will not work
  * returns 1 for yes it is empty
  * returns 0 for no */
-int scrmfs_fid_is_dir_empty(const char * path);
+int cruise_fid_is_dir_empty(const char * path);
 
 /* return current size of given file id */
-off_t scrmfs_fid_size(int fid);
+off_t cruise_fid_size(int fid);
 
 /* fill in limited amount of stat information */
-int scrmfs_fid_stat(int fid, struct stat* buf);
+int cruise_fid_stat(int fid, struct stat* buf);
 
 /* allocate a file id slot for a new file 
  * return the fid or -1 on error */
-int scrmfs_fid_alloc();
+int cruise_fid_alloc();
 
 /* return the file id back to the free pool */
-int scrmfs_fid_free(int fid);
+int cruise_fid_free(int fid);
 
 /* add a new file and initialize metadata
  * returns the new fid, or negative value on error */
-int scrmfs_fid_create_file(const char * path);
+int cruise_fid_create_file(const char * path);
 
 /* add a new directory and initialize metadata
  * returns the new fid, or a negative value on error */
-int scrmfs_fid_create_directory(const char * path);
+int cruise_fid_create_directory(const char * path);
 
 /* read count bytes from file starting from pos and store into buf,
  * all bytes are assumed to exist, so checks on file size should be
  * done before calling this routine */
-int scrmfs_fid_read(int fid, off_t pos, void* buf, size_t count);
+int cruise_fid_read(int fid, off_t pos, void* buf, size_t count);
 
 /* write count bytes from buf into file starting at offset pos,
  * all bytes are assumed to be allocated to file, so file should
  * be extended before calling this routine */
-int scrmfs_fid_write(int fid, off_t pos, const void* buf, size_t count);
+int cruise_fid_write(int fid, off_t pos, const void* buf, size_t count);
 
 /* given a file id, write zero bytes to region of specified offset
  * and length, assumes space is already reserved */
-int scrmfs_fid_write_zero(int fid, off_t pos, off_t count);
+int cruise_fid_write_zero(int fid, off_t pos, off_t count);
 
 /* increase size of file if length is greater than current size,
  * and allocate additional chunks as needed to reserve space for
  * length bytes */
-int scrmfs_fid_extend(int fid, off_t length);
+int cruise_fid_extend(int fid, off_t length);
 
 /* truncate file id to given length, frees resources if length is
  * less than size and allocates and zero-fills new bytes if length
  * is more than size */
-int scrmfs_fid_truncate(int fid, off_t length);
+int cruise_fid_truncate(int fid, off_t length);
 
 /* opens a new file id with specified path, access flags, and permissions,
  * fills outfid with file id and outpos with position for current file pointer,
- * returns SCRMFS error code */
-int scrmfs_fid_open(const char* path, int flags, mode_t mode, int* outfid, off_t* outpos);
+ * returns CRUISE error code */
+int cruise_fid_open(const char* path, int flags, mode_t mode, int* outfid, off_t* outpos);
 
-int scrmfs_fid_close(int fid);
+int cruise_fid_close(int fid);
 
 /* delete a file id and return file its resources to free pools */
-int scrmfs_fid_unlink(int fid);
+int cruise_fid_unlink(int fid);
 
-#endif /* SCRMFS_INTERNAL_H */
+#endif /* CRUISE_INTERNAL_H */

@@ -54,7 +54,7 @@ This implies that a hash using mix64 has no funnels.  There may be
 
 /*
 --------------------------------------------------------------------
-scrmfs_hash() -- hash a variable-length key into a 64-bit value
+cruise_hash() -- hash a variable-length key into a 64-bit value
   k     : the key (the unaligned variable-length array of bytes)
   len   : the length of the key, counting by bytes
   level : can be any 8-byte value
@@ -81,7 +81,7 @@ is acceptable.  Do NOT use for cryptographic purposes.
 --------------------------------------------------------------------
 */
 
-ub8 scrmfs_hash( k, length, level)
+ub8 cruise_hash( k, length, level)
 const register ub1 *k;        /* the key */
 register ub8  length;   /* the length of the key */
 register ub8  level;    /* the previous hash, or an arbitrary value */
@@ -280,7 +280,7 @@ void driver1()
 
   for (i=0; i<256; ++i) 
   {
-    h = scrmfs_hash(buf,i,h);
+    h = cruise_hash(buf,i,h);
   }
 }
 
@@ -318,10 +318,10 @@ void driver2()
 	    /* have a and b be two keys differing in only one bit */
 	    a[i] ^= (k<<j);
 	    a[i] ^= (k>>(8-j));
-	     c[0] = scrmfs_hash(a, hlen, m);
+	     c[0] = cruise_hash(a, hlen, m);
 	    b[i] ^= ((k+1)<<j);
 	    b[i] ^= ((k+1)>>(8-j));
-	     d[0] = scrmfs_hash(b, hlen, m);
+	     d[0] = cruise_hash(b, hlen, m);
 	    /* check every bit is 1, 0, set, and not set at least once */
 	    for (l=0; l<HASHSTATE; ++l)
 	    {
@@ -374,21 +374,21 @@ void driver3()
   ub8 h,i,j,ref,x,y;
 
   printf("Endianness.  These should all be the same:\n");
-  h = scrmfs_hash(q+0, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(q+0, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(qq+1, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(qq+1, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(qqq+2, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(qqq+2, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(qqqq+3, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(qqqq+3, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(o+4, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(o+4, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(oo+5, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(oo+5, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(ooo+6, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(ooo+6, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
-  h = scrmfs_hash(oooo+7, (ub8)(sizeof(q)-1), (ub8)0);
+  h = cruise_hash(oooo+7, (ub8)(sizeof(q)-1), (ub8)0);
   printf("%.8lx%.8lx\n", (ub4)h, (ub4)(h>>32));
   printf("\n");
   for (h=0, b=buf+1; h<8; ++h, ++b)
@@ -399,11 +399,11 @@ void driver3()
       for (j=0; j<i; ++j) *(b+j)=0;
 
       /* these should all be equal */
-      ref = scrmfs_hash(b, len, (ub8)1);
+      ref = cruise_hash(b, len, (ub8)1);
       *(b+i)=(ub1)~0;
       *(b-1)=(ub1)~0;
-      x = scrmfs_hash(b, len, (ub8)1);
-      y = scrmfs_hash(b, len, (ub8)1);
+      x = cruise_hash(b, len, (ub8)1);
+      y = cruise_hash(b, len, (ub8)1);
       if ((ref != x) || (ref != y)) 
       {
 	printf("alignment error: %.8lx %.8lx %.8lx %ld %ld\n",ref,x,y,h,i);
@@ -424,8 +424,8 @@ void driver3()
   printf("These should all be different\n");
   for (i=0, h=0; i<8; ++i)
   {
-    h = scrmfs_hash(buf, (ub8)0, h);
-    printf("%2ld  0-byte strings, scrmfs_hash is  %.8lx%.8lx\n", (ub4)i,
+    h = cruise_hash(buf, (ub8)0, h);
+    printf("%2ld  0-byte strings, cruise_hash is  %.8lx%.8lx\n", (ub4)i,
       (ub4)h,(ub4)(h>>32));
   }
 }

@@ -336,7 +336,7 @@ int main (int argc, char* argv[])
   /* allocate space for the checkpoint data (make filesize a function of rank for some variation) */
   filesize = filesize + rank;
 
-  scrmfs_mount("/tmp", filesize, rank);
+  cruise_mount("/tmp", filesize, rank);
 
   /* verify data integrity in file */
   checkdata(name, filesize, times);

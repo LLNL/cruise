@@ -1,5 +1,5 @@
-#ifndef SCRMFS_STACK_H
-#define SCRMFS_STACK_H
+#ifndef CRUISE_STACK_H
+#define CRUISE_STACK_H
 
 /* implements a fixed-size stack which stores integer values in range
  * of 0 to size-1, entire structure stored in an int array of size+2
@@ -16,18 +16,18 @@
 typedef struct {
   int size;
   int last;
-} scrmfs_stack;
+} cruise_stack;
 
 /* returns number of bytes needed to represent stack data structure */
-size_t scrmfs_stack_bytes(int size);
+size_t cruise_stack_bytes(int size);
   
 /* intializes stack to record all entries as being free */
-void scrmfs_stack_init(void* start, int size);
+void cruise_stack_init(void* start, int size);
 
 /* pops one entry from stack and returns its value */
-int scrmfs_stack_pop(void* start);
+int cruise_stack_pop(void* start);
 
 /* pushes item onto free stack */
-void scrmfs_stack_push(void* start, int value);
+void cruise_stack_push(void* start, int value);
 
-#endif /* SCRMFS_STACK_H */
+#endif /* CRUISE_STACK_H */

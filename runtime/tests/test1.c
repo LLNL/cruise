@@ -8,16 +8,16 @@
 
 #define UNUSEDFD 5000
 
-#define SCRMFS_STATUS
-#ifdef SCRMFS_STATUS
+#define CRUISE_STATUS
+#ifdef CRUISE_STATUS
     #define status(fmt, args... )  printf("STATUS: %d %s, line %d: "fmt, testnum, \
                                           __func__, __LINE__,##args)
 #else
     #define status(fmt, args... )
 #endif
 
-#define SCRMFS_ERROR
-#ifdef SCRMFS_ERROR
+#define CRUISE_ERROR
+#ifdef CRUISE_ERROR
     #define error(fmt, args... )  printf("ERROR: %d %s, line %d: "fmt, testnum, \
                                          __func__, __LINE__, ##args)
 #else
@@ -46,7 +46,7 @@ int test1();
 
 int main(int argc, char ** argv){
   int rc;
-  scrmfs_mount("/tmp", 4096 * 4096, 0);
+  cruise_mount("/tmp", 4096 * 4096, 0);
   CHECK(rc = test_open()); 
   CHECK(rc = test_close());
   CHECK(rc = test_unlink());

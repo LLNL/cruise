@@ -331,7 +331,7 @@ int main (int argc, char* argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &ranks);
 
-  scrmfs_mount("/tmp",1024,0);
+  cruise_mount("/tmp",1024,0);
 
   char name[256];
   sprintf(name, "/tmp/rank.%d", rank);

@@ -1,4 +1,4 @@
-#include "scrmfs-runtime-config.h"
+#include "cruise-runtime-config.h"
 #include <stdio.h>
 #include <wchar.h>
 #include <unistd.h>
@@ -20,9 +20,9 @@
 #define __USE_GNU
 #include <pthread.h>
 
-#include "scrmfs-internal.h"
+#include "cruise-internal.h"
 
-static int scrmfs_fpos_enabled = 1; /* whether we can use fgetpos/fsetpos */
+static int cruise_fpos_enabled = 1; /* whether we can use fgetpos/fsetpos */
 
 /* ---------------------------------------
  * POSIX wrappers: file streams
@@ -54,76 +54,76 @@ static int scrmfs_fpos_enabled = 1; /* whether we can use fgetpos/fsetpos */
 
 /* http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf 7.19 */
 
-/* TODO: add "scrmfs_unsupported" call to report details of unsupported fns */
+/* TODO: add "cruise_unsupported" call to report details of unsupported fns */
 
-SCRMFS_DECL(fclose,  int,   (FILE *stream));
-SCRMFS_DECL(fflush,  int,   (FILE *stream));
-SCRMFS_DECL(fopen,   FILE*, (const char *path, const char *mode));
-SCRMFS_DECL(freopen, FILE*, (const char *path, const char *mode, FILE *stream));
-SCRMFS_DECL(setbuf,  void*, (FILE *stream, char* buf));
-SCRMFS_DECL(setvbuf, int,   (FILE *stream, char* buf, int type, size_t size));
+CRUISE_DECL(fclose,  int,   (FILE *stream));
+CRUISE_DECL(fflush,  int,   (FILE *stream));
+CRUISE_DECL(fopen,   FILE*, (const char *path, const char *mode));
+CRUISE_DECL(freopen, FILE*, (const char *path, const char *mode, FILE *stream));
+CRUISE_DECL(setbuf,  void*, (FILE *stream, char* buf));
+CRUISE_DECL(setvbuf, int,   (FILE *stream, char* buf, int type, size_t size));
 
-SCRMFS_DECL(fprintf,  int, (FILE* stream, const char* format, ...));
-SCRMFS_DECL(fscanf,   int, (FILE* stream, const char* format, ...));
-SCRMFS_DECL(vfprintf, int, (FILE* stream, const char* format, va_list ap));
-SCRMFS_DECL(vfscanf,  int, (FILE* stream, const char* format, va_list ap));
+CRUISE_DECL(fprintf,  int, (FILE* stream, const char* format, ...));
+CRUISE_DECL(fscanf,   int, (FILE* stream, const char* format, ...));
+CRUISE_DECL(vfprintf, int, (FILE* stream, const char* format, va_list ap));
+CRUISE_DECL(vfscanf,  int, (FILE* stream, const char* format, va_list ap));
 
-SCRMFS_DECL(fgetc,  int,   (FILE *stream));
-SCRMFS_DECL(fgets,  char*, (char* s, int n, FILE* stream));
-SCRMFS_DECL(fputc,  int,   (int c, FILE *stream));
-SCRMFS_DECL(fputs,  int,   (const char* s, FILE* stream));
-SCRMFS_DECL(getc,   int,   (FILE *stream));
-SCRMFS_DECL(putc,   int,   (int c, FILE *stream));
-SCRMFS_DECL(ungetc, int,   (int c, FILE *stream));
+CRUISE_DECL(fgetc,  int,   (FILE *stream));
+CRUISE_DECL(fgets,  char*, (char* s, int n, FILE* stream));
+CRUISE_DECL(fputc,  int,   (int c, FILE *stream));
+CRUISE_DECL(fputs,  int,   (const char* s, FILE* stream));
+CRUISE_DECL(getc,   int,   (FILE *stream));
+CRUISE_DECL(putc,   int,   (int c, FILE *stream));
+CRUISE_DECL(ungetc, int,   (int c, FILE *stream));
 
-SCRMFS_DECL(fread,  size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
-SCRMFS_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
+CRUISE_DECL(fread,  size_t, (void *ptr, size_t size, size_t nitems, FILE *stream));
+CRUISE_DECL(fwrite, size_t, (const void *ptr, size_t size, size_t nitems, FILE *stream));
 
-SCRMFS_DECL(fgetpos, int,  (FILE *stream, fpos_t* pos));
-SCRMFS_DECL(fseek,   int,  (FILE *stream, long offset,  int whence));
-SCRMFS_DECL(fsetpos, int,  (FILE *stream, const fpos_t* pos));
-SCRMFS_DECL(ftell,   long, (FILE *stream));
-SCRMFS_DECL(rewind,  void, (FILE *stream));
+CRUISE_DECL(fgetpos, int,  (FILE *stream, fpos_t* pos));
+CRUISE_DECL(fseek,   int,  (FILE *stream, long offset,  int whence));
+CRUISE_DECL(fsetpos, int,  (FILE *stream, const fpos_t* pos));
+CRUISE_DECL(ftell,   long, (FILE *stream));
+CRUISE_DECL(rewind,  void, (FILE *stream));
 
-SCRMFS_DECL(clearerr, void, (FILE *stream));
-SCRMFS_DECL(feof,     int,  (FILE *stream));
-SCRMFS_DECL(ferror,   int,  (FILE *stream));
+CRUISE_DECL(clearerr, void, (FILE *stream));
+CRUISE_DECL(feof,     int,  (FILE *stream));
+CRUISE_DECL(ferror,   int,  (FILE *stream));
 
-SCRMFS_DECL(fseeko, int,   (FILE *stream, off_t offset, int whence));
-SCRMFS_DECL(ftello, off_t, (FILE *stream));
-SCRMFS_DECL(fileno, int,   (FILE *stream));
+CRUISE_DECL(fseeko, int,   (FILE *stream, off_t offset, int whence));
+CRUISE_DECL(ftello, off_t, (FILE *stream));
+CRUISE_DECL(fileno, int,   (FILE *stream));
 
 /* http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1124.pdf 7.24 */
 
-SCRMFS_DECL(fwprintf,  int,      (FILE *stream, const wchar_t* format, ...));
-SCRMFS_DECL(fwscanf,   int,      (FILE *stream, const wchar_t* format, ...));
-SCRMFS_DECL(vfwprintf, int,      (FILE *stream, const wchar_t* format, va_list arg));
-SCRMFS_DECL(vfwscanf,  int,      (FILE *stream, const wchar_t* format, va_list arg));
-SCRMFS_DECL(fgetwc,    wint_t,   (FILE *stream));
-SCRMFS_DECL(fgetws,    wchar_t*, (wchar_t* s, int n, FILE *stream));
-SCRMFS_DECL(fputwc,    wint_t,   (wchar_t wc, FILE *stream));
-SCRMFS_DECL(fputws,    int,      (const wchar_t* s, FILE *stream));
-SCRMFS_DECL(fwide,     int,      (FILE *stream, int mode));
-SCRMFS_DECL(getwc,     wint_t,   (FILE *stream));
-SCRMFS_DECL(putwc,     wint_t,   (wchar_t c, FILE *stream));
-SCRMFS_DECL(ungetwc,   wint_t,   (wint_t c, FILE *stream));
+CRUISE_DECL(fwprintf,  int,      (FILE *stream, const wchar_t* format, ...));
+CRUISE_DECL(fwscanf,   int,      (FILE *stream, const wchar_t* format, ...));
+CRUISE_DECL(vfwprintf, int,      (FILE *stream, const wchar_t* format, va_list arg));
+CRUISE_DECL(vfwscanf,  int,      (FILE *stream, const wchar_t* format, va_list arg));
+CRUISE_DECL(fgetwc,    wint_t,   (FILE *stream));
+CRUISE_DECL(fgetws,    wchar_t*, (wchar_t* s, int n, FILE *stream));
+CRUISE_DECL(fputwc,    wint_t,   (wchar_t wc, FILE *stream));
+CRUISE_DECL(fputws,    int,      (const wchar_t* s, FILE *stream));
+CRUISE_DECL(fwide,     int,      (FILE *stream, int mode));
+CRUISE_DECL(getwc,     wint_t,   (FILE *stream));
+CRUISE_DECL(putwc,     wint_t,   (wchar_t c, FILE *stream));
+CRUISE_DECL(ungetwc,   wint_t,   (wint_t c, FILE *stream));
 
 /* given a stream, return file name or NULL if invalid */
-static const char* scrmfs_stream_name(FILE* fp)
+static const char* cruise_stream_name(FILE* fp)
 {
-    /* convert to scrmfs_stream_t pointer */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) fp;
+    /* convert to cruise_stream_t pointer */
+    cruise_stream_t* s = (cruise_stream_t*) fp;
 
     /* get name of file */
     const char* name = NULL;
-    int fid = scrmfs_get_fid_from_fd(s->fd);
+    int fid = cruise_get_fid_from_fd(s->fd);
     if (fid >= 0) {
-        name = scrmfs_filelist[fid].filename;
+        name = cruise_filelist[fid].filename;
     }
     return name;
 }
 
-int scrmfs_unsupported_stream(
+int cruise_unsupported_stream(
   FILE* fp,
   const char* wrap_fn,
   const char* wrap_file,
@@ -131,14 +131,14 @@ int scrmfs_unsupported_stream(
   const char* format,
   ...)
 {
-    /* convert to scrmfs_stream_t pointer */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) fp;
+    /* convert to cruise_stream_t pointer */
+    cruise_stream_t* s = (cruise_stream_t*) fp;
 
     /* get name of file */
-    const char* name = scrmfs_stream_name(fp);
+    const char* name = cruise_stream_name(fp);
 
     /* get file position */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
     off_t pos = filedesc->pos;
 
     /* determine length of string to hold formatted args */
@@ -163,7 +163,7 @@ int scrmfs_unsupported_stream(
     /* print message */
     va_list args;
     va_start(args, format);
-    int rc = scrmfs_unsupported(
+    int rc = cruise_unsupported(
       wrap_fn, wrap_file, wrap_line,
       "file %s pos %lu msg %s", name, (unsigned long) pos, str
     );
@@ -176,38 +176,38 @@ int scrmfs_unsupported_stream(
 }
 
 #if 0
-static int scrmfs_stream_alloc(int fd)
+static int cruise_stream_alloc(int fd)
 {
     /* check that file descriptor is valid */
-    if (fd >= 0 && fd < SCRMFS_FILE_DESCS) {
+    if (fd >= 0 && fd < CRUISE_FILE_DESCS) {
         /* TODO: use a stack to allocate a new stream */
         /* check that stream corresponding to this file descriptor is free */
-        if (scrmfs_streams[fd].fd < 0) {
-            scrmfs_streams[fd].fd = fd;
+        if (cruise_streams[fd].fd < 0) {
+            cruise_streams[fd].fd = fd;
             return fd;
         }
     }
     return -1;
 }
 
-static int scrmfs_stream_free(int sid)
+static int cruise_stream_free(int sid)
 {
-    if (sid >= 0 && sid < SCRMFS_FILE_DESCS) {
+    if (sid >= 0 && sid < CRUISE_FILE_DESCS) {
         /* mark file descriptor as -1 to indicate stream is not in use */
-        scrmfs_streams[sid].fd = -1;
+        cruise_streams[sid].fd = -1;
     }
 }
 #endif
 
-static int scrmfs_stream_set_pointers(scrmfs_stream_t* s)
+static int cruise_stream_set_pointers(cruise_stream_t* s)
 {
     /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
     if (filedesc == NULL) {
         /* ERROR: invalid file descriptor */
         s->err = 1;
         errno = EBADF;
-        return SCRMFS_ERR_BADF;
+        return CRUISE_ERR_BADF;
     }
 
     /* if we have anything on the push back buffer, that must be
@@ -216,7 +216,7 @@ static int scrmfs_stream_set_pointers(scrmfs_stream_t* s)
     if (s->ubuflen > 0) {
         s->_p = s->ubuf + s->ubufsize - s->ubuflen;
         s->_r = s->ubuflen;
-        return SCRMFS_SUCCESS;
+        return CRUISE_SUCCESS;
     }
 
     /* check that current falls within buffer */
@@ -236,7 +236,7 @@ static int scrmfs_stream_set_pointers(scrmfs_stream_t* s)
         s->_r = stream_remaining;
     }
 
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
 /* TODO: support other modes as listed in
@@ -244,8 +244,8 @@ static int scrmfs_stream_set_pointers(scrmfs_stream_t* s)
 
 /* given a mode like "r", "wb+", or "a+" return flags read, write,
  * append, and plus to indicate which were set,
- * returns SCRMFS_ERR_INVAL if invalid character is found */
-static int scrmfs_fopen_parse_mode(
+ * returns CRUISE_ERR_INVAL if invalid character is found */
+static int cruise_fopen_parse_mode(
   const char* mode,
   int* read,
   int* write,
@@ -260,13 +260,13 @@ static int scrmfs_fopen_parse_mode(
 
     /* ensure that user specifed an input mode */
     if (mode == NULL) {
-        return SCRMFS_ERR_INVAL;
+        return CRUISE_ERR_INVAL;
     }
 
     /* get number of characters in mode */
     size_t len = strlen(mode);
     if (len <= 0 || len > 3) {
-        return SCRMFS_ERR_INVAL;
+        return CRUISE_ERR_INVAL;
     }
 
     /* first character must either be r, w, or a */
@@ -282,7 +282,7 @@ static int scrmfs_fopen_parse_mode(
         *append = 1;
         break;
     default:
-        return SCRMFS_ERR_INVAL;
+        return CRUISE_ERR_INVAL;
     }
 
     /* optional second character may either be + or b */
@@ -297,7 +297,7 @@ static int scrmfs_fopen_parse_mode(
                 char third = mode[2];
                 if (third != 'b') {
                     /* third character something other than + or b */
-                    return SCRMFS_ERR_INVAL;
+                    return CRUISE_ERR_INVAL;
                 }
             }
         } else if (second == 'b') {
@@ -308,23 +308,23 @@ static int scrmfs_fopen_parse_mode(
                     *plus = 1;
                 } else {
                     /* third character something other than + or b */
-                    return SCRMFS_ERR_INVAL;
+                    return CRUISE_ERR_INVAL;
                 }
             }
         } else {
             /* second character something other than + or b */
-            return SCRMFS_ERR_INVAL;
+            return CRUISE_ERR_INVAL;
         }
     }
 
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
-/* calls scrmfs_fid_open to open specified file in mode according to
+/* calls cruise_fid_open to open specified file in mode according to
  * fopen mode semantics, initializes outstream and returns
- * SCRMFS_SUCCESS if successful, returns some other SCRMFS error
+ * CRUISE_SUCCESS if successful, returns some other CRUISE error
  * otherwise */
-static int scrmfs_fopen(
+static int cruise_fopen(
   const char* path,
   const char* mode,
   FILE** outstream)
@@ -334,58 +334,58 @@ static int scrmfs_fopen(
 
     /* parse the fopen mode string */
     int read, write, append, plus;
-    int parse_rc = scrmfs_fopen_parse_mode(mode, &read, &write, &append, &plus);
-    if (parse_rc != SCRMFS_SUCCESS) {
+    int parse_rc = cruise_fopen_parse_mode(mode, &read, &write, &append, &plus);
+    if (parse_rc != CRUISE_SUCCESS) {
         return parse_rc;
     }
 
     /* TODO: get real permissions via umask */
     /* assume default permissions */
-    mode_t perms = scrmfs_getmode(0);
+    mode_t perms = cruise_getmode(0);
 
     int open_rc;
     int fid;
     off_t pos;
     if (read) {
-      /* read shall fail if file does not already exist, scrmfs_fid_open
-       * returns SCRMFS_ERR_NOENT if file does not exist w/o O_CREAT */
+      /* read shall fail if file does not already exist, cruise_fid_open
+       * returns CRUISE_ERR_NOENT if file does not exist w/o O_CREAT */
       if (plus) {
           /* r+ ==> open file for update (reading and writing) */
-          open_rc = scrmfs_fid_open(path, O_RDWR, perms, &fid, &pos);
+          open_rc = cruise_fid_open(path, O_RDWR, perms, &fid, &pos);
       } else {
           /* r  ==> open file for reading */
-          open_rc = scrmfs_fid_open(path, O_RDONLY, perms, &fid, &pos);
+          open_rc = cruise_fid_open(path, O_RDONLY, perms, &fid, &pos);
       }
     } else if (write) {
       if (plus) {
           /* w+ ==> truncate to zero length or create file for update
            * (read/write) */
-          open_rc = scrmfs_fid_open(path, O_RDWR | O_CREAT | O_TRUNC, perms, &fid, &pos);
+          open_rc = cruise_fid_open(path, O_RDWR | O_CREAT | O_TRUNC, perms, &fid, &pos);
       } else {
           /* w  ==> truncate to zero length or create file for
            * writing */
-          open_rc = scrmfs_fid_open(path, O_WRONLY | O_CREAT | O_TRUNC, perms, &fid, &pos);
+          open_rc = cruise_fid_open(path, O_WRONLY | O_CREAT | O_TRUNC, perms, &fid, &pos);
       }
     } else if (append) {
       /* force all writes to end of file when append is set */
       if (plus) {
           /* a+ ==> append, open or create file for update, at end
            * of file */
-          open_rc = scrmfs_fid_open(path, O_RDWR | O_CREAT | O_APPEND, perms, &fid, &pos);
+          open_rc = cruise_fid_open(path, O_RDWR | O_CREAT | O_APPEND, perms, &fid, &pos);
       } else {
           /* a  ==> append, open or create file for writing, at end
            * of file */
-          open_rc = scrmfs_fid_open(path, O_WRONLY | O_CREAT | O_APPEND, perms, &fid, &pos);
+          open_rc = cruise_fid_open(path, O_WRONLY | O_CREAT | O_APPEND, perms, &fid, &pos);
       }
     }
 
     /* check the open return code */
-    if (open_rc != SCRMFS_SUCCESS) {
+    if (open_rc != CRUISE_SUCCESS) {
         return open_rc;
     }
 
     /* allocate a stream for this file */
-    scrmfs_stream_t* s = &(scrmfs_streams[fid]);
+    cruise_stream_t* s = &(cruise_streams[fid]);
 
     /* allocate a file descriptor for this file */
     int fd = fid;
@@ -399,7 +399,7 @@ static int scrmfs_fopen(
     s->append = append;
 
     /* set orientation to NULL */
-    s->orient = SCRMFS_STREAM_ORIENTATION_NULL;
+    s->orient = CRUISE_STREAM_ORIENTATION_NULL;
 
     /* default to fully buffered, set buffer to NULL to indicate
      * setvbuf has not been called */
@@ -421,46 +421,46 @@ static int scrmfs_fopen(
     s->_r = 0;
 
     /* set file pointer and read/write mode in file descriptor */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(fd);
     filedesc->pos   = pos;
     filedesc->read  = read  || plus;
     filedesc->write = write || plus;
 
     /* set return parameter and return */
     *outstream = (FILE*)s;
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
 /* associate buffer with stream, allocates a buffer of specified size
  * if buf is NULL, otherwise uses buffer passed by caller, also sets
- * stream to fully/line/unbuffered, returns SCRMFS error codes */
-static int scrmfs_setvbuf(
+ * stream to fully/line/unbuffered, returns CRUISE error codes */
+static int cruise_setvbuf(
   FILE* stream,
   char* buf,
   int type,
   size_t size)
 {
     /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    cruise_stream_t* s = (cruise_stream_t*) stream;
 
     /* TODO: check that stream is valid */
 
     /* check whether we've already associated a buffer */
     if (s->buf != NULL) {
         /* ERROR: stream already has buffer */
-        return SCRMFS_ERR_BADF;
+        return CRUISE_ERR_BADF;
     }
 
     /* check that the type argument is valid */
     if (type != _IOFBF && type != _IOLBF && type != _IONBF) {
         /* ERROR: invalid type argument */
-        return SCRMFS_ERR_INVAL;
+        return CRUISE_ERR_INVAL;
     }
 
     /* check that size is valid */
     if (size <= 0) {
         /* ERROR: invalid size argument */
-        return SCRMFS_ERR_INVAL;
+        return CRUISE_ERR_INVAL;
     }
 
     /* associate buffer with stream */
@@ -469,7 +469,7 @@ static int scrmfs_setvbuf(
         s->buf = malloc(size);
         if (s->buf == NULL) {
             /* ERROR: no memory */
-            return SCRMFS_ERR_NOMEM;
+            return CRUISE_ERR_NOMEM;
         }
         /* remember that we need to free the buffer at the end */
         s->buffree = 1;
@@ -487,25 +487,25 @@ static int scrmfs_setvbuf(
     s->buflen   = 0;
     s->bufdirty = 0;
 
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
-/* calls scrmfs_fd_write to flush stream if it is dirty,
- * returns SCRMFS error codes, sets stream error indicator and errno
+/* calls cruise_fd_write to flush stream if it is dirty,
+ * returns CRUISE error codes, sets stream error indicator and errno
  * upon error */
-static int scrmfs_stream_flush(FILE* stream)
+static int cruise_stream_flush(FILE* stream)
 {
     /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    cruise_stream_t* s = (cruise_stream_t*) stream;
 
     /* TODO: check that stream is valid */
 
     /* if buffer is dirty, write data to file */
     if (s->buf != NULL && s->bufdirty) {
-        int write_rc = scrmfs_fd_write(s->fd, s->bufpos, s->buf, s->buflen);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_fd_write(s->fd, s->bufpos, s->buf, s->buflen);
+        if (write_rc != CRUISE_SUCCESS) {
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(write_rc);
+            errno = cruise_err_map_to_errno(write_rc);
             return write_rc;
         }
 
@@ -513,21 +513,21 @@ static int scrmfs_stream_flush(FILE* stream)
         s->bufdirty = 0;
     }
 
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
 /* reads count bytes from stream into buf, sets stream EOF and error
  * indicators as appropriate, sets errno if error, updates file
- * position, returns number of bytes read in retcount, returns SCRMFS
+ * position, returns number of bytes read in retcount, returns CRUISE
  * error codes*/
-static int scrmfs_stream_read(
+static int cruise_stream_read(
   FILE* stream,
   void* buf,
   size_t count,
   size_t* retcount)
 {
     /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    cruise_stream_t* s = (cruise_stream_t*) stream;
 
 //ATM
     /* clear pointers, will force a reset when refill is called */
@@ -535,35 +535,35 @@ static int scrmfs_stream_read(
     s->_r = 0;
 
     /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
     if (filedesc == NULL) {
         /* ERROR: invalid file descriptor */
         s->err = 1;
         errno = EBADF;
-        return SCRMFS_ERR_BADF;
+        return CRUISE_ERR_BADF;
     }
 
     /* bail with error if stream not open for reading */
     if (! filedesc->read) {
         s->err = 1;
         errno = EBADF;
-        return SCRMFS_ERR_BADF;
+        return CRUISE_ERR_BADF;
     }
 
     /* associate buffer with stream if we need to */
     if (s->buf == NULL) {
-        int setvbuf_rc = scrmfs_setvbuf(stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
-        if (setvbuf_rc != SCRMFS_SUCCESS) {
+        int setvbuf_rc = cruise_setvbuf(stream, NULL, s->buftype, CRUISE_STREAM_BUFSIZE);
+        if (setvbuf_rc != CRUISE_SUCCESS) {
             /* ERROR: failed to associate buffer */
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(setvbuf_rc);
+            errno = cruise_err_map_to_errno(setvbuf_rc);
             return setvbuf_rc;
         }
     }
 
     /* don't attempt read if end-of-file indicator is set */
     if (s->eof) {
-        return SCRMFS_FAILURE;
+        return CRUISE_FAILURE;
     }
 
     /* track our current position in the file and number of bytes
@@ -572,10 +572,10 @@ static int scrmfs_stream_read(
     size_t remaining = count;
 
     /* check that current + count doesn't overflow */
-    if (scrmfs_would_overflow_offt(current, (off_t) count)) {
+    if (cruise_would_overflow_offt(current, (off_t) count)) {
         s->err = 1;
         errno = EOVERFLOW;
-        return SCRMFS_ERR_OVERFLOW;
+        return CRUISE_ERR_OVERFLOW;
     }
 
     /* take bytes from push back buffer if they exist */
@@ -612,19 +612,19 @@ static int scrmfs_stream_read(
             /* current is outside the range of our buffer */
 
             /* flush buffer if needed before read */
-            int flush_rc = scrmfs_stream_flush(stream);
-            if (flush_rc != SCRMFS_SUCCESS) {
+            int flush_rc = cruise_stream_flush(stream);
+            if (flush_rc != CRUISE_SUCCESS) {
                 /* ERROR: flush sets error indicator and errno */
                 return flush_rc;
             }
 
             /* read data from file into buffer */
             size_t bufcount;
-            int read_rc = scrmfs_fd_read(s->fd, current, s->buf, s->bufsize, &bufcount);
-            if (read_rc != SCRMFS_SUCCESS) {
+            int read_rc = cruise_fd_read(s->fd, current, s->buf, s->bufsize, &bufcount);
+            if (read_rc != CRUISE_SUCCESS) {
                 /* ERROR: read error, set error indicator and errno */
                 s->err = 1;
-                errno = scrmfs_err_map_to_errno(read_rc);
+                errno = cruise_err_map_to_errno(read_rc);
                 return read_rc;
             }
 
@@ -666,7 +666,7 @@ static int scrmfs_stream_read(
     filedesc->pos += (off_t) *retcount;
 
 //ATM
-//    scrmfs_stream_set_pointers(s);
+//    cruise_stream_set_pointers(s);
 
     /* set end of file indicator if we hit the end */
     if (*retcount < count) {
@@ -674,19 +674,19 @@ static int scrmfs_stream_read(
     }
 
     /* return success */
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
 /* writes count bytes from buf to stream, sets stream EOF and error
  * indicators as appropriate, sets errno if error, updates file
- * position, return SCRMFS error codes */
-static int scrmfs_stream_write(
+ * position, return CRUISE error codes */
+static int cruise_stream_write(
   FILE* stream,
   const void* buf,
   size_t count)
 {
     /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    cruise_stream_t* s = (cruise_stream_t*) stream;
 
 //ATM
     /* clear pointers, will force a reset when refill is called */
@@ -696,19 +696,19 @@ static int scrmfs_stream_write(
     /* TODO: check that stream is valid */
 
     /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
     if (filedesc == NULL) {
         /* ERROR: invalid file descriptor */
         s->err = 1;
         errno = EBADF;
-        return SCRMFS_ERR_BADF;
+        return CRUISE_ERR_BADF;
     }
 
     /* bail with error if stream not open for writing */
     if (! filedesc->write) {
         s->err = 1;
         errno = EBADF;
-        return SCRMFS_ERR_BADF;
+        return CRUISE_ERR_BADF;
     }
 
     /* TODO: Don't know what to do with push back bytes if write
@@ -718,13 +718,13 @@ static int scrmfs_stream_write(
     off_t current;
     if (s->append) {
         /* if in append mode, always write to end of file */
-        int fid = scrmfs_get_fid_from_fd(s->fd);
+        int fid = cruise_get_fid_from_fd(s->fd);
         if (fid < 0) {
             s->err = 1;
             errno = EBADF;
-            return SCRMFS_ERR_BADF;
+            return CRUISE_ERR_BADF;
         }
-        current = scrmfs_fid_size(fid);
+        current = cruise_fid_size(fid);
 
         /* like a seek, we discard push back bytes */
         s->ubuflen;
@@ -743,19 +743,19 @@ static int scrmfs_stream_write(
     }
 
     /* check that current + count doesn't overflow */
-    if (scrmfs_would_overflow_offt(current, (off_t) count)) {
+    if (cruise_would_overflow_offt(current, (off_t) count)) {
         s->err = 1;
         errno = EFBIG;
-        return SCRMFS_ERR_FBIG;
+        return CRUISE_ERR_FBIG;
     }
 
     /* associate buffer with stream if we need to */
     if (s->buf == NULL) {
-        int setvbuf_rc = scrmfs_setvbuf(stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
-        if (setvbuf_rc != SCRMFS_SUCCESS) {
+        int setvbuf_rc = cruise_setvbuf(stream, NULL, s->buftype, CRUISE_STREAM_BUFSIZE);
+        if (setvbuf_rc != CRUISE_SUCCESS) {
             /* ERROR: failed to associate buffer */
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(setvbuf_rc);
+            errno = cruise_err_map_to_errno(setvbuf_rc);
             return setvbuf_rc;
         }
     }
@@ -763,11 +763,11 @@ static int scrmfs_stream_write(
     /* if unbuffered, write data directly to file */
     if (s->buftype == _IONBF) {
         /* write data directly to file */
-        int write_rc = scrmfs_fd_write(s->fd, current, buf, count);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_fd_write(s->fd, current, buf, count);
+        if (write_rc != CRUISE_SUCCESS) {
             /* ERROR: write error, set error indicator and errno */
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(write_rc);
+            errno = cruise_err_map_to_errno(write_rc);
             return write_rc;
         }
 
@@ -775,9 +775,9 @@ static int scrmfs_stream_write(
         filedesc->pos = current + (off_t) count;
 
 //ATM
-//        scrmfs_stream_set_pointers(s);
+//        cruise_stream_set_pointers(s);
 
-        return SCRMFS_SUCCESS;
+        return CRUISE_SUCCESS;
     }
 
     /* TODO: if count is large enough, write directly to file
@@ -821,7 +821,7 @@ static int scrmfs_stream_write(
                 /* ERROR: write error, set error indicator and errno */
                 s->err = 1;
                 errno = ENOMEM;
-                return SCRMFS_ERR_NOMEM;
+                return CRUISE_ERR_NOMEM;
             }
         } else {
             /* fully buffered, write until we hit the buffer limit */
@@ -846,8 +846,8 @@ static int scrmfs_stream_write(
         /* if we've filled the buffer, flush it */
         if (need_flush) {
             /* flush stream */
-            int flush_rc = scrmfs_stream_flush(stream);
-            if (flush_rc != SCRMFS_SUCCESS) {
+            int flush_rc = cruise_stream_flush(stream);
+            if (flush_rc != CRUISE_SUCCESS) {
                 /* ERROR: flush sets error indicator and errno */
                 return flush_rc;
             }
@@ -867,18 +867,18 @@ static int scrmfs_stream_write(
     filedesc->pos = current;
 
 //ATM
-//    scrmfs_stream_set_pointers(s);
+//    cruise_stream_set_pointers(s);
 
-    return SCRMFS_SUCCESS;
+    return CRUISE_SUCCESS;
 }
 
 /* fseek, fseeko, rewind, and fsetpos all call this function, sets error
  * indicator and errno if necessary, returns -1 on error, returns
  * 0 for success */
-static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
+static int cruise_fseek(FILE *stream, off_t offset, int whence)
 {
     /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    cruise_stream_t* s = (cruise_stream_t*) stream;
 
 //ATM
     /* clear pointers, will force a reset when refill is called */
@@ -886,7 +886,7 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
     s->_r = 0;
 
     /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
     if (filedesc == NULL) {
         /* ERROR: invalid file descriptor */
         s->err = 1;
@@ -895,14 +895,14 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
     }
 
     /* flush stream if we need to */
-    int flush_rc = scrmfs_stream_flush(stream);
-    if (flush_rc != SCRMFS_SUCCESS) {
+    int flush_rc = cruise_stream_flush(stream);
+    if (flush_rc != CRUISE_SUCCESS) {
         /* ERROR: flush sets error indicator and errno */
         return -1;
     }
 
     /* get the file id for this file descriptor */
-    int fid = scrmfs_get_fid_from_fd(s->fd);
+    int fid = cruise_get_fid_from_fd(s->fd);
     if (fid < 0) {
         /* couldn't find file id, so assume we're at the end,
          * feof defines to errors */
@@ -924,7 +924,7 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
             break;
         case SEEK_CUR:
             /* seek to current position + offset */
-            if (scrmfs_would_overflow_offt(current_pos, offset)) {
+            if (cruise_would_overflow_offt(current_pos, offset)) {
                 s->err = 1;
                 errno  = EOVERFLOW;
                 return -1;
@@ -933,8 +933,8 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
             break;
         case SEEK_END:
             /* seek to EOF + offset */
-            filesize = scrmfs_fid_size(fid);
-            if (scrmfs_would_overflow_offt(filesize, offset)) {
+            filesize = cruise_fid_size(fid);
+            if (cruise_would_overflow_offt(filesize, offset)) {
                 s->err = 1;
                 errno  = EOVERFLOW;
                 return -1;
@@ -958,7 +958,7 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
     filedesc->pos = current_pos;
 
 //ATM
-//    scrmfs_stream_set_pointers(s);
+//    cruise_stream_set_pointers(s);
 
     /* clear end-of-file indicator */
     s->eof = 0;
@@ -966,81 +966,81 @@ static int scrmfs_fseek(FILE *stream, off_t offset, int whence)
     return 0;
 }
 
-FILE* SCRMFS_WRAP(fopen)(const char *path, const char *mode)
+FILE* CRUISE_WRAP(fopen)(const char *path, const char *mode)
 {
     /* check whether we should intercept this path */
-    if (scrmfs_intercept_path(path)) {
+    if (cruise_intercept_path(path)) {
         FILE* stream;
-        int rc = scrmfs_fopen(path, mode, &stream);
-        if (rc != SCRMFS_SUCCESS) {
-            errno = scrmfs_err_map_to_errno(rc);
+        int rc = cruise_fopen(path, mode, &stream);
+        if (rc != CRUISE_SUCCESS) {
+            errno = cruise_err_map_to_errno(rc);
             return NULL;
         }
         return stream;
     } else {
         MAP_OR_FAIL(fopen);
-        FILE* ret = SCRMFS_REAL(fopen)(path, mode);
+        FILE* ret = CRUISE_REAL(fopen)(path, mode);
         return ret;
     }
 }
 
-FILE* SCRMFS_WRAP(freopen)(const char *path, const char *mode, FILE *stream)
+FILE* CRUISE_WRAP(freopen)(const char *path, const char *mode, FILE *stream)
 {
     /* check whether we should intercept this path */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "new file %s", path);
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "new file %s", path);
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return NULL;
     } else {
         MAP_OR_FAIL(freopen);
-        FILE* ret = SCRMFS_REAL(freopen)(path, mode, stream);
+        FILE* ret = CRUISE_REAL(freopen)(path, mode, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(setvbuf)(FILE* stream, char* buf, int type, size_t size)
+int CRUISE_WRAP(setvbuf)(FILE* stream, char* buf, int type, size_t size)
 {
     /* check whether we should intercept this path */
-    if (scrmfs_intercept_stream(stream)) {
-        int rc = scrmfs_setvbuf(stream, buf, type, size);
-        if (rc != SCRMFS_SUCCESS) {
-            errno = scrmfs_err_map_to_errno(rc);
+    if (cruise_intercept_stream(stream)) {
+        int rc = cruise_setvbuf(stream, buf, type, size);
+        if (rc != CRUISE_SUCCESS) {
+            errno = cruise_err_map_to_errno(rc);
             return 1;
         }
         return 0;
     } else {
         MAP_OR_FAIL(setvbuf);
-        int ret = SCRMFS_REAL(setvbuf)(stream, buf, type, size);
+        int ret = CRUISE_REAL(setvbuf)(stream, buf, type, size);
         return ret;
     }
 }
 
-void SCRMFS_WRAP(setbuf)(FILE* stream, char* buf)
+void CRUISE_WRAP(setbuf)(FILE* stream, char* buf)
 {
     /* check whether we should intercept this path */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         if (buf != NULL) {
-            scrmfs_setvbuf(stream, buf, _IOFBF, BUFSIZ);
+            cruise_setvbuf(stream, buf, _IOFBF, BUFSIZ);
         } else {
-            scrmfs_setvbuf(stream, buf, _IONBF, BUFSIZ);
+            cruise_setvbuf(stream, buf, _IONBF, BUFSIZ);
         }
         return;
     } else {
         MAP_OR_FAIL(setbuf);
-        SCRMFS_REAL(setbuf)(stream, buf);
+        CRUISE_REAL(setbuf)(stream, buf);
         return;
     }
 }
 
-int SCRMFS_WRAP(ungetc)(int c, FILE *stream)
+int CRUISE_WRAP(ungetc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* operation shall fail and input stream left unchanged */
         if (c == EOF) {
             return EOF;
@@ -1050,10 +1050,10 @@ int SCRMFS_WRAP(ungetc)(int c, FILE *stream)
         unsigned char uc = (unsigned char) c;
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* get filedescriptor and check that stream is valid */
-        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
         if (filedesc == NULL) {
             return EOF;
         }
@@ -1120,21 +1120,21 @@ int SCRMFS_WRAP(ungetc)(int c, FILE *stream)
         return (int) uc;
     } else {
         MAP_OR_FAIL(ungetc);
-        int ret = SCRMFS_REAL(ungetc)(c, stream);
+        int ret = CRUISE_REAL(ungetc)(c, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fgetc)(FILE *stream)
+int CRUISE_WRAP(fgetc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* read next character from file */
         unsigned char charbuf;
         size_t count = 1;
         size_t retcount;
-        int read_rc = scrmfs_stream_read(stream, &charbuf, count, &retcount);
-        if (read_rc != SCRMFS_SUCCESS || retcount == 0) {
+        int read_rc = cruise_stream_read(stream, &charbuf, count, &retcount);
+        if (read_rc != CRUISE_SUCCESS || retcount == 0) {
             /* stream read sets error indicator, EOF indicator,
              * and errno for us */
             return EOF;
@@ -1144,20 +1144,20 @@ int SCRMFS_WRAP(fgetc)(FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(fgetc);
-        int ret = SCRMFS_REAL(fgetc)(stream);
+        int ret = CRUISE_REAL(fgetc)(stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fputc)(int c, FILE *stream)
+int CRUISE_WRAP(fputc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* write data to file */
         unsigned char charbuf = (unsigned char) c;
         size_t count = 1;
-        int write_rc = scrmfs_stream_write(stream, &charbuf, count);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_stream_write(stream, &charbuf, count);
+        if (write_rc != CRUISE_SUCCESS) {
             /* stream write sets error indicator, EOF indicator,
              * and errno for us */
             return EOF;
@@ -1167,21 +1167,21 @@ int SCRMFS_WRAP(fputc)(int c, FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(fputc);
-        int ret = SCRMFS_REAL(fputc)(c, stream);
+        int ret = CRUISE_REAL(fputc)(c, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(getc)(FILE *stream)
+int CRUISE_WRAP(getc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* read next character from file */
         unsigned char charbuf;
         size_t count = 1;
         size_t retcount;
-        int read_rc = scrmfs_stream_read(stream, &charbuf, count, &retcount);
-        if (read_rc != SCRMFS_SUCCESS || retcount == 0) {
+        int read_rc = cruise_stream_read(stream, &charbuf, count, &retcount);
+        if (read_rc != CRUISE_SUCCESS || retcount == 0) {
             /* stream read sets error indicator, EOF indicator,
              * and errno for us */
             return EOF;
@@ -1191,20 +1191,20 @@ int SCRMFS_WRAP(getc)(FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(getc);
-        int ret = SCRMFS_REAL(getc)(stream);
+        int ret = CRUISE_REAL(getc)(stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(putc)(int c, FILE *stream)
+int CRUISE_WRAP(putc)(int c, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* write data to file */
         unsigned char charbuf = (unsigned char) c;
         size_t count = 1;
-        int write_rc = scrmfs_stream_write(stream, &charbuf, count);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_stream_write(stream, &charbuf, count);
+        if (write_rc != CRUISE_SUCCESS) {
             /* stream write sets error indicator, EOF indicator,
              * and errno for us */
             return EOF;
@@ -1214,21 +1214,21 @@ int SCRMFS_WRAP(putc)(int c, FILE *stream)
         return (int) charbuf;
     } else {
         MAP_OR_FAIL(putc);
-        int ret = SCRMFS_REAL(putc)(c, stream);
+        int ret = CRUISE_REAL(putc)(c, stream);
         return ret;
     }
 }
 
-char* SCRMFS_WRAP(fgets)(char* s, int n, FILE* stream)
+char* CRUISE_WRAP(fgets)(char* s, int n, FILE* stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* TODO: this isn't the most efficient algorithm, but it works,
          * would be faster to read a large block of characters then
          * scan for newline */
 
         /* lookup stream */
-        scrmfs_stream_t* stm = (scrmfs_stream_t*) stream;
+        cruise_stream_t* stm = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is valid */
 
@@ -1247,8 +1247,8 @@ char* SCRMFS_WRAP(fgets)(char* s, int n, FILE* stream)
             /* read the next character from the file */
             char charbuf;
             size_t retcount;
-            int read_rc = scrmfs_stream_read(stream, &charbuf, 1, &retcount);
-            if (read_rc != SCRMFS_SUCCESS) {
+            int read_rc = cruise_stream_read(stream, &charbuf, 1, &retcount);
+            if (read_rc != CRUISE_SUCCESS) {
                 /* if error flag is not set, we must have hit EOF,
                  * terminate string before returning */
                 if (! stm->err) {
@@ -1276,23 +1276,23 @@ char* SCRMFS_WRAP(fgets)(char* s, int n, FILE* stream)
         return s;
     } else {
         MAP_OR_FAIL(fgets);
-        char* ret = SCRMFS_REAL(fgets)(s, n, stream);
+        char* ret = CRUISE_REAL(fgets)(s, n, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fputs)(const char* s, FILE* stream)
+int CRUISE_WRAP(fputs)(const char* s, FILE* stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* TODO: check that s is not NULL */
 
         /* get length of string, less the NUL-terminating byte */
         size_t count = strlen(s);
 
         /* write data to file */
-        int write_rc = scrmfs_stream_write(stream, (const void*)s, count);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_stream_write(stream, (const void*)s, count);
+        if (write_rc != CRUISE_SUCCESS) {
             /* stream write sets error indicator, EOF indicator,
              * and errno for us */
             return EOF;
@@ -1302,15 +1302,15 @@ int SCRMFS_WRAP(fputs)(const char* s, FILE* stream)
         return 0;
     } else {
         MAP_OR_FAIL(fputs);
-        int ret = SCRMFS_REAL(fputs)(s, stream);
+        int ret = CRUISE_REAL(fputs)(s, stream);
         return ret;
     }
 }
 
-size_t SCRMFS_WRAP(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
+size_t CRUISE_WRAP(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* must return 0 and do nothing if size or nitems is zero */
         if (size == 0 || nitems == 0) {
             return 0;
@@ -1322,8 +1322,8 @@ size_t SCRMFS_WRAP(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
 
         /* read next character from file */
         size_t retcount;
-        int read_rc = scrmfs_stream_read(stream, ptr, count, &retcount);
-        if (read_rc != SCRMFS_SUCCESS) {
+        int read_rc = cruise_stream_read(stream, ptr, count, &retcount);
+        if (read_rc != CRUISE_SUCCESS) {
             /* stream read sets error indicator, EOF indicator,
              * and errno for us */
             return 0;
@@ -1339,15 +1339,15 @@ size_t SCRMFS_WRAP(fread)(void *ptr, size_t size, size_t nitems, FILE *stream)
         }
     } else {
         MAP_OR_FAIL(fread);
-        size_t ret = SCRMFS_REAL(fread)(ptr, size, nitems, stream);
+        size_t ret = CRUISE_REAL(fread)(ptr, size, nitems, stream);
         return ret;
     }
 }
 
-size_t SCRMFS_WRAP(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *stream)
+size_t CRUISE_WRAP(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* must return 0 and do nothing if size or nitems is zero */
         if (size == 0 || nitems == 0) {
             return 0;
@@ -1358,8 +1358,8 @@ size_t SCRMFS_WRAP(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
         size_t count = size * nitems;
 
         /* write data to file */
-        int write_rc = scrmfs_stream_write(stream, ptr, count);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_stream_write(stream, ptr, count);
+        if (write_rc != CRUISE_SUCCESS) {
             /* stream write sets error indicator, EOF indicator,
              * and errno for us */
             return 0;
@@ -1369,37 +1369,37 @@ size_t SCRMFS_WRAP(fwrite)(const void *ptr, size_t size, size_t nitems, FILE *st
         return nitems;
     } else {
         MAP_OR_FAIL(fwrite);
-        size_t ret = SCRMFS_REAL(fwrite)(ptr, size, nitems, stream);
+        size_t ret = CRUISE_REAL(fwrite)(ptr, size, nitems, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fprintf)(FILE *stream, const char* format, ...)
+int CRUISE_WRAP(fprintf)(FILE *stream, const char* format, ...)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* delegate work to vfprintf */
         va_list args;
         va_start(args, format);
-        int ret = SCRMFS_WRAP(vfprintf)(stream, format, args);
+        int ret = CRUISE_WRAP(vfprintf)(stream, format, args);
         va_end(args);
         return ret;
     } else {
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfprintf);
-        int ret = SCRMFS_REAL(vfprintf)(stream, format, args);
+        int ret = CRUISE_REAL(vfprintf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(vfprintf)(FILE *stream, const char* format, va_list ap)
+int CRUISE_WRAP(vfprintf)(FILE *stream, const char* format, va_list ap)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is active */
 
@@ -1431,8 +1431,8 @@ int SCRMFS_WRAP(vfprintf)(FILE *stream, const char* format, va_list ap)
         }
 
         /* write data to file */
-        int write_rc = scrmfs_stream_write(stream, str, chars);
-        if (write_rc != SCRMFS_SUCCESS) {
+        int write_rc = cruise_stream_write(stream, str, chars);
+        if (write_rc != CRUISE_SUCCESS) {
             /* stream write sets error indicator, EOF indicator,
              * and errno for us */
             return -1;
@@ -1447,92 +1447,92 @@ int SCRMFS_WRAP(vfprintf)(FILE *stream, const char* format, va_list ap)
         va_list ap2;
         va_copy(ap2, ap);
         MAP_OR_FAIL(vfprintf);
-        int ret = SCRMFS_REAL(vfprintf)(stream, format, ap2);
+        int ret = CRUISE_REAL(vfprintf)(stream, format, ap2);
         va_end(ap2);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fscanf)(FILE *stream, const char* format, ...)
+int CRUISE_WRAP(fscanf)(FILE *stream, const char* format, ...)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* delegate work to vfscanf */
         va_list args;
         va_start(args, format);
-        int ret = SCRMFS_WRAP(vfscanf)(stream, format, args);
+        int ret = CRUISE_WRAP(vfscanf)(stream, format, args);
         va_end(args);
         return ret;
     } else {
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfscanf);
-        int ret = SCRMFS_REAL(vfscanf)(stream, format, args);
+        int ret = CRUISE_REAL(vfscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
 /* need to declare this before calling it */
-static int __svfscanf(scrmfs_stream_t *fp, const char *fmt0, va_list ap);
+static int __svfscanf(cruise_stream_t *fp, const char *fmt0, va_list ap);
 
-int SCRMFS_WRAP(vfscanf)(FILE *stream, const char* format, va_list ap)
+int CRUISE_WRAP(vfscanf)(FILE *stream, const char* format, va_list ap)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         va_list args;
         va_copy(args, ap);
-        int ret = __svfscanf((scrmfs_stream_t*)stream, format, args);
+        int ret = __svfscanf((cruise_stream_t*)stream, format, args);
         va_end(args);
         return ret;
     } else {
         va_list args;
         va_copy(args, ap);
         MAP_OR_FAIL(vfscanf);
-        int ret = SCRMFS_REAL(vfscanf)(stream, format, args);
+        int ret = CRUISE_REAL(vfscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
 /* TODO: return error if new position overflows long */
-int SCRMFS_WRAP(fseek)(FILE *stream, long offset, int whence)
+int CRUISE_WRAP(fseek)(FILE *stream, long offset, int whence)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         off_t offset_offt = (off_t) offset;
-        int rc = scrmfs_fseek(stream, offset_offt, whence);
+        int rc = cruise_fseek(stream, offset_offt, whence);
         return rc;
     } else {
         MAP_OR_FAIL(fseek);
-        int ret = SCRMFS_REAL(fseek)(stream, offset, whence);
+        int ret = CRUISE_REAL(fseek)(stream, offset, whence);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fseeko)(FILE *stream, off_t offset, int whence)
+int CRUISE_WRAP(fseeko)(FILE *stream, off_t offset, int whence)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
-        int rc = scrmfs_fseek(stream, offset, whence);
+    if (cruise_intercept_stream(stream)) {
+        int rc = cruise_fseek(stream, offset, whence);
         return rc;
     } else {
         MAP_OR_FAIL(fseeko);
-        int ret = SCRMFS_REAL(fseeko)(stream, offset, whence);
+        int ret = CRUISE_REAL(fseeko)(stream, offset, whence);
         return ret;
     }
 }
 
 /* TODO: set EOVERFLOW if position overflows long */
-long SCRMFS_WRAP(ftell)(FILE *stream)
+long CRUISE_WRAP(ftell)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* get pointer to file descriptor structure */
-        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
         if (filedesc == NULL) {
             /* ERROR: invalid file descriptor */
             s->err = 1;
@@ -1545,20 +1545,20 @@ long SCRMFS_WRAP(ftell)(FILE *stream)
         return (long)current_pos;
     } else {
         MAP_OR_FAIL(ftell);
-        long ret = SCRMFS_REAL(ftell)(stream);
+        long ret = CRUISE_REAL(ftell)(stream);
         return ret;
     }
 }
 
-off_t SCRMFS_WRAP(ftello)(FILE *stream)
+off_t CRUISE_WRAP(ftello)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* get pointer to file descriptor structure */
-        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
         if (filedesc == NULL) {
             /* ERROR: invalid file descriptor */
             s->err = 1;
@@ -1571,27 +1571,27 @@ off_t SCRMFS_WRAP(ftello)(FILE *stream)
         return current_pos;
     } else {
         MAP_OR_FAIL(ftello);
-        off_t ret = SCRMFS_REAL(ftello)(stream);
+        off_t ret = CRUISE_REAL(ftello)(stream);
         return ret;
     }
 }
 
 /* equivalent to fseek(stream, 0L, SEEK_SET) except shall also clear
  * error indicator */
-void SCRMFS_WRAP(rewind)(FILE* stream)
+void CRUISE_WRAP(rewind)(FILE* stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is active */
 
         /* seek to front of file */
-        int rc = scrmfs_fseek(stream, (off_t) 0L, SEEK_SET);
+        int rc = cruise_fseek(stream, (off_t) 0L, SEEK_SET);
 
         /* set errno */
-        errno = scrmfs_err_map_to_errno(rc);
+        errno = cruise_err_map_to_errno(rc);
 
         /* clear error indicator if seek successful */
         if (rc == 0) {
@@ -1601,32 +1601,32 @@ void SCRMFS_WRAP(rewind)(FILE* stream)
         return;
     } else {
         MAP_OR_FAIL(rewind);
-        SCRMFS_REAL(rewind)(stream);
+        CRUISE_REAL(rewind)(stream);
         return;
     }
 }
 
-struct scrmfs_fpos_t {
+struct cruise_fpos_t {
     off_t pos;
 };
 
-int SCRMFS_WRAP(fgetpos)(FILE* stream, fpos_t* pos)
+int CRUISE_WRAP(fgetpos)(FILE* stream, fpos_t* pos)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* check that we can store a pointer in fpos_t */
-        if (! scrmfs_fpos_enabled) {
+        if (! cruise_fpos_enabled) {
             errno = EOVERFLOW;
             return 1;
         }
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is active */
 
         /* get file descriptor for stream */
-        scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+        cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
         if (filedesc == NULL) {
             /* ERROR: invalid file descriptor */
             errno = EBADF;
@@ -1634,7 +1634,7 @@ int SCRMFS_WRAP(fgetpos)(FILE* stream, fpos_t* pos)
         }
 
         /* allocate memory to hold state of stream */
-        struct scrmfs_fpos_t* state = malloc(sizeof(struct scrmfs_fpos_t));
+        struct cruise_fpos_t* state = malloc(sizeof(struct cruise_fpos_t));
         if (state == NULL) {
             errno = ENOMEM;
             return 1;
@@ -1650,22 +1650,22 @@ int SCRMFS_WRAP(fgetpos)(FILE* stream, fpos_t* pos)
         return 0;
     } else {
         MAP_OR_FAIL(fgetpos);
-        int ret = SCRMFS_REAL(fgetpos)(stream, pos);
+        int ret = CRUISE_REAL(fgetpos)(stream, pos);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fsetpos)(FILE* stream, const fpos_t* pos)
+int CRUISE_WRAP(fsetpos)(FILE* stream, const fpos_t* pos)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is active */
 
         /* check that we can store a pointer in fpos_t */
-        if (! scrmfs_fpos_enabled) {
+        if (! cruise_fpos_enabled) {
             s->err = 1;
             errno = EOVERFLOW;
             return -1;
@@ -1674,10 +1674,10 @@ int SCRMFS_WRAP(fsetpos)(FILE* stream, const fpos_t* pos)
         /* get pointer to state from pos input parameter,
          * assumes pos is a pointer to void*, deference to get value
          * of void*, which we then cast to a state pointer, ugh */
-        struct scrmfs_fpos_t* state = (struct scrmfs_fpos_t*) *(void**) pos;
+        struct cruise_fpos_t* state = (struct cruise_fpos_t*) *(void**) pos;
 
         /* semantics of fsetpos seem to match a seek */
-        int seek_rc = scrmfs_fseek(stream, state->pos, SEEK_SET);
+        int seek_rc = cruise_fseek(stream, state->pos, SEEK_SET);
         if (seek_rc != 0) {
             return seek_rc;
         }
@@ -1688,30 +1688,30 @@ int SCRMFS_WRAP(fsetpos)(FILE* stream, const fpos_t* pos)
         return 0;
     } else {
         MAP_OR_FAIL(fsetpos);
-        int ret = SCRMFS_REAL(fsetpos)(stream, pos);
+        int ret = CRUISE_REAL(fsetpos)(stream, pos);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fflush)(FILE* stream)
+int CRUISE_WRAP(fflush)(FILE* stream)
 {
     /* if stream is NULL, flush output on all streams */
     if (stream == NULL) {
         /* first, have real library flush all of its streams,
          * important to do this in this order since it may set errno,
-         * which could override our setting for scrmfs streams */
+         * which could override our setting for cruise streams */
         MAP_OR_FAIL(fflush);
-        int ret = SCRMFS_REAL(fflush)(NULL);
+        int ret = CRUISE_REAL(fflush)(NULL);
 
-        /* flush each active scrmfs stream */
+        /* flush each active cruise stream */
         int fid;
-        for (fid = 0; fid < SCRMFS_MAX_FILEDESCS; fid++) {
+        for (fid = 0; fid < CRUISE_MAX_FILEDESCS; fid++) {
             /* get stream and check whether it's active */
-            scrmfs_stream_t* s = &(scrmfs_streams[fid]);
+            cruise_stream_t* s = &(cruise_streams[fid]);
             if (s->fd >= 0) {
                 /* attempt to flush stream */
-                int flush_rc = scrmfs_stream_flush((FILE*)s);
-                if (flush_rc != SCRMFS_SUCCESS) {
+                int flush_rc = cruise_stream_flush((FILE*)s);
+                if (flush_rc != CRUISE_SUCCESS) {
                     /* ERROR: flush sets error indicator and errno */
                     ret = EOF;
                 }
@@ -1722,15 +1722,15 @@ int SCRMFS_WRAP(fflush)(FILE* stream)
     }
 
     /* otherwise, check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is active */
 
         /* flush output on stream */
-        int rc = scrmfs_stream_flush(stream);
-        if (rc != SCRMFS_SUCCESS) {
+        int rc = cruise_stream_flush(stream);
+        if (rc != CRUISE_SUCCESS) {
             /* ERROR: flush sets error indicator and errno */
             return EOF;
         }
@@ -1738,19 +1738,19 @@ int SCRMFS_WRAP(fflush)(FILE* stream)
         return 0;
     } else {
         MAP_OR_FAIL(fflush);
-        int ret = SCRMFS_REAL(fflush)(stream);
+        int ret = CRUISE_REAL(fflush)(stream);
         return ret;
     }
 }
 
 /* return non-zero if and only if end-of-file indicator is set
  * for stream */
-int SCRMFS_WRAP(feof)(FILE *stream)
+int CRUISE_WRAP(feof)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: ensure stream is active */
 
@@ -1758,17 +1758,17 @@ int SCRMFS_WRAP(feof)(FILE *stream)
         return ret;
     } else {
         MAP_OR_FAIL(feof);
-        int ret = SCRMFS_REAL(feof)(stream);
+        int ret = CRUISE_REAL(feof)(stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(ferror)(FILE* stream)
+int CRUISE_WRAP(ferror)(FILE* stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream and file descriptor */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: ensure stream is active */
 
@@ -1776,17 +1776,17 @@ int SCRMFS_WRAP(ferror)(FILE* stream)
         return ret;
     } else {
         MAP_OR_FAIL(ferror);
-        int ret = SCRMFS_REAL(ferror)(stream);
+        int ret = CRUISE_REAL(ferror)(stream);
         return ret;
     }
 }
 
-void SCRMFS_WRAP(clearerr)(FILE* stream)
+void CRUISE_WRAP(clearerr)(FILE* stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: ensure stream is active */
 
@@ -1796,18 +1796,18 @@ void SCRMFS_WRAP(clearerr)(FILE* stream)
         return;
     } else {
         MAP_OR_FAIL(clearerr);
-        SCRMFS_REAL(clearerr)(stream);
+        CRUISE_REAL(clearerr)(stream);
         return;
     }
 
 }
 
-int SCRMFS_WRAP(fileno)(FILE *stream)
+int CRUISE_WRAP(fileno)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* TODO: check that stream is valid */
         int fd = s->fd;
@@ -1820,28 +1820,28 @@ int SCRMFS_WRAP(fileno)(FILE *stream)
         return fd;
     } else {
         MAP_OR_FAIL(fileno);
-        int ret = SCRMFS_REAL(fileno)(stream);
+        int ret = CRUISE_REAL(fileno)(stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fclose)(FILE *stream)
+int CRUISE_WRAP(fclose)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
 
         /* get the file id for this file descriptor */
-        int fid = scrmfs_get_fid_from_fd(s->fd);
+        int fid = cruise_get_fid_from_fd(s->fd);
         if (fid < 0) {
             errno = EBADF;
             return EOF;
         }
 
         /* flush stream */
-        int flush_rc = scrmfs_stream_flush(stream);
-        if (flush_rc != SCRMFS_SUCCESS) {
+        int flush_rc = cruise_stream_flush(stream);
+        if (flush_rc != CRUISE_SUCCESS) {
             /* ERROR: flush sets error indicator and errno */
             return EOF;
         }
@@ -1860,9 +1860,9 @@ int SCRMFS_WRAP(fclose)(FILE *stream)
         }
 
         /* close the file */
-        int close_rc = scrmfs_fid_close(fid);
-        if (close_rc != SCRMFS_SUCCESS) {
-            errno = scrmfs_err_map_to_errno(close_rc);
+        int close_rc = cruise_fid_close(fid);
+        if (close_rc != CRUISE_SUCCESS) {
+            errno = cruise_err_map_to_errno(close_rc);
             return EOF;
         }
 
@@ -1873,22 +1873,22 @@ int SCRMFS_WRAP(fclose)(FILE *stream)
         return 0;
     } else {
         MAP_OR_FAIL(fclose);
-        int ret = SCRMFS_REAL(fclose)(stream);
+        int ret = CRUISE_REAL(fclose)(stream);
         return ret;
     }
 }
 
 
 
-int SCRMFS_WRAP(fwprintf)(FILE *stream, const wchar_t* format, ...)
+int CRUISE_WRAP(fwprintf)(FILE *stream, const wchar_t* format, ...)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return -1;
@@ -1896,21 +1896,21 @@ int SCRMFS_WRAP(fwprintf)(FILE *stream, const wchar_t* format, ...)
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfwprintf);
-        int ret = SCRMFS_REAL(vfwprintf)(stream, format, args);
+        int ret = CRUISE_REAL(vfwprintf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fwscanf)(FILE *stream, const wchar_t* format, ...)
+int CRUISE_WRAP(fwscanf)(FILE *stream, const wchar_t* format, ...)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return EOF;
@@ -1918,21 +1918,21 @@ int SCRMFS_WRAP(fwscanf)(FILE *stream, const wchar_t* format, ...)
         va_list args;
         va_start(args, format);
         MAP_OR_FAIL(vfwscanf);
-        int ret = SCRMFS_REAL(vfwscanf)(stream, format, args);
+        int ret = CRUISE_REAL(vfwscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
+int CRUISE_WRAP(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return -1;
@@ -1940,21 +1940,21 @@ int SCRMFS_WRAP(vfwprintf)(FILE *stream, const wchar_t* format, va_list arg)
         va_list args;
         va_copy(args, arg);
         MAP_OR_FAIL(vfwprintf);
-        int ret = SCRMFS_REAL(vfwprintf)(stream, format, args);
+        int ret = CRUISE_REAL(vfwprintf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
+int CRUISE_WRAP(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "%s", format);
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return EOF;
@@ -1962,160 +1962,160 @@ int SCRMFS_WRAP(vfwscanf)(FILE *stream, const wchar_t* format, va_list arg)
         va_list args;
         va_copy(args, arg);
         MAP_OR_FAIL(vfwscanf);
-        int ret = SCRMFS_REAL(vfwscanf)(stream, format, args);
+        int ret = CRUISE_REAL(vfwscanf)(stream, format, args);
         va_end(args);
         return ret;
     }
 }
 
-wint_t SCRMFS_WRAP(fgetwc)(FILE *stream)
+wint_t CRUISE_WRAP(fgetwc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return WEOF;
     } else {
         MAP_OR_FAIL(fgetwc);
-        wint_t ret = SCRMFS_REAL(fgetwc)(stream);
+        wint_t ret = CRUISE_REAL(fgetwc)(stream);
         return ret;
     }
 }
 
-wchar_t* SCRMFS_WRAP(fgetws)(wchar_t* s, int n, FILE *stream)
+wchar_t* CRUISE_WRAP(fgetws)(wchar_t* s, int n, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return NULL;
     } else {
         MAP_OR_FAIL(fgetws);
-        wchar_t* ret = SCRMFS_REAL(fgetws)(s, n, stream);
+        wchar_t* ret = CRUISE_REAL(fgetws)(s, n, stream);
         return ret;
     }
 }
 
-wint_t SCRMFS_WRAP(fputwc)(wchar_t wc, FILE *stream)
+wint_t CRUISE_WRAP(fputwc)(wchar_t wc, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return WEOF;
     } else {
         MAP_OR_FAIL(fputwc);
-        wint_t ret = SCRMFS_REAL(fputwc)(wc, stream);
+        wint_t ret = CRUISE_REAL(fputwc)(wc, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fputws)(const wchar_t* s, FILE *stream)
+int CRUISE_WRAP(fputws)(const wchar_t* s, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return -1;
     } else {
         MAP_OR_FAIL(fputws);
-        int ret = SCRMFS_REAL(fputws)(s, stream);
+        int ret = CRUISE_REAL(fputws)(s, stream);
         return ret;
     }
 }
 
-int SCRMFS_WRAP(fwide)(FILE *stream, int mode)
+int CRUISE_WRAP(fwide)(FILE *stream, int mode)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return 0;
     } else {
         MAP_OR_FAIL(fwide);
-        int ret = SCRMFS_REAL(fwide)(stream, mode);
+        int ret = CRUISE_REAL(fwide)(stream, mode);
         return ret;
     }
 }
 
-wint_t SCRMFS_WRAP(getwc)(FILE *stream)
+wint_t CRUISE_WRAP(getwc)(FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return WEOF;
     } else {
         MAP_OR_FAIL(getwc);
-        wint_t ret = SCRMFS_REAL(getwc)(stream);
+        wint_t ret = CRUISE_REAL(getwc)(stream);
         return ret;
     }
 }
 
-wint_t SCRMFS_WRAP(putwc)(wchar_t c, FILE *stream)
+wint_t CRUISE_WRAP(putwc)(wchar_t c, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return WEOF;
     } else {
         MAP_OR_FAIL(putwc);
-        wint_t ret = SCRMFS_REAL(putwc)(c, stream);
+        wint_t ret = CRUISE_REAL(putwc)(c, stream);
         return ret;
     }
 }
 
-wint_t SCRMFS_WRAP(ungetwc)(wint_t c, FILE *stream)
+wint_t CRUISE_WRAP(ungetwc)(wint_t c, FILE *stream)
 {
     /* check whether we should intercept this stream */
-    if (scrmfs_intercept_stream(stream)) {
+    if (cruise_intercept_stream(stream)) {
         /* return file descriptor associated with stream */
-        scrmfs_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
+        cruise_unsupported_stream(stream, __func__, __FILE__, __LINE__, "");
 
         /* lookup stream */
-        scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+        cruise_stream_t* s = (cruise_stream_t*) stream;
         s->err = 1;
         errno = EIO;
         return WEOF;
     } else {
         MAP_OR_FAIL(ungetwc);
-        wint_t ret = SCRMFS_REAL(ungetwc)(c, stream);
+        wint_t ret = CRUISE_REAL(ungetwc)(c, stream);
         return ret;
     }
 }
@@ -2229,8 +2229,8 @@ wint_t SCRMFS_WRAP(ungetwc)(wint_t c, FILE *stream)
 
 static const u_char *__sccl(char *, const u_char *);
 #ifndef NO_FLOATING_POINT
-//ATM static int parsefloat(scrmfs_stream_t *, char *, char *, locale_t);
-static int parsefloat(scrmfs_stream_t *, char *, char *);
+//ATM static int parsefloat(cruise_stream_t *, char *, char *, locale_t);
+static int parsefloat(cruise_stream_t *, char *, char *);
 #endif
 
 //ATM __weak_reference(__vfscanf, vfscanf);
@@ -2248,13 +2248,13 @@ static const int suppress;
 //ATM static const mbstate_t initial_mbs;
 
 // ATM
-static int __srefill(scrmfs_stream_t* stream)
+static int __srefill(cruise_stream_t* stream)
 {
     /* lookup stream */
-    scrmfs_stream_t* s = (scrmfs_stream_t*) stream;
+    cruise_stream_t* s = (cruise_stream_t*) stream;
 
     /* get pointer to file descriptor structure */
-    scrmfs_fd_t* filedesc = scrmfs_get_filedesc_from_fd(s->fd);
+    cruise_fd_t* filedesc = cruise_get_filedesc_from_fd(s->fd);
     if (filedesc == NULL) {
        /* ERROR: invalid file descriptor */
        s->err = 1;
@@ -2271,11 +2271,11 @@ static int __srefill(scrmfs_stream_t* stream)
 
     /* associate buffer with stream if we need to */
     if (s->buf == NULL) {
-        int setvbuf_rc = scrmfs_setvbuf((FILE*)stream, NULL, s->buftype, SCRMFS_STREAM_BUFSIZE);
-        if (setvbuf_rc != SCRMFS_SUCCESS) {
+        int setvbuf_rc = cruise_setvbuf((FILE*)stream, NULL, s->buftype, CRUISE_STREAM_BUFSIZE);
+        if (setvbuf_rc != CRUISE_SUCCESS) {
             /* ERROR: failed to associate buffer */
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(setvbuf_rc);
+            errno = cruise_err_map_to_errno(setvbuf_rc);
             return 1;
         }
     }
@@ -2297,19 +2297,19 @@ static int __srefill(scrmfs_stream_t* stream)
         /* current is outside the range of our buffer */
 
         /* flush buffer if needed before read */
-        int flush_rc = scrmfs_stream_flush((FILE*)stream);
-        if (flush_rc != SCRMFS_SUCCESS) {
+        int flush_rc = cruise_stream_flush((FILE*)stream);
+        if (flush_rc != CRUISE_SUCCESS) {
             /* ERROR: flush sets error indicator and errno */
             return 1;
         }
 
         /* read data from file into buffer */
         size_t bufcount;
-        int read_rc = scrmfs_fd_read(s->fd, current, s->buf, s->bufsize, &bufcount);
-        if (read_rc != SCRMFS_SUCCESS) {
+        int read_rc = cruise_fd_read(s->fd, current, s->buf, s->bufsize, &bufcount);
+        if (read_rc != CRUISE_SUCCESS) {
             /* ERROR: read error, set error indicator and errno */
             s->err = 1;
-            errno = scrmfs_err_map_to_errno(read_rc);
+            errno = cruise_err_map_to_errno(read_rc);
             return 1;
         }
 
@@ -2339,7 +2339,7 @@ static int __srefill(scrmfs_stream_t* stream)
  */
 
 static __inline int
-convert_char(scrmfs_stream_t *fp, char * p, int width)
+convert_char(cruise_stream_t *fp, char * p, int width)
 {
 	int n;
 
@@ -2376,7 +2376,7 @@ convert_char(scrmfs_stream_t *fp, char * p, int width)
 //ATM
 #if 0
 static __inline int
-convert_wchar(scrmfs_stream_t *fp, wchar_t *wcp, int width, locale_t locale)
+convert_wchar(cruise_stream_t *fp, wchar_t *wcp, int width, locale_t locale)
 {
 	mbstate_t mbs;
 	int n, nread;
@@ -2397,7 +2397,7 @@ convert_wchar(scrmfs_stream_t *fp, wchar_t *wcp, int width, locale_t locale)
 #endif
 
 static __inline int
-convert_ccl(scrmfs_stream_t *fp, char * p, int width, const char *ccltab)
+convert_ccl(cruise_stream_t *fp, char * p, int width, const char *ccltab)
 {
 	char *p0;
 	int n;
@@ -2438,7 +2438,7 @@ convert_ccl(scrmfs_stream_t *fp, char * p, int width, const char *ccltab)
 //ATM
 #if 0
 static __inline int
-convert_wccl(scrmfs_stream_t *fp, wchar_t *wcp, int width, const char *ccltab,
+convert_wccl(cruise_stream_t *fp, wchar_t *wcp, int width, const char *ccltab,
     locale_t locale)
 {
 	mbstate_t mbs;
@@ -2470,7 +2470,7 @@ convert_wccl(scrmfs_stream_t *fp, wchar_t *wcp, int width, const char *ccltab,
 #endif
 
 static __inline int
-convert_string(scrmfs_stream_t *fp, char * p, int width)
+convert_string(cruise_stream_t *fp, char * p, int width)
 {
 	char *p0;
 	int n;
@@ -2503,7 +2503,7 @@ convert_string(scrmfs_stream_t *fp, char * p, int width)
 //ATM
 #if 0
 static __inline int
-convert_wstring(scrmfs_stream_t *fp, wchar_t *wcp, int width, locale_t locale)
+convert_wstring(cruise_stream_t *fp, wchar_t *wcp, int width, locale_t locale)
 {
 	mbstate_t mbs;
 	wint_t wi;
@@ -2539,7 +2539,7 @@ convert_wstring(scrmfs_stream_t *fp, wchar_t *wcp, int width, locale_t locale)
  * otherwise.
  */
 static __inline int
-parseint(scrmfs_stream_t *fp, char * __restrict buf, int width, int base, int flags)
+parseint(cruise_stream_t *fp, char * __restrict buf, int width, int base, int flags)
 {
 	/* `basefix' is used to avoid `if' tests */
 	static const short basefix[17] =
@@ -2667,7 +2667,7 @@ parseint(scrmfs_stream_t *fp, char * __restrict buf, int width, int base, int fl
  * __vfscanf - MT-safe version
  */
 int
-__vfscanf(scrmfs_stream_t *fp, char const *fmt0, va_list ap)
+__vfscanf(cruise_stream_t *fp, char const *fmt0, va_list ap)
 {
 	int ret;
 
@@ -2677,7 +2677,7 @@ __vfscanf(scrmfs_stream_t *fp, char const *fmt0, va_list ap)
 	return (ret);
 }
 int
-vfscanf_l(scrmfs_stream_t *fp, locale_t locale, char const *fmt0, va_list ap)
+vfscanf_l(cruise_stream_t *fp, locale_t locale, char const *fmt0, va_list ap)
 {
 	int ret;
 	FIX_LOCALE(locale);
@@ -2693,8 +2693,8 @@ vfscanf_l(scrmfs_stream_t *fp, locale_t locale, char const *fmt0, va_list ap)
  * __svfscanf - non-MT-safe version of __vfscanf
  */
 static int
-//ATM __svfscanf(scrmfs_stream_t *fp, locale_t locale, const char *fmt0, va_list ap)
-__svfscanf(scrmfs_stream_t *fp, const char *fmt0, va_list ap)
+//ATM __svfscanf(cruise_stream_t *fp, locale_t locale, const char *fmt0, va_list ap)
+__svfscanf(cruise_stream_t *fp, const char *fmt0, va_list ap)
 {
 #define	GETARG(type)	((flags & SUPPRESS) ? SUPPRESS_PTR : va_arg(ap, type))
 	const u_char *fmt = (const u_char *)fmt0;
@@ -2917,7 +2917,7 @@ literal:
 			if (flags & LONG) {
 //ATM				nr = convert_wchar(fp, GETARG(wchar_t *),
 //				    width, locale);
-                                scrmfs_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
+                                cruise_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
 			} else {
 				nr = convert_char(fp, GETARG(char *), width);
 			}
@@ -2932,7 +2932,7 @@ literal:
 			if (flags & LONG) {
 //ATM				nr = convert_wccl(fp, GETARG(wchar_t *), width,
 //				    ccltab, locale);
-                                scrmfs_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
+                                cruise_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
 			} else {
 				nr = convert_ccl(fp, GETARG(char *), width,
 				    ccltab);
@@ -2952,7 +2952,7 @@ literal:
 			if (flags & LONG) {
 //ATM				nr = convert_wstring(fp, GETARG(wchar_t *),
 //				    width, locale);
-                                scrmfs_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
+                                cruise_unsupported_stream((FILE*)fp, __func__, __FILE__, __LINE__, "%s", fmt0);
 			} else {
 				nr = convert_string(fp, GETARG(char *), width);
 			}
@@ -3162,8 +3162,8 @@ doswitch:
 
 #ifndef NO_FLOATING_POINT
 static int
-//parsefloat(scrmfs_stream_t *fp, char *buf, char *end, locale_t locale)
-parsefloat(scrmfs_stream_t *fp, char *buf, char *end)
+//parsefloat(cruise_stream_t *fp, char *buf, char *end, locale_t locale)
+parsefloat(cruise_stream_t *fp, char *buf, char *end)
 {
 	char *commit, *p;
 	int infnanpos = 0, decptpos = 0;

@@ -3,7 +3,7 @@
 # Generates compiler scripts for all BG compilers
 #
 
-PREFIX=/soft/apps/scrmfs-x.x.x
+PREFIX=/soft/apps/cruise-x.x.x
 BGPATH=/bgsys/drivers/ppcfloor/comm/xxx/bin
 
 for compiler_type in default fast xl;
@@ -21,14 +21,14 @@ do
                compiler_opt="--trim --xl";
            fi
            if [ $(expr match $compiler ".*cxx") -gt 0 ]; then
-               $PREFIX/bin/scrmfs-gen-cxx.pl $compiler_opt --output=$PREFIX/bin/$compiler_type/$compiler $compiler_path/$compiler
+               $PREFIX/bin/cruise-gen-cxx.pl $compiler_opt --output=$PREFIX/bin/$compiler_type/$compiler $compiler_path/$compiler
            elif [ $(expr match $compiler ".*f77") -gt 0 -o \
                   $(expr match $compiler ".*f90") -gt 0 -o \
                   $(expr match $compiler ".*f95") -gt 0 -o \
                   $(expr match $compiler ".*f2003") -gt 0 ]; then
-               $PREFIX/bin/scrmfs-gen-fortran.pl $compiler_opt --output=$PREFIX/bin/$compiler_type/$compiler $compiler_path/$compiler
+               $PREFIX/bin/cruise-gen-fortran.pl $compiler_opt --output=$PREFIX/bin/$compiler_type/$compiler $compiler_path/$compiler
            else
-               $PREFIX/bin/scrmfs-gen-cc.pl $compiler_opt --output=$PREFIX/bin/$compiler_type/$compiler $compiler_path/$compiler
+               $PREFIX/bin/cruise-gen-cc.pl $compiler_opt --output=$PREFIX/bin/$compiler_type/$compiler $compiler_path/$compiler
            fi
        fi
    done 

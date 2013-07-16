@@ -1,16 +1,19 @@
-/* scrmfs-runtime-config.h.in.  Generated from configure.in by autoheader.  */
+/* cruise-runtime-config.h.in.  Generated from configure.in by autoheader.  */
 
 /* Define if building universal (internal helper macro) */
 #undef AC_APPLE_UNIVERSAL_BUILD
 
-/* Define if libcontainer is available */
-#undef HAVE_CONTAINER_LIB
+/* Define if cuserid() should be disabled */
+#undef CRUISE_DISABLE_CUSERID
+
+/* Define if libnuma is available */
+#undef ENABLE_NUMA_POLICY
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `container' library (-lcontainer). */
-#undef HAVE_LIBCONTAINER
+/* Define to 1 if you have the `numa' library (-lnuma). */
+#undef HAVE_LIBNUMA
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -62,9 +65,6 @@
 
 /* Define if <inttypes.h> exists and defines unusable PRI* macros. */
 #undef PRI_MACROS_BROKEN
-
-/* Define if cuserid() should be disabled */
-#undef SCRMFS_DISABLE_CUSERID
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

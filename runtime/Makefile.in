@@ -1,4 +1,4 @@
-all: lib/libscrmfs-posix.a
+all: lib/libcruise-posix.a
 
 DESTDIR =
 srcdir = @srcdir@
@@ -18,17 +18,17 @@ NUMA_LIBS = -lnuma
 
 
 DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
-SCRMFS_LOG_FORMAT = $(srcdir)/../scrmfs-log-format.h
+CRUISE_LOG_FORMAT = $(srcdir)/../cruise-log-format.h
 
 ifndef DISABLE_LDPRELOAD
-all: lib/libscrmfs.so 
+all: lib/libcruise.so 
 endif
 
 VPATH = $(srcdir)
 
-CFLAGS = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE 
+CFLAGS = -DCRUISE_CONFIG_H=\"cruise-runtime-config.h\" -I . -I ../ -I $(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE 
 
-CFLAGS_SHARED = -DSCRMFS_CONFIG_H=\"scrmfs-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DSCRMFS_PRELOAD
+CFLAGS_SHARED = -DCRUISE_CONFIG_H=\"cruise-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DCRUISE_PRELOAD
 
 LIBS = -lz @LIBBZ2@ $(NUMA_LIBS)
 
@@ -36,69 +36,69 @@ lib::
 	@mkdir -p $@
 
 HEADERS = \
-  lib/scrmfs-stack.h \
-  lib/scrmfs-fixed.h \
-  lib/scrmfs-sysio.h \
-  lib/scrmfs-stdio.h \
-  lib/scrmfs-internal.h \
-  lib/scrmfs.h
+  lib/cruise-stack.h \
+  lib/cruise-fixed.h \
+  lib/cruise-sysio.h \
+  lib/cruise-stdio.h \
+  lib/cruise-internal.h \
+  lib/cruise.h
 
 OBJS = \
   lib/lookup3.o \
   lib/lookup8.o \
-  lib/scrmfs-stack.o \
-  lib/scrmfs-fixed.o \
-  lib/scrmfs-sysio.o \
-  lib/scrmfs-stdio.o \
-  lib/scrmfs.o
+  lib/cruise-stack.o \
+  lib/cruise-fixed.o \
+  lib/cruise-sysio.o \
+  lib/cruise-stdio.o \
+  lib/cruise.o
 
 POBJS = \
   lib/lookup3.po \
   lib/lookup8.po \
-  lib/scrmfs-stack.po \
-  lib/scrmfs-fixed.po \
-  lib/scrmfs-sysio.po \
-  lib/scrmfs-stdio.po \
-  lib/scrmfs.po
+  lib/cruise-stack.po \
+  lib/cruise-fixed.po \
+  lib/cruise-sysio.po \
+  lib/cruise-stdio.po \
+  lib/cruise.po
 
-#lib/scrmfs-mpi-io.o: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#lib/cruise-mpi-io.o: lib/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS) -c $< -o $@
 
-#lib/scrmfs-mpi-io.po: lib/scrmfs-mpi-io.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#lib/cruise-mpi-io.po: lib/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-#lib/scrmfs-mpi-init-finalize.o: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#lib/cruise-mpi-init-finalize.o: lib/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS) -c $< -o $@
 
-#lib/scrmfs-mpi-init-finalize.po: lib/scrmfs-mpi-init-finalize.c scrmfs.h scrmfs-dynamic.h $(SCRMFS_LOG_FORMAT) | lib
+#lib/cruise-mpi-init-finalize.po: lib/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-lib/scrmfs-fixed.o: lib/scrmfs-fixed.c $(HEADERS)
+lib/cruise-fixed.o: lib/cruise-fixed.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/scrmfs-fixed.po: lib/scrmfs-fixed.c $(HEADERS)
+lib/cruise-fixed.po: lib/cruise-fixed.c $(HEADERS)
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
-lib/scrmfs.o: lib/scrmfs.c $(HEADERS)
-	$(CC) $(CFLAGS) -c lib/scrmfs.c -o $@
+lib/cruise.o: lib/cruise.c $(HEADERS)
+	$(CC) $(CFLAGS) -c lib/cruise.c -o $@
 
-lib/scrmfs.po: lib/scrmfs.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c lib/scrmfs.c -o $@
-
-
-lib/scrmfs-sysio.o: lib/scrmfs-sysio.c $(HEADERS)
-	$(CC) $(CFLAGS) -c lib/scrmfs-sysio.c -o $@
-
-lib/scrmfs-sysio.po: lib/scrmfs-sysio.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c lib/scrmfs-sysio.c -o $@
+lib/cruise.po: lib/cruise.c $(HEADERS)
+	$(CC) $(CFLAGS_SHARED) -c lib/cruise.c -o $@
 
 
-lib/scrmfs-stdio.o: lib/scrmfs-stdio.c $(HEADERS)
-	$(CC) $(CFLAGS) -c lib/scrmfs-stdio.c -o $@
+lib/cruise-sysio.o: lib/cruise-sysio.c $(HEADERS)
+	$(CC) $(CFLAGS) -c lib/cruise-sysio.c -o $@
 
-lib/scrmfs-stdio.po: lib/scrmfs-stdio.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c lib/scrmfs-stdio.c -o $@
+lib/cruise-sysio.po: lib/cruise-sysio.c $(HEADERS)
+	$(CC) $(CFLAGS_SHARED) -c lib/cruise-sysio.c -o $@
+
+
+lib/cruise-stdio.o: lib/cruise-stdio.c $(HEADERS)
+	$(CC) $(CFLAGS) -c lib/cruise-stdio.c -o $@
+
+lib/cruise-stdio.po: lib/cruise-stdio.c $(HEADERS)
+	$(CC) $(CFLAGS_SHARED) -c lib/cruise-stdio.c -o $@
 
 
 lib/lookup3.o: lib/lookup3.c
@@ -115,35 +115,35 @@ lib/lookup8.po: lib/lookup8.c
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
-lib/scrmfs-stack.o: lib/scrmfs-stack.c $(HEADERS)
+lib/cruise-stack.o: lib/cruise-stack.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/scrmfs-stack.po: lib/scrmfs-stack.c $(HEADERS)
+lib/cruise-stack.po: lib/cruise-stack.c $(HEADERS)
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
 %.i: %.c
 	$(CC) -E $(CFLAGS) -c $< -o $@
 
-lib/libscrmfs-posix.a: $(OBJS)
+lib/libcruise-posix.a: $(OBJS)
 	ar rcs $@ $^
 
-lib/libscrmfs.so: $(POBJS)
+lib/libcruise.so: $(POBJS)
 	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
 
 install:: all
 	install -d $(libdir)
-	install -m 755 lib/libscrmfs-posix.a $(libdir)
-#	install -m 755 lib/libscrmfs-mpi-io.a $(libdir)
+	install -m 755 lib/libcruise-posix.a $(libdir)
+#	install -m 755 lib/libcruise-mpi-io.a $(libdir)
 ifndef DISABLE_LDPRELOAD
-	install -m 755 lib/libscrmfs.so $(libdir)
+	install -m 755 lib/libcruise.so $(libdir)
 endif
 	install -d $(bindir)
-	install -m 755 scrmfs-config $(bindir)
+	install -m 755 cruise-config $(bindir)
 
 clean::
 	rm -f *.o *.po *.a lib/*.o lib/*.po lib/*.a lib/*.so 
 
 distclean:: clean
-	rm -f scrmfs-runtime-config.h aclocal.m4 autom4te.cache/* config.status config.log Makefile 
+	rm -f cruise-runtime-config.h aclocal.m4 autom4te.cache/* config.status config.log Makefile 
 	rm -rf autom4te.cache

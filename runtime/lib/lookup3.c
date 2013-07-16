@@ -253,7 +253,7 @@ uint32_t       *pb)               /* IN: more seed OUT: secondary hash value */
 
 /*
 -------------------------------------------------------------------------------
-scrmfs_hashlittle() -- hash a variable-length key into a 32-bit value
+cruise_hashlittle() -- hash a variable-length key into a 32-bit value
   k       : the key (the unaligned variable-length array of bytes)
   length  : the length of the key, counting by bytes
   initval : can be any 4-byte value
@@ -278,7 +278,7 @@ acceptable.  Do NOT use for cryptographic purposes.
 -------------------------------------------------------------------------------
 */
 
-uint32_t scrmfs_hashlittle( const void *key, size_t length, uint32_t initval)
+uint32_t cruise_hashlittle( const void *key, size_t length, uint32_t initval)
 {
   uint32_t a,b,c;                                          /* internal state */
   union { const void *ptr; size_t i; } u;     /* needed for Mac Powerbook G4 */

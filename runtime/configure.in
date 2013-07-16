@@ -1,14 +1,14 @@
 dnl **************************************************************
-dnl SCRMFS AUTOCONF SCRIPT
+dnl CRUISE AUTOCONF SCRIPT
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl You may need to use autoheader as well if changing any DEFINEs
 
 dnl sanity checks, output header, location of scripts used here
-AC_INIT([scrmfs-runtime], [2.x])
-AC_CONFIG_SRCDIR([scrmfs-defs.h])
+AC_INIT([cruise-runtime], [2.x])
+AC_CONFIG_SRCDIR([cruise-defs.h])
 AC_CONFIG_AUX_DIR(./maint/config)
-AC_CONFIG_HEADER(scrmfs-runtime-config.h)
+AC_CONFIG_HEADER(cruise-runtime-config.h)
 
 AC_PROG_INSTALL
 
@@ -26,7 +26,7 @@ CHECK_NUMA
 AC_ARG_ENABLE(cuserid, 
 [  --disable-cuserid       Disables attempted use of cuserid() at run time], 
 [if test "x$enableval" = "xno" ; then
-    AC_DEFINE(SCRMFS_DISABLE_CUSERID, 1, Define if cuserid() should be disabled),
+    AC_DEFINE(CRUISE_DISABLE_CUSERID, 1, Define if cuserid() should be disabled),
 fi]
 ,)
 
@@ -83,7 +83,7 @@ CFLAGS="$old_cflags"
 
 AC_CHECK_HEADERS(mntent.h sys/mount.h)
 
-# libc functions wrapped by scrmfs
+# libc functions wrapped by cruise
 CP_WRAPPERS="-Wl,-u,MPI_Wtime"
 
 CP_WRAPPERS+=",-wrap,access"
@@ -181,7 +181,7 @@ CP_WRAPPERS+=",-wrap,close"
 # ,-u,__wrap___fxstat64,-u,pthread_mutex_lock,-u,pthread_mutex_unlock
 
 # We need to know the value of the $libdir and $bindir variables so that 
-# we can reference the correct path in the scrmfs compiler wrappers.  
+# we can reference the correct path in the cruise compiler wrappers.  
 # Unfortunately, those two variables are not normally evaluated by autoconf.  
 # They are evaluated at build time using Makefile variable substitutions.  
 # 
@@ -194,8 +194,8 @@ savePrefix=$prefix
 saveExecprefix=$exec_prefix
 test "x$prefix" = xNONE && prefix=$ac_default_prefix
 test "x$exec_prefix" = xNONE && exec_prefix=$prefix
-eval scrmfs_lib_path=$libdir
-eval scrmfs_bin_path=$bindir
+eval cruise_lib_path=$libdir
+eval cruise_bin_path=$bindir
 prefix=$savePrefix
 exec_prefix=$saveExecprefix
 
@@ -243,12 +243,12 @@ AC_CHECK_TYPE([MPIO_Request],
 		AC_DEFINE(__D_MPI_REQUEST, MPI_Request, Generalized request type for MPI-IO)
 	,[#include <mpi.h>])
 
-AC_SUBST(scrmfs_lib_path)
-AC_SUBST(scrmfs_bin_path)
+AC_SUBST(cruise_lib_path)
+AC_SUBST(cruise_bin_path)
 AC_SUBST(LDFLAGS)
 AC_SUBST(__CP_LOG_PATH)
 AC_SUBST(CP_WRAPPERS)
 AC_SUBST(DISABLE_LDPRELOAD)
 AC_OUTPUT(Makefile
-scrmfs-config
+cruise-config
 )

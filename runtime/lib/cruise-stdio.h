@@ -1,9 +1,9 @@
-#ifndef SCRMFS_STDIO_H
-#define SCRMFS_STDIO_H
+#ifndef CRUISE_STDIO_H
+#define CRUISE_STDIO_H
 
-#include "scrmfs-internal.h"
+#include "cruise-internal.h"
 
-/* TODO: declare the wrapper functions we define in scrmfs-stdio.c
+/* TODO: declare the wrapper functions we define in cruise-stdio.c
  * so other routines can call them */
 
-#endif /* SCRMFS_STDIO_H */
+#endif /* CRUISE_STDIO_H */

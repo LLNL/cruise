@@ -32,27 +32,27 @@ make clean
 make
 make install
 
-3. Run "./install/bin/scrmfs-config --pre-ld-flags"
-   and "./install/bin/scrmfs-config --post-ld-flags"
+3. Run "./install/bin/cruise-config --pre-ld-flags"
+   and "./install/bin/cruise-config --post-ld-flags"
 
 	Copy the output of each of these commands to a separate variable,'
-	say $(PRE_SCRMFS_FLAGS) and $(POST_SCRMFS_FLAGS)
+	say $(PRE_CRUISE_FLAGS) and $(POST_CRUISE_FLAGS)
 
 4. Compile the test program
 
 	If you're compiling test_ramdisk.c for instance, you would do
 	something like this in your makefile:
 	
-setenv PRE_SCRMFS_FLAGS `./install/bin/scrmfs-config --pre-ld-flags`
-setenv POST_SCRMFS_FLAGS `./install/bin/scrmfs-config --post-ld-flags`
-mpicc $PRE_SCRMFS_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_SCRMFS_FLAGS
+setenv PRE_CRUISE_FLAGS `./install/bin/cruise-config --pre-ld-flags`
+setenv POST_CRUISE_FLAGS `./install/bin/cruise-config --post-ld-flags`
+mpicc $PRE_CRUISE_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_CRUISE_FLAGS
 
 	If you are running test_interpose, you can do something similar in
 	makefile.examples.
 
 6. If you don't want to statically build, but just preload instead, preload this shared object:
 
-	LD_PRELOAD=$INSTALL_PATH/lib/libscrmfs.so ./test_interpose
+	LD_PRELOAD=$INSTALL_PATH/lib/libcruise.so ./test_interpose
 
 7. Use the "ipcs" command to list the currently opened shm segments.
    Use "ipcrm -M key" to delete it after a run.

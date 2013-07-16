@@ -26,7 +26,7 @@ int main (int argc, char* argv[])
   char name[256];
   sprintf(name, "/tmp/rank.%d", rank);
 
-  scrmfs_mount("/tmp", 100*1024*1024, rank);
+  cruise_mount("/tmp", 100*1024*1024, rank);
 
   FILE* fp;
   int c, rc;
