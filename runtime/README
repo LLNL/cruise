@@ -1,60 +1,21 @@
-1. Prepare and run 'configure':
+===============================================================================
+                CRUISE: Checkpoint-Restart In User-SpacE
+===============================================================================
 
-(If using containers, run ./prepare && ./configure --prefix=$PWD && make && make install
-inside the "container" directory before proceeding to the next step)
+With the massive scale of high-performance computing systems, long-running
+scientific parallel applications periodically save the state of their execution
+to files called checkpoints to recover from system failures.  Checkpoints are
+stored on external parallel file systems, but limited bandwidth makes this a
+time-consuming operation.  Multilevel checkpointing systems, like the Scalable
+Checkpoint/Restart (SCR) library, alleviate this bottleneck by caching
+checkpoints in storage located close to the compute nodes.  However, most large
+scale systems do not provide file storage on compute nodes, preventing the use
+of SCR.
 
-# debug
-use -q ic-11.1.046 
-./prepare
-./configure \
-  --prefix=`pwd`/install \
-  --with-jobid-env=SLURM_JOBID \
-  --enable-ld-preload \
-  CC=mpiicc CFLAGS="-g -O0"
-
-# optimized
-use -q ic-11.1.046 
-./prepare
-./configure \
-  --prefix=`pwd`/install \
-  --with-jobid-env=SLURM_JOBID \
-  --enable-ld-preload \
-  CC=mpiicc CFLAGS="-O3"
-
- --enable-ld-preload
-
-	This is needed to generate the .so lib that we will preload
-	(if not statically building)
-
-2. Build library
-
-make clean
-make
-make install
-
-3. Run "./install/bin/cruise-config --pre-ld-flags"
-   and "./install/bin/cruise-config --post-ld-flags"
-
-	Copy the output of each of these commands to a separate variable,'
-	say $(PRE_CRUISE_FLAGS) and $(POST_CRUISE_FLAGS)
-
-4. Compile the test program
-
-	If you're compiling test_ramdisk.c for instance, you would do
-	something like this in your makefile:
-	
-setenv PRE_CRUISE_FLAGS `./install/bin/cruise-config --pre-ld-flags`
-setenv POST_CRUISE_FLAGS `./install/bin/cruise-config --post-ld-flags`
-mpicc $PRE_CRUISE_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_CRUISE_FLAGS
-
-	If you are running test_interpose, you can do something similar in
-	makefile.examples.
-
-6. If you don't want to statically build, but just preload instead, preload this shared object:
-
-	LD_PRELOAD=$INSTALL_PATH/lib/libcruise.so ./test_interpose
-
-7. Use the "ipcs" command to list the currently opened shm segments.
-   Use "ipcrm -M key" to delete it after a run.
-
-./ipc_cleanup
+CRUISE is a novel user-space file system that stores data in main memory and
+transparently spills over to other storage, like local flash memory or the
+parallel file system, as needed.  This technique extends the reach of libraries
+like SCR to systems where they otherwise could not be used.  CRUISE also exposes
+file contents for Remote Direct Memory Access, allowing external tools to copy
+checkpoints to the parallel file system in the background with reduced CPU
+interruption. 

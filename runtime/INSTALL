@@ -1,0 +1,65 @@
+1. Prepare and run 'configure':
+
+(If using containers, run ./prepare && ./configure --prefix=$PWD && make && make install
+inside the "container" directory before proceeding to the next step)
+
+# debug
+use -q ic-11.1.046 
+./prepare
+./configure \
+  --prefix=`pwd`/install \
+  --with-jobid-env=SLURM_JOBID \
+  --enable-ld-preload \
+  CC=mpiicc CFLAGS="-g -O0"
+
+# optimized
+use -q ic-11.1.046 
+./prepare
+./configure \
+  --prefix=`pwd`/install \
+  --with-jobid-env=SLURM_JOBID \
+  --enable-ld-preload \
+  CC=mpiicc CFLAGS="-O3"
+
+  --enable-ld-preload
+
+	This is needed to generate the .so lib that we will preload
+	(if not statically building)
+
+  --with-numa=$PATH_TO_NUMA
+
+    Needed to enable NUMA-aware memory allocation on Linux machines
+
+
+2. Build library
+
+make clean
+make
+make install
+
+3. Run "./install/bin/cruise-config --pre-ld-flags"
+   and "./install/bin/cruise-config --post-ld-flags"
+
+	Copy the output of each of these commands to a separate variable,'
+	say $(PRE_CRUISE_FLAGS) and $(POST_CRUISE_FLAGS)
+
+4. Compile the test program
+
+	If you're compiling test_ramdisk.c for instance, you would do
+	something like this in your makefile:
+	
+setenv PRE_CRUISE_FLAGS `./install/bin/cruise-config --pre-ld-flags`
+setenv POST_CRUISE_FLAGS `./install/bin/cruise-config --post-ld-flags`
+mpicc $PRE_CRUISE_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_CRUISE_FLAGS
+
+	If you are running test_interpose, you can do something similar in
+	makefile.examples.
+
+6. If you don't want to statically build, but just preload instead, preload this shared object:
+
+	LD_PRELOAD=$INSTALL_PATH/lib/libcruise.so ./test_interpose
+
+7. Use the "ipcs" command to list the currently opened shm segments.
+   Use "ipcrm -M key" to delete it after a run.
+
+./ipc_cleanup
