@@ -30,7 +30,7 @@ CFLAGS = -DCRUISE_CONFIG_H=\"cruise-runtime-config.h\" -I . -I ../ -I $(srcdir) 
 
 CFLAGS_SHARED = -DCRUISE_CONFIG_H=\"cruise-runtime-config.h\" -I . -I$(srcdir) -I$(srcdir)/../ @CFLAGS@ @CPPFLAGS@ -D_LARGEFILE64_SOURCE -shared -fpic -DPIC -DCRUISE_PRELOAD
 
-LIBS = -lz @LIBBZ2@ $(NUMA_LIBS)
+LIBS = @LIBBZ2@ $(NUMA_LIBS)
 
 lib::
 	@mkdir -p $@
@@ -129,7 +129,7 @@ lib/libcruise-posix.a: $(OBJS)
 	ar rcs $@ $^
 
 lib/libcruise.so: $(POBJS)
-	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt -lz
+	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt
 
 install:: all
 	install -d $(libdir)
