@@ -1,5 +1,12 @@
 #!/bin/sh
 
+#
+#  (C) 2012 by Argonne National Laboratory.
+#      See COPYRIGHT in top-level directory.
+#
+
+
+
 CP_WRAPPERS="@CP_WRAPPERS@"
 CRUISE_LIB_PATH="@cruise_lib_path@"
 CRUISE_LD_FLAGS="@LDFLAGS@"
