@@ -17,7 +17,6 @@ AC_ARG_WITH([arch],
     if test "${ARCH}" = "bgq"
     then
         AC_DEFINE([MACHINE_BGQ], [1], [Define if architecture is BG/Q])
-        AC_DEFINE([ENABLE_NUMA_POLICY], [0], [Define if libnuma is available])
     fi
 else
     AC_MSG_RESULT(no)
