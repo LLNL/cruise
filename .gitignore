@@ -35,3 +35,4 @@ tests/test_truncate
 tests/test_ungetc
 tests/test_writeread
 tests/test_wscanf
+cscope.out
