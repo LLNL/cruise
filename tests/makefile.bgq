@@ -6,7 +6,7 @@ MPICC = mpixlc
 CC = xlc
 
 #ZLIB = -L/usr/local/tools/zlib-1.2.6/lib -lz
-ZLIB = -L../zlib-1.2.7/install/lib -lz
+#ZLIB = -L../zlib-1.2.7/install/lib -lz
 
 # GNU compilers
 #MPICC = mpicc

@@ -43,8 +43,6 @@ HEADERS = \
   src/cruise.h
 
 OBJS = \
-  src/lookup3.o \
-  src/lookup8.o \
   src/cruise-stack.o \
   src/cruise-fixed.o \
   src/cruise-sysio.o \
@@ -52,8 +50,6 @@ OBJS = \
   src/cruise.o
 
 POBJS = \
-  src/lookup3.po \
-  src/lookup8.po \
   src/cruise-stack.po \
   src/cruise-fixed.po \
   src/cruise-sysio.po \
@@ -86,20 +82,6 @@ src/cruise-stdio.o: src/cruise-stdio.c $(HEADERS)
 
 src/cruise-stdio.po: src/cruise-stdio.c $(HEADERS)
 	$(CC) $(CFLAGS_SHARED) -c src/cruise-stdio.c -o $@
-
-
-src/lookup3.o: src/lookup3.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-src/lookup3.po: src/lookup3.c
-	$(CC) $(CFLAGS_SHARED) -c $< -o $@
-
-
-src/lookup8.o: src/lookup8.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-src/lookup8.po: src/lookup8.c
-	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
 src/cruise-stack.o: src/cruise-stack.c $(HEADERS)
