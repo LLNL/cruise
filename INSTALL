@@ -21,6 +21,9 @@ use -q ic-11.1.046
   --with-numa=$PATH_TO_NUMA
 
     Needed to enable NUMA-aware memory allocation on Linux machines
+    (set NUMA policy at runtime with CRUISE_NUMA_POLICY = local | interleaved,
+     set NUMA node explicitly with CRUISE_USE_NUMA_BANK = <node no.> )
+
 
 
 2. Build library
