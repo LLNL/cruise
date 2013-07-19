@@ -61,18 +61,6 @@ POBJS = \
   src/cruise-stdio.po \
   src/cruise.po
 
-#src/cruise-mpi-io.o: src/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
-#	$(CC) $(CFLAGS) -c $< -o $@
-
-#src/cruise-mpi-io.po: src/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
-#	$(CC) $(CFLAGS_SHARED) -c $< -o $@
-
-#src/cruise-mpi-init-finalize.o: src/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
-#	$(CC) $(CFLAGS) -c $< -o $@
-
-#src/cruise-mpi-init-finalize.po: src/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
-#	$(CC) $(CFLAGS_SHARED) -c $< -o $@
-
 src/cruise-fixed.o: src/cruise-fixed.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -134,7 +122,6 @@ src/libcruise.so: $(POBJS)
 install:: all
 	install -d $(libdir)
 	install -m 755 src/libcruise-posix.a $(libdir)
-#	install -m 755 src/libcruise-mpi-io.a $(libdir)
 ifndef DISABLE_LDPRELOAD
 	install -m 755 src/libcruise.so $(libdir)
 endif
@@ -142,7 +129,7 @@ endif
 	install -m 755 cruise-config $(bindir)
 
 clean::
-	rm -f *.o *.po *.a src/*.o src/*.po src/*.a src/*.so 
+	rm -f *.o *.po *.a src/*.o src/*.po src/*.a src/*.so *.in~ 
 
 distclean:: clean
 	rm -f cruise-runtime-config.h aclocal.m4 autom4te.cache/* config.status config.log Makefile 

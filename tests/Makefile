@@ -1,20 +1,10 @@
-# Intel compilers
-MPICC = mpiicc
-CC = icc
-
-# GNU compilers
-#MPICC = mpicc
-#CC = gcc
+MPICC = mpicc 	#mpiicc
+CC = gcc		#icc
 
 CFLAGS = -g -O0
 LIBS = -lpthread
 
 NUMA_LIBS = -lnuma
-
-#CONTAINER_HOME = ../container
-#CONTAINER_INCS = -I$(CONTAINER_HOME)/include
-#CONTAINER_LDFLAGS = -L$(CONTAINER_HOME)/lib
-#CONTAINER_LIBS = -lcontainer 
 
 CRUISE_LIBS = $(LIBS) $(NUMA_LIBS) $(CONTAINER_LIBS)
 CRUISE_LDFLAGS = $(LDFLAGS) $(CONTAINER_LDFLAGS)
@@ -22,7 +12,7 @@ CRUISE_LDFLAGS = $(LDFLAGS) $(CONTAINER_LDFLAGS)
 PRE_CRUISE_FLAGS := $(shell echo `../install/bin/cruise-config --pre-ld-flags`)
 POST_CRUISE_FLAGS := $(shell echo `../install/bin/cruise-config --post-ld-flags`)
 
-all: test1 test_writeread test_truncate test_fopen test_fprintf test_ungetc test_scanf test_wscanf test_memcpy test_ramdisk
+all: test_writeread test_truncate test_fopen test_fprintf test_ungetc test_scanf test_wscanf test_memcpy test_ramdisk test1
 
 clean: 
 	rm -f *.o test1 test1_container test_writeread test_truncate test_fopen test_fprintf test_ungetc test_scanf test_wscanf test_memcpy test_ramdisk
