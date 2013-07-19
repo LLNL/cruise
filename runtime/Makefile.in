@@ -1,4 +1,4 @@
-all: lib/libcruise-posix.a
+all: src/libcruise-posix.a
 
 DESTDIR =
 srcdir = @srcdir@
@@ -21,7 +21,7 @@ DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
 CRUISE_LOG_FORMAT = $(srcdir)/../cruise-log-format.h
 
 ifndef DISABLE_LDPRELOAD
-all: lib/libcruise.so 
+all: src/libcruise.so 
 endif
 
 VPATH = $(srcdir)
@@ -36,113 +36,113 @@ lib::
 	@mkdir -p $@
 
 HEADERS = \
-  lib/cruise-stack.h \
-  lib/cruise-fixed.h \
-  lib/cruise-sysio.h \
-  lib/cruise-stdio.h \
-  lib/cruise-internal.h \
-  lib/cruise.h
+  src/cruise-stack.h \
+  src/cruise-fixed.h \
+  src/cruise-sysio.h \
+  src/cruise-stdio.h \
+  src/cruise-internal.h \
+  src/cruise.h
 
 OBJS = \
-  lib/lookup3.o \
-  lib/lookup8.o \
-  lib/cruise-stack.o \
-  lib/cruise-fixed.o \
-  lib/cruise-sysio.o \
-  lib/cruise-stdio.o \
-  lib/cruise.o
+  src/lookup3.o \
+  src/lookup8.o \
+  src/cruise-stack.o \
+  src/cruise-fixed.o \
+  src/cruise-sysio.o \
+  src/cruise-stdio.o \
+  src/cruise.o
 
 POBJS = \
-  lib/lookup3.po \
-  lib/lookup8.po \
-  lib/cruise-stack.po \
-  lib/cruise-fixed.po \
-  lib/cruise-sysio.po \
-  lib/cruise-stdio.po \
-  lib/cruise.po
+  src/lookup3.po \
+  src/lookup8.po \
+  src/cruise-stack.po \
+  src/cruise-fixed.po \
+  src/cruise-sysio.po \
+  src/cruise-stdio.po \
+  src/cruise.po
 
-#lib/cruise-mpi-io.o: lib/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
+#src/cruise-mpi-io.o: src/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS) -c $< -o $@
 
-#lib/cruise-mpi-io.po: lib/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
+#src/cruise-mpi-io.po: src/cruise-mpi-io.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-#lib/cruise-mpi-init-finalize.o: lib/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
+#src/cruise-mpi-init-finalize.o: src/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS) -c $< -o $@
 
-#lib/cruise-mpi-init-finalize.po: lib/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
+#src/cruise-mpi-init-finalize.po: src/cruise-mpi-init-finalize.c cruise.h cruise-dynamic.h $(CRUISE_LOG_FORMAT) | lib
 #	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
-lib/cruise-fixed.o: lib/cruise-fixed.c $(HEADERS)
+src/cruise-fixed.o: src/cruise-fixed.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/cruise-fixed.po: lib/cruise-fixed.c $(HEADERS)
+src/cruise-fixed.po: src/cruise-fixed.c $(HEADERS)
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
-lib/cruise.o: lib/cruise.c $(HEADERS)
-	$(CC) $(CFLAGS) -c lib/cruise.c -o $@
+src/cruise.o: src/cruise.c $(HEADERS)
+	$(CC) $(CFLAGS) -c src/cruise.c -o $@
 
-lib/cruise.po: lib/cruise.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c lib/cruise.c -o $@
-
-
-lib/cruise-sysio.o: lib/cruise-sysio.c $(HEADERS)
-	$(CC) $(CFLAGS) -c lib/cruise-sysio.c -o $@
-
-lib/cruise-sysio.po: lib/cruise-sysio.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c lib/cruise-sysio.c -o $@
+src/cruise.po: src/cruise.c $(HEADERS)
+	$(CC) $(CFLAGS_SHARED) -c src/cruise.c -o $@
 
 
-lib/cruise-stdio.o: lib/cruise-stdio.c $(HEADERS)
-	$(CC) $(CFLAGS) -c lib/cruise-stdio.c -o $@
+src/cruise-sysio.o: src/cruise-sysio.c $(HEADERS)
+	$(CC) $(CFLAGS) -c src/cruise-sysio.c -o $@
 
-lib/cruise-stdio.po: lib/cruise-stdio.c $(HEADERS)
-	$(CC) $(CFLAGS_SHARED) -c lib/cruise-stdio.c -o $@
+src/cruise-sysio.po: src/cruise-sysio.c $(HEADERS)
+	$(CC) $(CFLAGS_SHARED) -c src/cruise-sysio.c -o $@
 
 
-lib/lookup3.o: lib/lookup3.c
+src/cruise-stdio.o: src/cruise-stdio.c $(HEADERS)
+	$(CC) $(CFLAGS) -c src/cruise-stdio.c -o $@
+
+src/cruise-stdio.po: src/cruise-stdio.c $(HEADERS)
+	$(CC) $(CFLAGS_SHARED) -c src/cruise-stdio.c -o $@
+
+
+src/lookup3.o: src/lookup3.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/lookup3.po: lib/lookup3.c
+src/lookup3.po: src/lookup3.c
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
-lib/lookup8.o: lib/lookup8.c
+src/lookup8.o: src/lookup8.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/lookup8.po: lib/lookup8.c
+src/lookup8.po: src/lookup8.c
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
-lib/cruise-stack.o: lib/cruise-stack.c $(HEADERS)
+src/cruise-stack.o: src/cruise-stack.c $(HEADERS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-lib/cruise-stack.po: lib/cruise-stack.c $(HEADERS)
+src/cruise-stack.po: src/cruise-stack.c $(HEADERS)
 	$(CC) $(CFLAGS_SHARED) -c $< -o $@
 
 
 %.i: %.c
 	$(CC) -E $(CFLAGS) -c $< -o $@
 
-lib/libcruise-posix.a: $(OBJS)
+src/libcruise-posix.a: $(OBJS)
 	ar rcs $@ $^
 
-lib/libcruise.so: $(POBJS)
+src/libcruise.so: $(POBJS)
 	$(CC) $(CFLAGS_SHARED) $(LDFLAGS) -ldl -o $@ $^ -lpthread -lrt
 
 install:: all
 	install -d $(libdir)
-	install -m 755 lib/libcruise-posix.a $(libdir)
-#	install -m 755 lib/libcruise-mpi-io.a $(libdir)
+	install -m 755 src/libcruise-posix.a $(libdir)
+#	install -m 755 src/libcruise-mpi-io.a $(libdir)
 ifndef DISABLE_LDPRELOAD
-	install -m 755 lib/libcruise.so $(libdir)
+	install -m 755 src/libcruise.so $(libdir)
 endif
 	install -d $(bindir)
 	install -m 755 cruise-config $(bindir)
 
 clean::
-	rm -f *.o *.po *.a lib/*.o lib/*.po lib/*.a lib/*.so 
+	rm -f *.o *.po *.a src/*.o src/*.po src/*.a src/*.so 
 
 distclean:: clean
 	rm -f cruise-runtime-config.h aclocal.m4 autom4te.cache/* config.status config.log Makefile 
