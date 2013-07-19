@@ -1,30 +1,22 @@
 1. Prepare and run 'configure':
 
-(If using containers, run ./prepare && ./configure --prefix=$PWD && make && make install
-inside the "container" directory before proceeding to the next step)
-
 # debug
 use -q ic-11.1.046 
 ./prepare
 ./configure \
   --prefix=`pwd`/install \
-  --with-jobid-env=SLURM_JOBID \
-  --enable-ld-preload \
-  CC=mpiicc CFLAGS="-g -O0"
+  CFLAGS="-g -O0"
 
 # optimized
 use -q ic-11.1.046 
 ./prepare
 ./configure \
   --prefix=`pwd`/install \
-  --with-jobid-env=SLURM_JOBID \
-  --enable-ld-preload \
-  CC=mpiicc CFLAGS="-O3"
+  CFLAGS="-O3"
 
-  --enable-ld-preload
+  --disable-ld-preload
 
-	This is needed to generate the .so lib that we will preload
-	(if not statically building)
+    If you do not want to generate the .so library used for LD_PRELOAD.
 
   --with-numa=$PATH_TO_NUMA
 
@@ -53,13 +45,12 @@ setenv POST_CRUISE_FLAGS `./install/bin/cruise-config --post-ld-flags`
 mpicc $PRE_CRUISE_FLAGS -g -O0 -o test_ramdisk test_ramdisk.c $POST_CRUISE_FLAGS
 
 	If you are running test_interpose, you can do something similar in
-	makefile.examples.
+	tests/Makefile.
 
 6. If you don't want to statically build, but just preload instead, preload this shared object:
 
 	LD_PRELOAD=$INSTALL_PATH/lib/libcruise.so ./test_interpose
 
-7. Use the "ipcs" command to list the currently opened shm segments.
-   Use "ipcrm -M key" to delete it after a run.
-
-./ipc_cleanup
+7. Use the "ipcs" command to list the currently opened shm segments.  Use
+   "ipcrm -M key" to delete it after a run, or use the "ipc_cleanup" script
+   in the base folder to delete all shm segements belonging to you on a node.
