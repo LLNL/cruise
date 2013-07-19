@@ -18,7 +18,6 @@ NUMA_LIBS = -lnuma
 
 
 DISABLE_LDPRELOAD = @DISABLE_LDPRELOAD@
-CRUISE_LOG_FORMAT = $(srcdir)/../cruise-log-format.h
 
 ifndef DISABLE_LDPRELOAD
 all: src/libcruise.so 
