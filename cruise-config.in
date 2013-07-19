@@ -11,12 +11,6 @@ CP_WRAPPERS="@CP_WRAPPERS@"
 CRUISE_LIB_PATH="@cruise_lib_path@"
 CRUISE_LD_FLAGS="@LDFLAGS@"
 
-# NOTE:
-# - we deliberately list libcruise-mpi-io twice in the link command.  The
-#   first is necessary to correctly use the MPI profiling interface.  The
-#   final one is necessary to give the linker a change to resolve indirect
-#   dependencies on PnetCDF and HDF5 symbols (if the app used a library which 
-#   in turn used one of those HLLs).
 PRE_LD_FLAGS="-L$CRUISE_LIB_PATH $CRUISE_LD_FLAGS -lz $CP_WRAPPERS"
 POST_LD_FLAGS="-L$CRUISE_LIB_PATH -lcruise-posix"
 
