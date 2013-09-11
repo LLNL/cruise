@@ -1,3 +1,17 @@
+/*
+ * Copyright (c) 2013, Lawrence Livermore National Security, LLC.
+ * Produced at the Lawrence Livermore National Laboratory.
+ * Written by
+ *   Raghunath Rajachandrasekar <rajachan@cse.ohio-state.edu>
+ *   Kathryn Mohror <kathryn@llnl.gov>
+ *   Adam Moody <moody20@llnl.gov>
+ * LLNL-CODE-642432.
+ * All rights reserved.
+ * This file is part of CRUISE.
+ * For details, see https://github.com/hpc/cruise
+ * Please also read this file COPYRIGHT
+*/
+
 /* implements a fixed-size stack which stores integer values in range
  * of 0 to size-1, entire structure stored in an int array of size+2
  *   int size
