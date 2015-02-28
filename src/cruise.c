@@ -565,6 +565,9 @@ int cruise_fid_create_file(const char * path)
 
     /* mark this slot as in use and copy the filename */
     cruise_filelist[fid].in_use = 1;
+    /* TODO: check path length to see if it is < 128 bytes
+     * and return appropriate error if it is greater
+     */
     strcpy((void *)&cruise_filelist[fid].filename, path);
     debug("Filename %s got cruise fd %d\n",cruise_filelist[fid].filename,fid);
 
@@ -1105,7 +1108,7 @@ static void* cruise_superblock_shmget(size_t size, key_t key)
     } else {
         /* brand new superblock created, attach to it */
         scr_shmblock = shmat(scr_shmblock_shmid, NULL, 0);
-        if(scr_shmblock < 0) {
+        if(scr_shmblock == (void *) -1) {
             perror("shmat() failed");
         }
         debug("Superblock created at %p!\n",scr_shmblock);
