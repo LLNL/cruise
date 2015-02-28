@@ -2423,8 +2423,6 @@ convert_ccl(cruise_stream_t *fp, char * p, int width, const char *ccltab)
 			if (--width == 0)
 				break;
 			if (fp->_r <= 0 && __srefill(fp)) {
-				if (n == 0)
-					return (-1);
 				break;
 			}
 		}
