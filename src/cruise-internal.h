@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Lawrence Livermore National Security, LLC.
+ * Copyright (c) 2014, Lawrence Livermore National Security, LLC.
  * Produced at the Lawrence Livermore National Laboratory.
  * Written by
  *   Raghunath Rajachandrasekar <rajachan@cse.ohio-state.edu>
@@ -185,6 +185,8 @@ enum flock_enum {
 /* TODO: make this an enum */
 #define FILE_STORAGE_NULL        0
 #define FILE_STORAGE_FIXED_CHUNK 1
+
+#define EXTERNAL_DATA_DIR "/tmp"
 
 /* TODO: make this an enum */
 #define CHUNK_LOCATION_NULL      0

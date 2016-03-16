@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Lawrence Livermore National Security, LLC.
+ * Copyright (c) 2014, Lawrence Livermore National Security, LLC.
  * Produced at the Lawrence Livermore National Laboratory.
  * Written by
  *   Raghunath Rajachandrasekar <rajachan@cse.ohio-state.edu>

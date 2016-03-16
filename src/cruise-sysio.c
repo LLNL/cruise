@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Lawrence Livermore National Security, LLC.
+ * Copyright (c) 2014, Lawrence Livermore National Security, LLC.
  * Produced at the Lawrence Livermore National Laboratory.
  * Written by
  *   Raghunath Rajachandrasekar <rajachan@cse.ohio-state.edu>
@@ -1015,7 +1015,13 @@ int CRUISE_WRAP(fsync)(int fd)
             return -1;
         }
 
-        /* TODO: if using spill over we may have some fsyncing to do */
+        /* Teng: if using spill over we may have some fsyncing to do */
+		if (cruise_use_spillover) {
+				int ret = fsync(cruise_spilloverblock);
+				if (ret != 0) {
+					return errno;
+				}
+		}
 
         /* nothing to do in our case */
         return 0;

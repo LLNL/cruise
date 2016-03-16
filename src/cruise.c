@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Lawrence Livermore National Security, LLC.
+ * Copyright (c) 2014, Lawrence Livermore National Security, LLC.
  * Produced at the Lawrence Livermore National Laboratory.
  * Written by
  *   Raghunath Rajachandrasekar <rajachan@cse.ohio-state.edu>
@@ -78,7 +78,7 @@ off_t  cruise_chunk_mask; /* mask applied to logical offset to determine physica
 int    cruise_max_chunks; /* maximum number of chunks that fit in memory */
 
 static size_t cruise_spillover_size;  /* number of bytes in spillover to be used for chunk storage */
-static int    cruise_spillover_max_chunks; /* maximum number of chunks that fit in spillover storage */
+int  cruise_spillover_max_chunks; /* maximum number of chunks that fit in spillover storage */
 
 #ifdef ENABLE_NUMA_POLICY
 static char cruise_numa_policy[10];
@@ -99,6 +99,7 @@ cruise_filename_t* cruise_filelist    = NULL;
 static cruise_filemeta_t* cruise_filemetas   = NULL;
 static cruise_chunkmeta_t* cruise_chunkmetas = NULL;
 char* cruise_chunks = NULL;
+char external_data_dir[1024] = {0};
 int cruise_spilloverblock = 0;
 
 /* array of file descriptors */
@@ -929,6 +930,11 @@ static void* cruise_init_pointers(void* superblock)
     cruise_chunkmetas = (cruise_chunkmeta_t*) ptr;
     ptr += cruise_max_files * cruise_max_chunks * sizeof(cruise_chunkmeta_t);
 
+    /* Teng: array of chunk meta data for spillover chunks of each file*/
+    if (cruise_use_spillover) {
+    	ptr += cruise_max_files * cruise_spillover_max_chunks * sizeof(cruise_chunkmeta_t);
+    }
+
     /* stack to manage free memory data chunks */
     free_chunk_stack = ptr;
     ptr += cruise_stack_bytes(cruise_max_chunks);
@@ -971,6 +977,13 @@ static int cruise_init_structures()
         cruise_filemeta_t* filemeta = &cruise_filemetas[i];
         cruise_chunkmeta_t* chunkmetas = &(cruise_chunkmetas[cruise_max_chunks * i]);
         filemeta->chunk_meta = chunkmetas;
+
+        /* Teng: add support for spillover*/
+        if (!cruise_use_spillover)
+        	chunkmetas = &(cruise_chunkmetas[cruise_max_chunks * i]);
+        else
+        	chunkmetas = &(cruise_chunkmetas[ (cruise_max_chunks + \
+        			cruise_spillover_max_chunks)*i]);
     }
 
     cruise_stack_init(free_fid_stack, cruise_max_files);
@@ -1394,6 +1407,10 @@ static int cruise_init(int rank)
         superblock_size += cruise_max_files * sizeof(cruise_filemeta_t); /* file meta data struct array */
         superblock_size += cruise_max_files * cruise_max_chunks * sizeof(cruise_chunkmeta_t);
                                                                          /* chunk meta data struct array for each file */
+		if (cruise_use_spillover) {
+			superblock_size += cruise_max_files * cruise_spillover_max_chunks * sizeof(cruise_chunkmeta_t);
+																		/*  Teng: spillover chunk meta data struct array for each file */
+		}
         superblock_size += cruise_stack_bytes(cruise_max_chunks);        /* free chunk stack */
         if (cruise_use_memfs) {
            superblock_size += cruise_page_size + 
@@ -1417,9 +1434,17 @@ static int cruise_init(int rank)
             debug("cruise_superblock_shmget() failed\n");
             return CRUISE_FAILURE;
         }
-      
+
+        /* Teng: make the spillover directory adjustable by users*/
+        env = getenv("CRUISE_EXTERNAL_DATA_DIR");
+        if (env) {
+					strcpy(external_data_dir, env);
+        }
+				else
+					strcpy(external_data_dir, EXTERNAL_DATA_DIR);
+
         char spillfile_prefix[100];
-        sprintf(spillfile_prefix,"/tmp/spill_file_%d", rank);
+		sprintf(spillfile_prefix,"%s/spill_file_%d", external_data_dir, rank);
 
         /* initialize spillover store */
         if (cruise_use_spillover) {
@@ -1431,7 +1456,7 @@ static int cruise_init(int rank)
                 return CRUISE_FAILURE;
             }
         }
-
+      
         /* remember that we've now initialized the library */
         cruise_initialized = 1;
     }

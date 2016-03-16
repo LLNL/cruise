@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Lawrence Livermore National Security, LLC.
+ * Copyright (c) 2014, Lawrence Livermore National Security, LLC.
  * Produced at the Lawrence Livermore National Laboratory.
  * Written by
  *   Raghunath Rajachandrasekar <rajachan@cse.ohio-state.edu>
@@ -35,6 +35,7 @@
 
 #include "cruise-internal.h"
 
+extern int cruise_spillover_max_chunks;
 /* given a file id and logical chunk id, return pointer to meta data
  * for specified chunk, return NULL if not found */
 static cruise_chunkmeta_t* cruise_get_chunkmeta(int fid, int cid)
@@ -73,7 +74,8 @@ static inline void* cruise_compute_chunk_buf(
     /* compute the start of the chunk */
     char *start = NULL;
     if (physical_id < cruise_max_chunks) {
-        start = cruise_chunks + (physical_id << cruise_chunk_bits);
+    	/* Teng: convert data type to handle larger workload */
+        start = cruise_chunks + ((off_t)physical_id << cruise_chunk_bits);
     } else {
         /* chunk is in spill over */
         debug("wrong chunk ID\n");
@@ -107,7 +109,7 @@ static inline off_t cruise_compute_spill_offset(
         /* compute buffer loc within spillover device chunk */
         /* account for the cruise_max_chunks added to identify location when
          * grabbing this chunk */
-        start = ((physical_id - cruise_max_chunks) << cruise_chunk_bits);
+        start = ((off_t)(physical_id - cruise_max_chunks) << cruise_chunk_bits);
     }
     off_t buf = start + logical_offset;
     return buf;
@@ -294,7 +296,7 @@ int cruise_fid_store_fixed_extend(int fid, cruise_filemeta_t* meta, off_t length
         off_t additional = length - maxsize;
         while (additional > 0) {
             /* check that we don't overrun max number of chunks for file */
-            if (meta->chunks == cruise_max_chunks) {
+            if (meta->chunks == cruise_max_chunks + cruise_spillover_max_chunks) {
                 debug("failed to allocate chunk\n");
                 return CRUISE_ERR_NOSPC;
             }
