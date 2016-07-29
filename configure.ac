@@ -202,3 +202,20 @@ AC_SUBST(DISABLE_LDPRELOAD)
 AC_OUTPUT(Makefile
 cruise-config
 )
+
+
+AC_MSG_RESULT([
+
+    =========================
+    CRUISE Checkpoint-Restart
+    =========================
+    prefix      ${prefix}
+    compiler    ${CC}
+    CFLAGS      ${CFLAGS}
+    =========================
+    
+    Supported POSIX wrappers:
+    
+    ${CP_WRAPPERS}
+
+])
