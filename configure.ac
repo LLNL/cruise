@@ -10,7 +10,7 @@ AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_HEADER(cruise-runtime-config.h)
 AC_CONFIG_MACRO_DIR([./maint/config/])
 
-AC_PROG_CC
+AC_PROG_CC([clang])
 
 CHECK_NUMA
 CHECK_ARCH
