@@ -1,0 +1,16 @@
+language: c
+dist: trusty
+compiler: clang
+before_install:
+- sudo apt-get -qq update
+- sudo apt-get install -y mpich libnuma-dev
+script:
+- ./prepare
+- ./configure --prefix=$PWD/install
+- make
+- make install
+- ./install/bin/cruise-config --pre-ld-flags --post-ld-flags
+- cd tests
+- make test_memcpy test_ramdisk
+- mpiexec -n 4 ./test_memcpy
+- mpiexec -n 4 ./test_ramdisk

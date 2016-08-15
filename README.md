@@ -1,6 +1,6 @@
-===============================================================================
-                CRUISE: Checkpoint-Restart In User-SpacE
-===============================================================================
+---
+# CRUISE: Checkpoint-Restart In User-SpacE
+---
 
 With the massive scale of high-performance computing systems, long-running
 scientific parallel applications periodically save the state of their execution
@@ -19,3 +19,6 @@ like SCR to systems where they otherwise could not be used.  CRUISE also exposes
 file contents for Remote Direct Memory Access, allowing external tools to copy
 checkpoints to the parallel file system in the background with reduced CPU
 interruption. 
+
+More information about the project, and relevant publications, can be found
+[HERE](http://computation.llnl.gov/projects/scalable-checkpoint-restart-for-mpi/checkpoint-file-system-research).

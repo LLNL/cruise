@@ -6,11 +6,11 @@ dnl You may need to use autoheader as well if changing any DEFINEs
 
 dnl sanity checks, output header, location of scripts used here
 AC_INIT([cruise-runtime], [2.x])
-AC_CONFIG_SRCDIR([cruise-defs.h])
-AC_CONFIG_AUX_DIR(./maint/config)
+AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_HEADER(cruise-runtime-config.h)
+AC_CONFIG_MACRO_DIR([./maint/config/])
 
-AC_PROG_INSTALL
+AC_PROG_CC([clang])
 
 CHECK_NUMA
 CHECK_ARCH
@@ -202,3 +202,20 @@ AC_SUBST(DISABLE_LDPRELOAD)
 AC_OUTPUT(Makefile
 cruise-config
 )
+
+
+AC_MSG_RESULT([
+
+    =========================
+    CRUISE Checkpoint-Restart
+    =========================
+    prefix      ${prefix}
+    compiler    ${CC}
+    CFLAGS      ${CFLAGS}
+    =========================
+    
+    Supported POSIX wrappers:
+    
+    ${CP_WRAPPERS}
+
+])
