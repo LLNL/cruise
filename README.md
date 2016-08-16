@@ -1,5 +1,6 @@
 ---
 # CRUISE: Checkpoint-Restart In User-SpacE
+[![Build Status](https://travis-ci.org/LLNL/cruise.svg?branch=master)](https://travis-ci.org/LLNL/cruise)
 ---
 
 With the massive scale of high-performance computing systems, long-running
